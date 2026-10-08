@@ -228,83 +228,93 @@ class EvidenceLedger:
         if not path.is_file():
             raise LedgerFileError(f"ledger file not found: {path}")
 
+        # Streaming: the file is parsed line by line. Memory is O(1) per
+        # entry — the whole file is never held in memory. The reconstructed
+        # entries (needed for verify/export) grow with chain length, which
+        # is unavoidable, but the raw text is not.
         try:
-            raw = path.read_text(encoding="utf-8")
+            fh = path.open("r", encoding="utf-8")
         except OSError as exc:
             raise LedgerFileError(f"cannot read ledger file: {exc}") from exc
 
-        lines = [ln for ln in raw.splitlines() if ln.strip()]
-        if not lines:
-            raise LedgerFileError("ledger file is empty")
-
-        try:
-            header = json.loads(lines[0])
-        except json.JSONDecodeError as exc:
-            raise LedgerFileError(f"ledger header is not valid JSON: {exc}") from exc
-
-        if header.get("format") != "nomosguard-ledger":
-            raise LedgerFileError("missing nomosguard-ledger header")
-        version = header.get("format_version")
-        if version != LEDGER_FORMAT_VERSION:
-            raise LedgerFileError(
-                f"unsupported ledger format version {version!r} "
-                f"(expected {LEDGER_FORMAT_VERSION})"
-            )
-
-        body = lines[1:]
-        if len(body) != header.get("entries"):
-            raise LedgerFileError(
-                f"header declares {header.get('entries')} entries, "
-                f"file contains {len(body)}"
-            )
-
-        ledger = cls()
-        for i, ln in enumerate(body, start=1):
+        with fh:
+            header_line = fh.readline()
+            if not header_line.strip():
+                raise LedgerFileError("ledger file is empty")
             try:
-                record = json.loads(ln)
+                header = json.loads(header_line)
             except json.JSONDecodeError as exc:
-                raise LedgerFileError(f"entry {i} is not valid JSON: {exc}") from exc
-            try:
-                claim_data = record["claim"]
-                claim = Claim(
-                    kind=claim_data["kind"],
-                    payload=claim_data["payload"],
-                    evidence=claim_data["evidence"],
-                )
-            except (KeyError, TypeError) as exc:
-                raise LedgerFileError(f"entry {i} has a malformed claim: {exc}") from exc
+                raise LedgerFileError(f"ledger header is not valid JSON: {exc}") from exc
 
-            expected_seq = len(ledger._entries) + 1
-            if record.get("seq") != expected_seq:
+            if header.get("format") != "nomosguard-ledger":
+                raise LedgerFileError("missing nomosguard-ledger header")
+            version = header.get("format_version")
+            if version != LEDGER_FORMAT_VERSION:
                 raise LedgerFileError(
-                    f"entry {i}: expected seq {expected_seq}, got {record.get('seq')}"
+                    f"unsupported ledger format version {version!r} "
+                    f"(expected {LEDGER_FORMAT_VERSION})"
                 )
-            # Recompute hashes from content; never trust the stored hashes.
-            prev_hash = ledger.head_hash
-            recomputed = EvidenceLedger._entry_hash(
-                expected_seq, record["timestamp"], claim, prev_hash
-            )
-            if recomputed != record.get("entry_hash"):
-                raise LedgerFileError(
-                    f"entry {i}: hash mismatch — the chain does not verify "
-                    "(tamper or corruption)"
-                )
-            if record.get("prev_hash") != prev_hash:
-                raise LedgerFileError(f"entry {i}: broken chain link")
-            entry = LedgerEntry(
-                seq=expected_seq,
-                timestamp=record["timestamp"],
-                claim=claim,
-                entry_hash=recomputed,
-                prev_hash=prev_hash,
-            )
-            ledger._entries.append(entry)
 
-        if ledger.head_hash != header.get("head_hash"):
-            raise LedgerFileError(
-                "header head_hash does not match the recomputed chain head"
-            )
-        return ledger
+            ledger = cls()
+            i = 0
+            while True:
+                ln = fh.readline()
+                if not ln:
+                    break
+                if not ln.strip():
+                    continue
+                i += 1
+                ln = ln.rstrip("\n").rstrip("\r")
+                try:
+                    record = json.loads(ln)
+                except json.JSONDecodeError as exc:
+                    raise LedgerFileError(f"entry {i} is not valid JSON: {exc}") from exc
+                try:
+                    claim_data = record["claim"]
+                    claim = Claim(
+                        kind=claim_data["kind"],
+                        payload=claim_data["payload"],
+                        evidence=claim_data["evidence"],
+                    )
+                except (KeyError, TypeError) as exc:
+                    raise LedgerFileError(f"entry {i} has a malformed claim: {exc}") from exc
+
+                expected_seq = len(ledger._entries) + 1
+                if record.get("seq") != expected_seq:
+                    raise LedgerFileError(
+                        f"entry {i}: expected seq {expected_seq}, got {record.get('seq')}"
+                    )
+                # Recompute hashes from content; never trust the stored hashes.
+                prev_hash = ledger.head_hash
+                recomputed = EvidenceLedger._entry_hash(
+                    expected_seq, record["timestamp"], claim, prev_hash
+                )
+                if recomputed != record.get("entry_hash"):
+                    raise LedgerFileError(
+                        f"entry {i}: hash mismatch — the chain does not verify "
+                        "(tamper or corruption)"
+                    )
+                if record.get("prev_hash") != prev_hash:
+                    raise LedgerFileError(f"entry {i}: broken chain link")
+                entry = LedgerEntry(
+                    seq=expected_seq,
+                    timestamp=record["timestamp"],
+                    claim=claim,
+                    entry_hash=recomputed,
+                    prev_hash=prev_hash,
+                )
+                ledger._entries.append(entry)
+
+            if i != header.get("entries"):
+                raise LedgerFileError(
+                    f"header declares {header.get('entries')} entries, "
+                    f"file contains {i}"
+                )
+            if ledger.head_hash != header.get("head_hash"):
+                raise LedgerFileError(
+                    "header head_hash does not match the recomputed chain head"
+                )
+            return ledger
 
     def export(self) -> list[dict[str, Any]]:
         """Export the ledger as JSON-serializable dicts (for audit/archive)."""
