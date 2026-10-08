@@ -23,7 +23,7 @@ from dataclasses import asdict
 from typing import Any
 
 from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
-from .rules import Rule, RuleEngine
+from .rules import Pattern, Rule, RuleEngine
 from .gate import Decision, PolicyGate, PolicyRule
 
 # MCP protocol constants
@@ -167,17 +167,20 @@ def default_rules() -> list[Rule]:
         Rule(
             name="tool_on_vulnerable_component",
             body=(
-                ("calls", "?tool"),
-                ("operates_on", "?component"),
-                ("has_vulnerability", "?cve"),
+                Pattern("?agent", "calls", "?tool"),
+                Pattern("?tool", "operates_on", "?component"),
+                Pattern("?component", "has_vulnerability", "?cve"),
             ),
-            head=("exposes", "vulnerable_component"),
+            head=Pattern("?agent", "exposes", "?component"),
             description="An agent operating a tool on a vulnerable component exposes it.",
         ),
         Rule(
             name="policy_denied_action",
-            body=(("calls", "?tool"), ("policy_denies", "?action")),
-            head=("violates", "policy"),
+            body=(
+                Pattern("?agent", "calls", "?tool"),
+                Pattern("?agent", "policy_denies", "?action"),
+            ),
+            head=Pattern("?agent", "violates", "policy"),
             description="An agent calling a tool whose action is policy-denied violates policy.",
         ),
     ]

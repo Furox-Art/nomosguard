@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 
 from .ledger import Claim, EvidenceLedger
-from .rules import Fact, Rule, RuleEngine
+from .rules import Pattern, Rule, RuleEngine
 from .gate import Decision, PolicyGate, PolicyRule
 
 
@@ -48,8 +48,12 @@ def run() -> dict:
         rules=[
             Rule(
                 name="tool_on_vulnerable_component",
-                body=(("calls", "?tool"), ("operates_on", "?component"), ("has_vulnerability", "?cve")),
-                head=("exposes", "vulnerable_component"),
+                body=(
+                    Pattern("?agent", "calls", "?tool"),
+                    Pattern("?tool", "operates_on", "?component"),
+                    Pattern("?component", "has_vulnerability", "?cve"),
+                ),
+                head=Pattern("?agent", "exposes", "?component"),
                 description="An agent operating a tool on a vulnerable component exposes it.",
             )
         ]

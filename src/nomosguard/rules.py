@@ -5,10 +5,14 @@ security state, derive *which attack/access paths exist* by pure logical
 rules. No randomness, no model, no heuristics — every derived path traces
 back to the evidence entries that produced it.
 
-The engine is deliberately small and general:
+The engine implements forward chaining with unification:
 
 - Facts are (subject, relation, object) triples extracted from claims.
 - Rules are logical implications: (body_patterns) -> (head_pattern).
+- Any position in a pattern may be a *variable* (``?name``), which binds to
+  the matching fact's value at that position. The same variable appearing in
+  several body literals or in the head must unify to the same value — a
+  variable never binds to two different values within one match.
 - Derivation is fixpoint forward chaining over the fact set.
 - Every derived fact carries the chain of source claims that produced it.
 
@@ -19,10 +23,15 @@ the policy gate then applies its fail-closed default.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 from .ledger import EvidenceLedger
+
+
+def _is_variable(token: str) -> bool:
+    """Whether a pattern position is a variable (``?name``)."""
+    return isinstance(token, str) and token.startswith("?")
 
 
 class Fact:
@@ -49,20 +58,107 @@ class Fact:
     def __repr__(self) -> str:
         return f"Fact({self.subject} -{self.relation}-> {self.object})"
 
+    def to_dict(self) -> dict[str, Any]:
+        return {"subject": self.subject, "relation": self.relation,
+                "object": self.object, "sources": list(self.sources)}
+
+
+class RuleDefinitionError(ValueError):
+    """Raised when a rule is malformed (e.g. unbound head variable)."""
+
+
+@dataclass(frozen=True)
+class Pattern:
+    """A (subject, relation, object) pattern; any position may be a variable.
+
+    Example — "some agent calls some tool":
+        Pattern("?agent", "calls", "?tool")
+
+    Example — "orders_db has CVE-2026-1234 specifically":
+        Pattern("orders_db", "has_vulnerability", "CVE-2026-1234")
+    """
+
+    subject: str
+    relation: str
+    object: str
+
+    def to_tuple(self) -> tuple[str, str, str]:
+        return (self.subject, self.relation, self.object)
+
+    def variables(self) -> tuple[str, ...]:
+        return tuple(v for v in self.to_tuple() if _is_variable(v))
+
+    def unify(self, fact: Fact, bindings: dict[str, str]) -> dict[str, str] | None:
+        """Try to unify this pattern against a concrete fact.
+
+        Returns the extended bindings on success, or None on failure.
+        Existing bindings are never mutated.
+        """
+        new_bindings = dict(bindings)
+        for pattern_token, fact_token in zip(self.to_tuple(), fact.key):
+            if _is_variable(pattern_token):
+                existing = new_bindings.get(pattern_token)
+                if existing is not None and existing != fact_token:
+                    return None  # same variable, conflicting value
+                new_bindings[pattern_token] = fact_token
+            elif pattern_token != fact_token:
+                return None
+        return new_bindings
+
+    def substitute(self, bindings: dict[str, str]) -> tuple[str, str, str]:
+        """Resolve the pattern into a concrete triple using the bindings."""
+        resolved: list[str] = []
+        for token in self.to_tuple():
+            if _is_variable(token):
+                value = bindings.get(token)
+                if value is None:
+                    raise RuleDefinitionError(
+                        f"pattern variable {token} is unbound; "
+                        "every head variable must also appear in the body"
+                    )
+                resolved.append(value)
+            else:
+                resolved.append(token)
+        return resolved[0], resolved[1], resolved[2]
+
 
 @dataclass(frozen=True)
 class Rule:
-    """A logical implication: if all body facts match, derive head fact.
+    """A logical implication: if all body patterns match, derive the head.
 
-    `body` is a list of (relation, object) pairs, all of which must be
-    present for some subject for the rule to fire. `head` is the derived
-    (relation, object). Matches are computed by substitution over subjects.
+    Example — an agent that calls a tool operating on a vulnerable
+    component exposes that component:
+
+        Rule(
+            name="tool_on_vulnerable_component",
+            body=(
+                Pattern("?agent", "calls", "?tool"),
+                Pattern("?tool", "operates_on", "?component"),
+                Pattern("?component", "has_vulnerability", "?cve"),
+            ),
+            head=Pattern("?agent", "exposes", "?component"),
+        )
+
+    Variables are shared by name across the whole rule: ``?tool`` must bind
+    to the same value in every literal. Every head variable must also appear
+    in the body, otherwise the rule can never fire (substitute raises
+    RuleDefinitionError).
     """
 
     name: str
-    body: tuple[tuple[str, str], ...]   # [(relation, object), ...]
-    head: tuple[str, str]               # (relation, object)
+    body: tuple[Pattern, ...]
+    head: Pattern
     description: str = ""
+
+
+class Match:
+    """One successful body unification: bindings + the facts it consumed."""
+
+    __slots__ = ("bindings", "body_facts")
+
+    def __init__(self, bindings: dict[str, str], body_facts: tuple[Fact, ...]) -> None:
+        self.bindings = bindings
+        self.body_facts = body_facts
 
 
 class RuleEngine:
@@ -113,14 +209,17 @@ class RuleEngine:
             changed = False
             for rule in self.rules:
                 for match in self._match_rule(rule):
-                    head_fact = self._derive_fact(rule, match)
+                    subject, relation, obj = rule.head.substitute(match.bindings)
+                    sources = tuple(sorted({s for f in match.body_facts for s in f.sources}))
+                    head_fact = Fact(subject, relation, obj, sources)
                     if head_fact.key not in self._facts:
                         self._facts[head_fact.key] = head_fact
                         changed = True
                         self._derivation_trace.append(
                             {
                                 "rule": rule.name,
-                                "matched_on": [str(f) for f in match["body_facts"]],
+                                "matched_on": [str(f) for f in match.body_facts],
+                                "bindings": dict(match.bindings),
                                 "derived": str(head_fact),
                             }
                         )
@@ -135,65 +234,39 @@ class RuleEngine:
 
     # -- internal matching ----------------------------------------------------
 
-    def _match_rule(self, rule: Rule) -> list[dict[str, Any]]:
-        """Find all substitutions that satisfy the rule body.
+    def _match_rule(self, rule: Rule) -> list[Match]:
+        """Find all substitutions satisfying the rule body.
 
-        A substitution maps every variable in the body to a concrete
-        subject present in the fact set. Variables are (relation, object)
-        slots where the object is a placeholder name starting with '?'.
+        Backtracking unification: for each body literal, every fact is tried
+        in deterministic (sorted) order; a candidate survives only if it
+        unifies with the bindings accumulated from the previous literals.
+        The same variable binding to two different facts is rejected, so
+        body literals cannot silently select different entities.
         """
-        # Collect candidate subjects per body literal
-        candidates: list[set[str]] = []
-        for relation, obj in rule.body:
-            subs = {
-                f.subject
-                for f in self._facts.values()
-                if f.relation == relation and (obj == f.object or obj.startswith("?"))
-            }
-            if not subs:
-                return []
-            candidates.append(subs)
+        all_facts = sorted(self._facts.values(), key=lambda f: f.key)
+        matches: list[Match] = []
+        self._unify_body(rule.body, 0, {}, [], all_facts, matches)
+        return matches
 
-        # Cartesian product of subjects across body literals (small rule
-        # bodies -> small products; this is inference, not brute force)
-        matches: list[dict[str, Any]] = []
-        _cartesian(candidates, 0, [], matches)
-
-        results = []
-        for combo in matches:
-            # Check consistency: each (relation, object) literal must have
-            # a fact for the chosen subject. A body object may be a concrete
-            # value (must match exactly) or a variable placeholder starting
-            # with '?' (matches any value, binding the variable).
-            body_facts = []
-            bindings: dict[str, str] = {}
-            ok = True
-            for (relation, obj), subject in zip(rule.body, combo):
-                fact = self._facts.get((subject, relation, obj))
-                if fact is None and obj.startswith("?"):
-                    # variable slot: find the fact by relation alone
-                    fact = next(
-                        (f for f in self._facts.values()
-                         if f.subject == subject and f.relation == relation),
-                        None,
-                    )
-                    if fact is not None:
-                        bindings[obj] = fact.object
-                if fact is None:
-                    ok = False
-                    break
-                body_facts.append(fact)
-            if ok:
-                results.append(
-                    {"subject": combo[0], "body_facts": body_facts, "bindings": bindings}
-                )
-        return results
-
-    def _derive_fact(self, rule: Rule, match: dict[str, Any]) -> Fact:
-        subject = match["subject"]
-        relation, obj = rule.head
-        sources = tuple(sorted({s for f in match["body_facts"] for s in f.sources}))
-        return Fact(subject, relation, obj, sources)
+    def _unify_body(
+        self,
+        body: tuple[Pattern, ...],
+        idx: int,
+        bindings: dict[str, str],
+        facts_so_far: list[Fact],
+        all_facts: list[Fact],
+        out: list[Match],
+    ) -> None:
+        if idx == len(body):
+            out.append(Match(dict(bindings), tuple(facts_so_far)))
+            return
+        pattern = body[idx]
+        for fact in all_facts:
+            new_bindings = pattern.unify(fact, bindings)
+            if new_bindings is not None:
+                facts_so_far.append(fact)
+                self._unify_body(body, idx + 1, new_bindings, facts_so_far, all_facts, out)
+                facts_so_far.pop()
 
 
 # -- fact extraction -----------------------------------------------------------
@@ -218,16 +291,6 @@ def _extract_facts(kind: str, payload: dict[str, Any], evidence: str) -> list[Fa
     if extractor is None:
         return []
     return extractor(payload, evidence)
-
-
-def _cartesian(candidates: list[set[str]], idx: int, acc: list[str], out: list[list[str]]) -> None:
-    if idx == len(candidates):
-        out.append(list(acc))
-        return
-    for subj in sorted(candidates[idx]):  # sorted for determinism
-        acc.append(subj)
-        _cartesian(candidates, idx + 1, acc, out)
-        acc.pop()
 
 
 # -- built-in extractors (tool-call evidence, the v1 ingestion path) -----------
