@@ -1,0 +1,7 @@
+{"agent": "researcher", "tool": "sql_query", "target": "orders_db", "args": {"query": "SELECT * FROM orders"}}
+{"agent": "researcher", "tool": "sql_query", "target": "orders_db", "args": {"query": "SELECT * FROM orders"}}
+{"agent": "researcher", "tool": "file_reader", "target": "/data/orders.csv"}
+{"agent": "analyst", "tool": "sql_query", "target": "customers_db", "args": {"query": "SELECT count(*) FROM customers"}}
+{"agent": "researcher", "tool": "sql_query", "target": "orders_db", "args": {"query": "SELECT * FROM orders WHERE status='shipped'"}}
+{"agent": "malformed-agent"}
+{"agent": "researcher", "tool": "sql_query", "target": "users_db", "args": {"query": "SELECT * FROM users"}}
