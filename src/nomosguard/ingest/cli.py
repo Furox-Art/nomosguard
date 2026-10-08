@@ -66,7 +66,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nomosguard-ingest", description=__doc__)
     parser.add_argument("logfile", help="JSONL tool-call log to ingest")
     parser.add_argument("--ledger", default=None, help="Persistent ledger path (created if absent)")
+    parser.add_argument("--policy", default=None, help="Policy config file (JSON). Defaults to the built-in policy.")
     args = parser.parse_args(argv)
+
+    from ..policy import PolicyConfigError, load_policy, default_policy
+
+    try:
+        rules, gate_rules = load_policy(args.policy) if args.policy else default_policy()
+    except PolicyConfigError as exc:
+        print(f"FATAL: refusing to run with a broken policy file: {exc}", file=sys.stderr)
+        return 2
 
     ledger_path = Path(args.ledger) if args.ledger else None
     try:
@@ -90,14 +99,14 @@ def main(argv: list[str] | None = None) -> int:
         ledger.save(ledger_path)
         print(f"ledger persisted to {ledger_path}")
 
-    engine = RuleEngine(rules=default_rules())
+    engine = RuleEngine(rules=rules)
     engine.add_facts_from_ledger(ledger)
     derivation = engine.derive()
 
     print("\n=== Derivation ===")
     print(json.dumps(derivation, indent=2, default=str))
 
-    gate = PolicyGate(policy_rules=default_policy_rules(), fallback=Decision.BLOCK)
+    gate = PolicyGate(policy_rules=gate_rules, fallback=Decision.BLOCK)
     decision = gate.evaluate_with_fallback(engine)
     print("\n=== Decision ===")
     print(json.dumps(decision, indent=2, default=str))

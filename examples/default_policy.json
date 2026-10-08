@@ -1,0 +1,37 @@
+{
+  "rules": [
+    {
+      "name": "tool_on_vulnerable_component",
+      "body": [
+        ["?agent", "calls", "?tool"],
+        ["?agent", "operates_on", "?component"],
+        ["?component", "has_vulnerability", "?cve"]
+      ],
+      "head": ["?agent", "exposes", "?component"],
+      "description": "An agent operating a tool on a vulnerable component exposes it."
+    },
+    {
+      "name": "policy_denied_action",
+      "body": [
+        ["?agent", "calls", "?tool"],
+        ["?agent", "policy_denies", "?action"]
+      ],
+      "head": ["?agent", "violates", "policy"],
+      "description": "An agent calling a tool whose action is policy-denied violates policy."
+    }
+  ],
+  "gate": [
+    {
+      "name": "block_vulnerable_exposure",
+      "match_relation": "exposes",
+      "decision": "BLOCK",
+      "description": "Exposure of a vulnerable component is blocked."
+    },
+    {
+      "name": "alert_policy_violation",
+      "match_relation": "violates",
+      "decision": "ALERT",
+      "description": "Policy violations raise an alert."
+    }
+  ]
+}
