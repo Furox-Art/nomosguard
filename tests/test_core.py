@@ -6,7 +6,12 @@ import copy
 
 import pytest
 
-from nomosguard.ledger import Claim, EvidenceLedger, UnevidencedClaimError
+from nomosguard.ledger import (
+    Claim,
+    EvidenceLedger,
+    LedgerFileError,
+    UnevidencedClaimError,
+)
 from nomosguard.rules import Fact, Pattern, Rule, RuleEngine, RuleDefinitionError
 from nomosguard.gate import Decision, PolicyGate, PolicyRule
 
@@ -233,3 +238,125 @@ class TestEndToEnd:
         assert result["gate_decision"]["decision"] == "BLOCK"
         # the head fact must carry the real component name, not a constant
         assert any("researcher -exposes-> orders_db" in f for f in result["derived_facts"])
+
+
+class TestLedgerPersistence:
+    """The chain must survive process restarts — that is its whole point."""
+
+    def _seeded(self) -> EvidenceLedger:
+        ledger = EvidenceLedger()
+        ledger.append(Claim("tool_call", {"agent": "a1", "tool": "t1"}, "log line 1"))
+        ledger.append(Claim("vulnerability", {"component": "db1", "cve": "CVE-1"}, "NVD record"))
+        return ledger
+
+    def test_save_load_roundtrip(self, tmp_path=None):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            ledger = self._seeded()
+            ledger.save(path)
+
+            loaded = EvidenceLedger.load(path)
+            assert len(loaded.entries) == 2
+            assert loaded.head_hash == ledger.head_hash
+            ok, detail = loaded.verify()
+            assert ok, detail
+
+    def test_append_after_load_continues_chain(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            ledger = self._seeded()
+            ledger.save(path)
+
+            loaded = EvidenceLedger.load(path)
+            new_entry = loaded.append(Claim("policy_rule", {"effect": "deny"}, "policy doc"))
+            assert new_entry.seq == 3
+            assert new_entry.prev_hash == ledger.head_hash  # chain continues
+            ok, detail = loaded.verify()
+            assert ok, detail
+
+    def test_save_after_load_is_stable(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            path2 = Path(td) / "ledger2.jsonl"
+            ledger = self._seeded()
+            ledger.save(path)
+
+            loaded = EvidenceLedger.load(path)
+            loaded.save(path2)
+            assert path.read_text() == path2.read_text(), "save/load must be idempotent"
+
+    def test_tampered_entry_rejected(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            ledger = self._seeded()
+            ledger.save(path)
+
+            # tamper: change a claim payload on disk
+            lines = path.read_text().splitlines()
+            record = json.loads(lines[1])
+            record["claim"]["payload"]["agent"] = "attacker"
+            lines[1] = json.dumps(record, sort_keys=True)
+            path.write_text("\n".join(lines) + "\n")
+
+            try:
+                EvidenceLedger.load(path)
+                assert False, "tampered ledger must be refused"
+            except LedgerFileError:
+                pass  # correct: the chain does not verify
+
+    def test_truncated_entry_count_rejected(self):
+        import json
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            ledger = self._seeded()
+            ledger.save(path)
+
+            lines = path.read_text().splitlines()
+            header = json.loads(lines[0])
+            header["entries"] = 99  # lie about the count
+            lines[0] = json.dumps(header, sort_keys=True)
+            path.write_text("\n".join(lines) + "\n")
+
+            try:
+                EvidenceLedger.load(path)
+                assert False, "count mismatch must be refused"
+            except LedgerFileError:
+                pass
+
+    def test_missing_file_rejected(self):
+        from pathlib import Path
+
+        try:
+            EvidenceLedger.load(Path("/nonexistent/ledger.jsonl"))
+            assert False, "missing file must raise LedgerFileError"
+        except LedgerFileError:
+            pass
+
+    def test_empty_file_rejected(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            path.write_text("")
+            try:
+                EvidenceLedger.load(path)
+                assert False, "empty file must raise LedgerFileError"
+            except LedgerFileError:
+                pass

@@ -179,9 +179,22 @@ def _handle(request: dict[str, Any], session: NomosGuardSession) -> dict[str, An
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="NomosGuard MCP stdio server")
+    parser.add_argument(
+        "--ledger",
+        default=None,
+        help="Path to a persistent JSONL evidence ledger. Loaded on start "
+        "(chain verified; a corrupt file is refused) and saved on every "
+        "accepted claim. Omit for an in-memory-only session.",
+    )
+    args = parser.parse_args()
+
     session = NomosGuardSession(
         rules=default_rules(),
         policy_rules=default_policy_rules(),
+        ledger_path=args.ledger,
     )
     for line in sys.stdin:
         line = line.strip()

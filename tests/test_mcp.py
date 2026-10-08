@@ -8,6 +8,7 @@ import sys
 
 import pytest
 
+from nomosguard.ledger import LedgerFileError
 from nomosguard.mcp_server import (
     NomosGuardSession,
     default_rules,
@@ -186,3 +187,68 @@ class TestStdioProtocol:
         finally:
             proc.kill()
             proc.wait()
+
+
+class TestSessionPersistence:
+    """A ledger-backed session survives restart — the audit trail endures."""
+
+    def test_session_persists_and_resumes(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+
+            s1 = NomosGuardSession(
+                rules=default_rules(),
+                policy_rules=default_policy_rules(),
+                ledger_path=path,
+            )
+            r = s1.assert_claim(
+                "tool_call",
+                {"agent": "a1", "tool": "sql", "target": "db1"},
+                "log line 42",
+            )
+            assert r["accepted"] is True
+            assert path.is_file()
+
+            # simulate restart: new session loads the same ledger file
+            s2 = NomosGuardSession(
+                rules=default_rules(),
+                policy_rules=default_policy_rules(),
+                ledger_path=path,
+            )
+            assert len(s2.ledger.entries) == 1
+            ok, _ = s2.ledger.verify()
+            assert ok
+
+            # appending continues the chain
+            r2 = s2.assert_claim(
+                "vulnerability",
+                {"component": "db1", "cve": "CVE-X"},
+                "NVD record",
+            )
+            assert r2["seq"] == 2
+            decision = s2.decide()
+            assert decision["decision"] == "BLOCK"
+
+    def test_corrupt_ledger_refused_at_startup(self):
+        import tempfile
+        from pathlib import Path
+        import json
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            # write a header-only file with a lying hash
+            header = {
+                "format": "nomosguard-ledger",
+                "format_version": 1,
+                "entries": 1,
+                "head_hash": "deadbeef",
+            }
+            path.write_text(json.dumps(header) + "\n")
+            try:
+                NomosGuardSession(ledger_path=path)
+                assert False, "corrupt ledger must be refused"
+            except LedgerFileError:
+                pass

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
@@ -53,10 +54,22 @@ class NomosGuardSession:
         self,
         rules: list[Rule] | None = None,
         policy_rules: list[PolicyRule] | None = None,
+        ledger_path: str | Path | None = None,
     ) -> None:
-        self.ledger = EvidenceLedger()
+        self.ledger = EvidenceLedger.load(ledger_path) if ledger_path and Path(ledger_path).is_file() else EvidenceLedger()
         self.rules = list(rules) if rules else []
         self.policy_rules = list(policy_rules) if policy_rules else []
+        self.ledger_path = Path(ledger_path) if ledger_path else None
+
+    def _persist(self) -> None:
+        """Flush the ledger to disk if a ledger path is configured.
+
+        Every accepted claim is persisted immediately: the audit trail must
+        not wait for a session end. A failed save raises — the MCP layer
+        turns any exception into an isError result (fail closed).
+        """
+        if self.ledger_path is not None:
+            self.ledger.save(self.ledger_path)
 
     # -- tool implementations -------------------------------------------------
 
@@ -75,6 +88,8 @@ class NomosGuardSession:
                 accepted += 1
             except UnevidencedClaimError as exc:
                 rejected.append({"index": i, "reason": str(exc)})
+        if accepted:
+            self._persist()
         return {
             "accepted": accepted,
             "rejected": rejected,
@@ -88,6 +103,7 @@ class NomosGuardSession:
             entry = self.ledger.append(claim)
         except UnevidencedClaimError as exc:
             return {"accepted": False, "reason": str(exc)}
+        self._persist()
         return {
             "accepted": True,
             "seq": entry.seq,
