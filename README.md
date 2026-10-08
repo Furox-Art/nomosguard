@@ -41,16 +41,37 @@ and the transcript is tamper-evident.
 
 Early development — see [VISION.md](VISION.md) for the architecture,
 scope, and first-release boundary. The core (evidence ledger, rule
-engine, policy gate) is implemented with 10 passing tests and a
-reproducible demo scenario.
+engine, policy gate) is implemented with 18 passing tests and a
+reproducible demo scenario, and is exposed as MCP tools for AI agents.
+
+### Components
+
+| Module | What it does |
+|---|---|
+| `nomosguard.ledger` | Append-only SHA-256 hash-chained evidence ledger; rejects unevidenced claims |
+| `nomosguard.rules` | Forward-chaining rule engine (MulVAL-style) with tool-call / CVE / policy extractors |
+| `nomosguard.gate` | Fail-closed policy gate: ALLOW / ALERT / BLOCK with full derivation chains |
+| `nomosguard.mcp_server` | MCP session layer: 5 tools (`evidence_ingest`, `assert_claim`, `derive_paths`, `decide`, `explain`) |
+| `nomosguard.mcp_stdio` | JSON-RPC stdio server (`python -m nomosguard.mcp_stdio`) |
+| `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 
 ### Run it
 
 ```bash
 pip install -e .
-python -m nomosguard.demo
-pytest tests/
+python -m nomosguard.demo    # committed scenario: derivation + BLOCK
+pytest tests/                # 18 tests incl. full stdio protocol
 ```
+
+### Use it from an MCP client
+
+```json
+{"command": "python", "args": ["-m", "nomosguard.mcp_stdio"]}
+```
+
+The server never calls a model. Agents load `SKILL.md` for the behavioral
+contract: assert claims with evidence, derive paths, read the gate
+decision, explain it — never decide it.
 
 ## License
 

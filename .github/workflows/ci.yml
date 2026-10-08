@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package (zero runtime deps) and pytest
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest
+
+      - name: Verify zero runtime dependencies
+        run: |
+          # The core must run with ONLY the stdlib: install into a clean
+          # venv with no extra packages and run the demo.
+          python -m venv /tmp/clean-env
+          /tmp/clean-env/bin/pip install -q --no-deps -e .
+          /tmp/clean-env/bin/python -m nomosguard.demo | python -m json.tool > /dev/null
+          echo "zero-dependency demo OK"
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Run demo (smoke)
+        run: python -m nomosguard.demo
