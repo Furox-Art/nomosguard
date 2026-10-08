@@ -41,10 +41,52 @@ and the transcript is tamper-evident.
 
 Early development — see [VISION.md](VISION.md) for the architecture,
 scope, and first-release boundary. The core (evidence ledger, rule
-engine, policy gate) is implemented with 18 passing tests and a
-reproducible demo scenario, and is exposed as MCP tools for AI agents.
+engine, policy gate) is implemented with 51 passing tests and a
+reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 
 ### Components
+
+| Module | What it does |
+|---|---|
+| `nomosguard.ledger` | Append-only SHA-256 hash-chained evidence ledger; rejects unevidenced claims; persistent (atomic save, full-chain-verify load) |
+| `nomosguard.rules` | Forward-chaining rule engine with unification; tool-call / CVE / policy extractors |
+| `nomosguard.gate` | Fail-closed policy gate: ALLOW / ALERT / BLOCK with full derivation chains |
+| `nomosguard.ingest.toolcall_jsonl` | Real tool-call JSONL ingestion: each claim cites sha256 of the raw source line |
+| `nomosguard.mcp_server` | MCP session layer: 5 tools (`evidence_ingest`, `assert_claim`, `derive_paths`, `decide`, `explain`) |
+| `nomosguard.mcp_stdio` | JSON-RPC stdio server (`python -m nomosguard.mcp_stdio`) |
+| `nomosguard.benchmark` | Attack-scenario corpus with measured recall / false-positive / fail-closed results |
+| `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
+
+### Benchmark (measured, not asserted)
+
+Run with `python -m nomosguard.benchmark.run_suite_main --output DIR`. The
+corpus is committed and deterministic; the expected outcomes are
+hand-derived from the facts, not produced by the engine. Latest run:
+
+| metric | value |
+|---|---|
+| scenarios | 6 |
+| recall | 2/2 = 100% |
+| false positives | 0 |
+| fail-closed on incomplete evidence | OK |
+| all scenarios passed | yes |
+
+What the corpus does NOT cover (stated honestly): real-world logs, evidence
+tampering *inside* the ledger (that is the ledger's own test suite's job),
+and any scenario requiring an LLM to judge.
+
+### Ingestion
+
+```bash
+python -m nomosguard.ingest.cli examples/sample_toolcalls.jsonl [--ledger PATH]
+```
+
+Every accepted record becomes a claim whose evidence field is
+`sha256:<hex>` of the raw log line — independently verifiable. Malformed
+records are rejected with line number and reason; duplicate lines are
+counted, never re-appended.
+
+
 
 | Module | What it does |
 |---|---|
@@ -60,7 +102,8 @@ reproducible demo scenario, and is exposed as MCP tools for AI agents.
 ```bash
 pip install -e .
 python -m nomosguard.demo    # committed scenario: derivation + BLOCK
-pytest tests/                # 18 tests incl. full stdio protocol
+pytest tests/                # 51 tests incl. full stdio protocol
+python -m nomosguard.benchmark.run_suite_main   # measured recall / false-positive
 ```
 
 ### Use it from an MCP client

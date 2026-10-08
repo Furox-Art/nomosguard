@@ -27,7 +27,7 @@ def default_rules() -> list[Rule]:
             name="tool_on_vulnerable_component",
             body=(
                 Pattern("?agent", "calls", "?tool"),
-                Pattern("?tool", "operates_on", "?component"),
+                Pattern("?agent", "operates_on", "?component"),
                 Pattern("?component", "has_vulnerability", "?cve"),
             ),
             head=Pattern("?agent", "exposes", "?component"),

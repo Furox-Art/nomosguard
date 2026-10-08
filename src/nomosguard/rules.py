@@ -133,7 +133,7 @@ class Rule:
             name="tool_on_vulnerable_component",
             body=(
                 Pattern("?agent", "calls", "?tool"),
-                Pattern("?tool", "operates_on", "?component"),
+                Pattern("?agent", "operates_on", "?component"),
                 Pattern("?component", "has_vulnerability", "?cve"),
             ),
             head=Pattern("?agent", "exposes", "?component"),
@@ -301,7 +301,17 @@ def _extract_tool_call(payload: dict[str, Any], evidence: str) -> list[Fact]:
 
     Payload convention:
       {"agent": str, "tool": str, "target": str, "args": {...}}
-    Produces: (agent, calls, tool), (tool, operates_on, target).
+
+    Produces:
+      (agent, calls, tool)                 — the agent invoked the tool
+      (agent, operates_on, target)         — the AGENT operates on the target
+
+    The second fact is deliberately agent-scoped, NOT tool-scoped. An
+    earlier model emitted (tool, operates_on, target), which meant a tool
+    invoked by two agents on different targets made BOTH agents "operate
+    on" both targets — the tool became a hub that laundered access between
+    agents. The agent-scoped fact model keeps the evidence honest: an
+    agent operates only on the targets it actually called.
     """
     agent = str(payload.get("agent", ""))
     tool = str(payload.get("tool", ""))
@@ -309,8 +319,8 @@ def _extract_tool_call(payload: dict[str, Any], evidence: str) -> list[Fact]:
     facts = []
     if agent and tool:
         facts.append(Fact(agent, "calls", tool, ("tool_call",)))
-    if tool and target:
-        facts.append(Fact(tool, "operates_on", target, ("tool_call",)))
+    if agent and target:
+        facts.append(Fact(agent, "operates_on", target, ("tool_call",)))
     return facts
 
 

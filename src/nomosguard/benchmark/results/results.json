@@ -1,0 +1,81 @@
+{
+  "scenarios": 6,
+  "recall": 1.0,
+  "caught": 2,
+  "expected_total": 2,
+  "derived_total": 2,
+  "false_positives": 0,
+  "fail_closed_ok": true,
+  "all_passed": true,
+  "run_at": "2026-10-08T23:54:36.236216+00:00",
+  "results": [
+    {
+      "name": "positive_vulnerable_exposure",
+      "expected": [
+        [
+          "researcher",
+          "orders_db"
+        ]
+      ],
+      "derived": [
+        [
+          "researcher",
+          "orders_db"
+        ]
+      ],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "negative_benign_workflow",
+      "expected": [],
+      "derived": [],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "multi_agent_only_one_exposed",
+      "expected": [
+        [
+          "agent_a",
+          "orders_db"
+        ]
+      ],
+      "derived": [
+        [
+          "agent_a",
+          "orders_db"
+        ]
+      ],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "incomplete_evidence",
+      "expected": [],
+      "derived": [],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "policy_violation",
+      "expected": [],
+      "derived": [],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "ALERT"
+    },
+    {
+      "name": "no_vulnerability_no_exposure",
+      "expected": [],
+      "derived": [],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    }
+  ]
+}
