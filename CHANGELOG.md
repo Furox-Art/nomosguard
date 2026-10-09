@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-09
+
+### Added — actionable containment (dry-run)
+
+- `nomosguard.containment`: gate decisions become operator-reviewable
+  action plans. Commands render as argv arrays (not shell strings), each
+  traced to its decision, policy rule, and derivation chain.
+- Execution is opt-in and allowlist-gated: `Executor` is disabled by
+  default and refuses any command whose argv[0] is outside its
+  allowlist. Reversible decisions carry their undo.
+- Not an IPS — a translator from decisions to plans a human reviews.
+
+### Added — real-corpus benchmark
+
+- `nomosguard.benchmark.real_corpus`: scenarios built from real
+  UNSW-NB15 network flows (HuggingFace datasets-server, no key), grouped
+  by the dataset's own attack labels, with ground truth from the labels.
+- 4 real scenarios (Exploits / Reconnaissance / DoS / Generic).
+- This closes the "corpus is synthetic" limitation stated in the 0.2.3
+  benchmark methodology.
+
+### Tests
+
+148 pass (was 132). New: 11 containment tests, 5 real-corpus tests
+(network-gated — they skip cleanly if the fetch fails).
+
 ## [0.2.3] - 2026-10-09
 
 ### Fixed — the core is actually deterministic now

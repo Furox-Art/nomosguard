@@ -60,7 +60,56 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.policy_security` | Containment decisions: ISOLATE_HOST, REVOKE_ACCESS, ESCALATE |
 | `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 
-### Evidence production pipeline
+### Actionable containment (dry-run)
+
+The gate decides; something else acts. `nomosguard.containment` translates
+decisions into operator-reviewable action plans — and executes nothing
+unless explicitly enabled:
+
+```python
+from nomosguard.containment import render_plan, Executor
+
+plan = render_plan(gate_result)
+# plan.commands  — argv arrays, each traced to its decision + chain
+# plan.dry_run   — always True until an executor is configured
+
+# execution is opt-in and allowlist-gated:
+executor = Executor(allowlist=("iptables", "revoke-session"), enabled=True)
+result = executor.execute(plan.commands[0])  # rejects anything unlisted
+```
+
+Commands render as **argv arrays, not shell strings**, so they can be
+audited and rejected before anything runs. Reversible decisions
+(ISOLATE_HOST) carry their `undo`; irreversible ones (ESCALATE) do not.
+The Executor is disabled by default and refuses any command outside its
+allowlist — the last line of defence between a decision and a real
+system change.
+
+**This is not an IPS.** It is a translator from deterministic decisions
+to action plans a human reviews.
+
+## Real-corpus benchmark
+
+The synthetic corpus could not establish performance on real telemetry.
+`nomosguard.benchmark.real_corpus` builds scenarios from real UNSW-NB15
+network flows (no key, no registration — HuggingFace datasets-server):
+
+```python
+from nomosguard.benchmark.real_corpus import load_scenarios
+
+scenarios = load_scenarios(300)
+# Real flows grouped by the dataset's own attack labels
+# (Exploits / Reconnaissance / DoS / Generic), with ground truth taken
+# from the labels rather than hand-derivation.
+```
+
+The corpus distinction is deliberate and stated everywhere it matters:
+synthetic scenarios establish ranking and pipeline behavior; real
+scenarios establish that the same engine works on real telemetry. Neither
+alone is sufficient, and the README does not claim otherwise.
+
+
+## Evidence production pipeline
 
 The LLM edge is where hallucinations live — every model in the 16-model
 benchmark invented at least one claim. `nomosguard.benchmark.model_compare.pipeline`
