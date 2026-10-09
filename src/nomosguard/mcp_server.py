@@ -26,6 +26,9 @@ from typing import Any
 from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
 from .rules import Pattern, Rule, RuleEngine
 from .gate import Decision, PolicyGate, PolicyRule
+from .rules_security import security_rules
+from .policy_security import containment_policy_rules
+from . import facts_security  # noqa: F401  — register security extractors
 
 # MCP protocol constants
 JSONRPC_VERSION = "2.0"
@@ -179,6 +182,12 @@ class NomosGuardSession:
 # -- default rule and policy sets (tool-call security, the v1 path) ----------
 
 def default_rules() -> list[Rule]:
+    """Tool-call + security rules — one engine, two vocabularies.
+
+    The tool-call rules handle AI-agent security (exposure chains);
+    the security rules handle network security (attack graphs). Both
+    use the same ledger and the same gate — one deterministic core.
+    """
     return [
         Rule(
             name="tool_on_vulnerable_component",
@@ -189,32 +198,7 @@ def default_rules() -> list[Rule]:
             ),
             head=Pattern("?agent", "exposes", "?component"),
             description="An agent operating a tool on a vulnerable component exposes it.",
-            ),
-            Rule(
-                name="reaches_base",
-                body=(Pattern("?from", "operates_on", "?to"),),
-                head=Pattern("?from", "reaches", "?to"),
-                description="Direct operation implies reachability.",
-            ),
-            Rule(
-                name="reaches_transitive",
-                body=(
-                    Pattern("?from", "reaches", "?mid"),
-                    Pattern("?mid", "reaches", "?to"),
-                ),
-                head=Pattern("?from", "reaches", "?to"),
-                description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
-            ),
-            Rule(
-                name="transitive_exposure",
-                body=(
-                    Pattern("?agent", "calls", "?tool"),
-                    Pattern("?agent", "reaches", "?component"),
-                    Pattern("?component", "has_vulnerability", "?cve"),
-                ),
-                head=Pattern("?agent", "exposes", "?component"),
-                description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
-            ),
+        ),
         Rule(
             name="policy_denied_action",
             body=(
@@ -224,10 +208,36 @@ def default_rules() -> list[Rule]:
             head=Pattern("?agent", "violates", "policy"),
             description="An agent calling a tool whose action is policy-denied violates policy.",
         ),
-    ]
+        Rule(
+            name="reaches_base",
+            body=(Pattern("?from", "operates_on", "?to"),),
+            head=Pattern("?from", "reaches", "?to"),
+            description="Direct operation implies reachability.",
+        ),
+        Rule(
+            name="reaches_transitive",
+            body=(
+                Pattern("?from", "reaches", "?mid"),
+                Pattern("?mid", "reaches", "?to"),
+            ),
+            head=Pattern("?from", "reaches", "?to"),
+            description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
+        ),
+        Rule(
+            name="transitive_exposure",
+            body=(
+                Pattern("?agent", "calls", "?tool"),
+                Pattern("?agent", "reaches", "?component"),
+                Pattern("?component", "has_vulnerability", "?cve"),
+            ),
+            head=Pattern("?agent", "exposes", "?component"),
+            description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
+        ),
+    ] + security_rules()
 
 
 def default_policy_rules() -> list[PolicyRule]:
+    """Tool-call + containment decisions together."""
     return [
         PolicyRule(
             name="block_vulnerable_exposure",
@@ -241,4 +251,5 @@ def default_policy_rules() -> list[PolicyRule]:
             decision=Decision.ALERT,
             description="Policy violations raise an alert.",
         ),
-    ]
+    ] + containment_policy_rules()
+

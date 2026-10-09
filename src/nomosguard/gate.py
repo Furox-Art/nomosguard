@@ -122,7 +122,19 @@ class PolicyGate:
             }
         # Merge: if any BLOCK present, overall decision is BLOCK; else any
         # ALERT -> ALERT; else ALLOW.
-        order = {Decision.BLOCK: 3, Decision.ALERT: 2, Decision.ALLOW: 1}
+        # Severity ordering: containment decisions outrank plain alerts.
+        # ISOLATE_HOST (a host is compromised) is the most severe;
+        # ESCALATE next (privileged, needs a human); REVOKE_ACCESS then
+        # (an access path exists but may not be exploited yet); BLOCK and
+        # ALERT follow for the tool-call vocabulary; ALLOW is least.
+        order = {
+            Decision.ISOLATE_HOST: 6,
+            Decision.ESCALATE: 5,
+            Decision.REVOKE_ACCESS: 4,
+            Decision.BLOCK: 3,
+            Decision.ALERT: 2,
+            Decision.ALLOW: 1,
+        }
         worst = max(decisions, key=lambda d: order[d.decision])
         return {
             "decision": worst.decision.value,

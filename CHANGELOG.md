@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-10-09
+
+### Added — LLM edge integration
+
+- MCP server now includes security rules + containment decisions by
+  default: one engine, two vocabularies (tool-call + network security)
+- SKILL.md updated with the security behavioral contract: the model
+  asserts evidence-citing claims and narrates decisions; it never decides
+- End-to-end security triage test through the stdio MCP server (assert
+  -> derive -> decide -> explain)
+
+### Fixed
+
+- Gate decision ordering now includes containment decisions
+  (ISOLATE_HOST, REVOKE_ACCESS, ESCALATE) — previously raised KeyError
+  when a security decision was the strongest
+
 ## [0.2.1] - 2026-10-09
 
 ### Fixed
