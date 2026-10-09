@@ -1,0 +1,251 @@
+{
+  "model": "opencode/step-5-preview-free",
+  "rows": [
+    {
+      "model": "opencode/step-5-preview-free",
+      "scenario": "benign_admin_window",
+      "single": {
+        "produced": 4,
+        "expected": 2,
+        "matched": 2,
+        "recall": 1.0,
+        "precision": 0.5
+      },
+      "pipeline": {
+        "produced": 1,
+        "expected": 2,
+        "matched": 1,
+        "recall": 0.5,
+        "precision": 1.0
+      },
+      "report": {
+        "draws": 3,
+        "min_votes": 2,
+        "audit": true,
+        "ground": true,
+        "sample_errors": 0,
+        "parsed_draws": 3,
+        "after_vote": 2,
+        "vote_removed": 1,
+        "after_audit": 1,
+        "audit_removed": 1,
+        "after_ground": 1,
+        "ground_removed": 0,
+        "final_stage": "done"
+      },
+      "pipeline_claims": [
+        {
+          "kind": "network",
+          "payload": {
+            "host": "internal-db",
+            "protocol": null,
+            "port": 5432,
+            "allowed_from": "admin-laptop"
+          },
+          "evidence": "[09:00:00] NETFLOW: admin-laptop -> internal-db:5432 allowed (scheduled maintenance)"
+        }
+      ]
+    },
+    {
+      "model": "opencode/step-5-preview-free",
+      "scenario": "brute_force_then_pivot",
+      "single": {
+        "produced": 5,
+        "expected": 5,
+        "matched": 4,
+        "recall": 0.8,
+        "precision": 0.8
+      },
+      "pipeline": {
+        "produced": 4,
+        "expected": 5,
+        "matched": 3,
+        "recall": 0.6,
+        "precision": 0.75
+      },
+      "report": {
+        "draws": 3,
+        "min_votes": 2,
+        "audit": true,
+        "ground": true,
+        "sample_errors": 0,
+        "parsed_draws": 3,
+        "after_vote": 6,
+        "vote_removed": 0,
+        "after_audit": 4,
+        "audit_removed": 2,
+        "after_ground": 4,
+        "ground_removed": 0,
+        "final_stage": "done"
+      },
+      "pipeline_claims": [
+        {
+          "kind": "vuln_host",
+          "payload": {
+            "host": "web01",
+            "cve": "CVE-2026-31142"
+          },
+          "evidence": "[08:15:44] VULNSCAN: web01 has CVE-2026-31142 (OpenSSH auth bypass, CVSS 9.1)"
+        },
+        {
+          "kind": "network",
+          "payload": {
+            "host": "db02",
+            "protocol": "postgres",
+            "port": 5432,
+            "allowed_from": "web01"
+          },
+          "evidence": "[08:20:11] NETFLOW: web01 (10.0.4.21) opened 18 connections to db02:5432"
+        },
+        {
+          "kind": "privilege",
+          "payload": {
+            "user": "deploy",
+            "privilege": "root",
+            "host": "web01"
+          },
+          "evidence": "[08:31:55] IAM: root process executed on web01 under user deploy"
+        },
+        {
+          "kind": "exec_code",
+          "payload": {
+            "host": "web01",
+            "user": "deploy"
+          },
+          "evidence": "[08:31:55] IAM: root process executed on web01 under user deploy"
+        }
+      ]
+    },
+    {
+      "model": "opencode/step-5-preview-free",
+      "scenario": "lateral_movement_pair",
+      "single": {
+        "produced": 3,
+        "expected": 3,
+        "matched": 3,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "pipeline": {
+        "produced": 3,
+        "expected": 3,
+        "matched": 3,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "report": {
+        "draws": 3,
+        "min_votes": 2,
+        "audit": true,
+        "ground": true,
+        "sample_errors": 0,
+        "parsed_draws": 2,
+        "after_vote": 3,
+        "vote_removed": 0,
+        "after_audit": 3,
+        "audit_removed": 0,
+        "after_ground": 3,
+        "ground_removed": 0,
+        "final_stage": "done"
+      },
+      "pipeline_claims": [
+        {
+          "kind": "network",
+          "payload": {
+            "host": "host1",
+            "protocol": null,
+            "port": 443,
+            "allowed_from": "attacker"
+          },
+          "evidence": "[10:00:00] FIREWALL: attacker -> host1:443 allowed"
+        },
+        {
+          "kind": "vuln_host",
+          "payload": {
+            "host": "host1",
+            "cve": "CVE-2026-4242"
+          },
+          "evidence": "[10:05:00] VULNSCAN: host1 has CVE-2026-4242 (nginx RCE)"
+        },
+        {
+          "kind": "network",
+          "payload": {
+            "host": "host2",
+            "protocol": null,
+            "port": 443,
+            "allowed_from": "internal"
+          },
+          "evidence": "[10:20:00] FIREWALL: internal -> host2:443 allowed"
+        }
+      ]
+    },
+    {
+      "model": "opencode/step-5-preview-free",
+      "scenario": "privilege_escalation",
+      "single": {
+        "produced": 3,
+        "expected": 3,
+        "matched": 2,
+        "recall": 0.6666666666666666,
+        "precision": 0.6666666666666666
+      },
+      "pipeline": {
+        "produced": 3,
+        "expected": 3,
+        "matched": 3,
+        "recall": 1.0,
+        "precision": 1.0
+      },
+      "report": {
+        "draws": 3,
+        "min_votes": 2,
+        "audit": true,
+        "ground": true,
+        "sample_errors": 0,
+        "parsed_draws": 3,
+        "after_vote": 3,
+        "vote_removed": 1,
+        "after_audit": 3,
+        "audit_removed": 0,
+        "after_ground": 3,
+        "ground_removed": 0,
+        "final_stage": "done"
+      },
+      "pipeline_claims": [
+        {
+          "kind": "network",
+          "payload": {
+            "host": "db01",
+            "protocol": null,
+            "port": 5432,
+            "allowed_from": "attacker"
+          },
+          "evidence": "[11:00:00] FIREWALL: attacker -> db01:5432 allowed"
+        },
+        {
+          "kind": "vuln_host",
+          "payload": {
+            "host": "db01",
+            "cve": "CVE-2026-7777"
+          },
+          "evidence": "[11:05:00] VULNSCAN: db01 has CVE-2026-7777 (Postgres privesc)"
+        },
+        {
+          "kind": "privilege",
+          "payload": {
+            "user": "attacker",
+            "privilege": "admin",
+            "host": "db01"
+          },
+          "evidence": "[11:30:00] IAM: attacker granted admin role on db01"
+        }
+      ]
+    }
+  ],
+  "aggregate": {
+    "single_recall": 0.8666666666666667,
+    "single_precision": 0.7416666666666667,
+    "pipeline_recall": 0.775,
+    "pipeline_precision": 0.9375
+  }
+}
