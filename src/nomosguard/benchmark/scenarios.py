@@ -137,6 +137,68 @@ def build_all_scenarios() -> list[Scenario]:
             expected_exposed=frozenset(),
         ),
         Scenario(
+            name="deep_four_hop_chain",
+            description=(
+                "A 4-hop chain: researcher -> db1 -> db2 -> db3 (CVE here). "
+                "The transitive closure must carry the exposure across three "
+                "intermediate hops."
+            ),
+            claims=(
+                _tool_call("researcher", "sql_query", "db1", 1),
+                _tool_call("db1", "replicate_to", "db2", 2),
+                _tool_call("db2", "replicate_to", "db3", 3),
+                _vuln("db3", "CVE-2026-5000"),
+            ),
+            expected_exposed=frozenset({
+                ("researcher", "db3"),
+                ("db1", "db3"),
+                ("db2", "db3"),
+            }),
+        ),
+        Scenario(
+            name="chain_to_non_vulnerable_component",
+            description=(
+                "A chain that ends at a NON-vulnerable component must derive "
+                "nothing — the transitive closure must not manufacture exposure."
+            ),
+            claims=(
+                _tool_call("researcher", "sql_query", "orders_db", 1),
+                _tool_call("orders_db", "replicate_to", "analytics_db", 2),
+                _vuln("orders_db", "CVE-2026-1234"),  # orders_db itself vulnerable
+            ),
+            # researcher reaches analytics_db (no CVE) AND orders_db (CVE).
+            # Only orders_db exposure is expected; analytics_db must not fire.
+            expected_exposed=frozenset({("researcher", "orders_db")}),
+        ),
+        Scenario(
+            name="shared_component_two_agents",
+            description=(
+                "Two agents operate on the same vulnerable component; both are "
+                "exposed. Both direct-exposure and transitive rules must agree."
+            ),
+            claims=(
+                _tool_call("agent_a", "sql_query", "orders_db", 1),
+                _tool_call("agent_b", "sql_query", "orders_db", 2),
+                _vuln("orders_db", "CVE-2026-1234"),
+            ),
+            expected_exposed=frozenset({
+                ("agent_a", "orders_db"),
+                ("agent_b", "orders_db"),
+            }),
+        ),
+        Scenario(
+            name="policy_deny_via_transitive_reach",
+            description=(
+                "An agent reaches a policy-denied action through a tool call; "
+                "the violation must be derived."
+            ),
+            claims=(
+                _tool_call("researcher", "sql_query", "orders_db", 1),
+                _policy_deny("researcher", "sql_query"),
+            ),
+            expected_exposed=frozenset(),
+        ),
+        Scenario(
             name="no_vulnerability_no_exposure",
             description="A tool call on a component with NO vulnerability record derives nothing.",
             claims=(

@@ -1,13 +1,13 @@
 {
-  "scenarios": 7,
+  "scenarios": 11,
   "recall": 1.0,
-  "caught": 4,
-  "expected_total": 4,
-  "derived_total": 4,
+  "caught": 10,
+  "expected_total": 10,
+  "derived_total": 10,
   "false_positives": 0,
   "fail_closed_ok": true,
   "all_passed": true,
-  "run_at": "2026-10-09T11:47:41.526391+00:00",
+  "run_at": "2026-10-09T12:18:18.064907+00:00",
   "results": [
     {
       "name": "positive_vulnerable_exposure",
@@ -89,6 +89,92 @@
     },
     {
       "name": "policy_violation",
+      "expected": [],
+      "derived": [],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "ALERT"
+    },
+    {
+      "name": "deep_four_hop_chain",
+      "expected": [
+        [
+          "db1",
+          "db3"
+        ],
+        [
+          "db2",
+          "db3"
+        ],
+        [
+          "researcher",
+          "db3"
+        ]
+      ],
+      "derived": [
+        [
+          "db1",
+          "db3"
+        ],
+        [
+          "db2",
+          "db3"
+        ],
+        [
+          "researcher",
+          "db3"
+        ]
+      ],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "chain_to_non_vulnerable_component",
+      "expected": [
+        [
+          "researcher",
+          "orders_db"
+        ]
+      ],
+      "derived": [
+        [
+          "researcher",
+          "orders_db"
+        ]
+      ],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "shared_component_two_agents",
+      "expected": [
+        [
+          "agent_a",
+          "orders_db"
+        ],
+        [
+          "agent_b",
+          "orders_db"
+        ]
+      ],
+      "derived": [
+        [
+          "agent_a",
+          "orders_db"
+        ],
+        [
+          "agent_b",
+          "orders_db"
+        ]
+      ],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "policy_deny_via_transitive_reach",
       "expected": [],
       "derived": [],
       "passed": true,
