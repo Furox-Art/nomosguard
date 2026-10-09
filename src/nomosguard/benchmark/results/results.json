@@ -1,13 +1,13 @@
 {
-  "scenarios": 6,
+  "scenarios": 7,
   "recall": 1.0,
-  "caught": 2,
-  "expected_total": 2,
-  "derived_total": 2,
+  "caught": 4,
+  "expected_total": 4,
+  "derived_total": 4,
   "false_positives": 0,
   "fail_closed_ok": true,
   "all_passed": true,
-  "run_at": "2026-10-08T23:54:36.236216+00:00",
+  "run_at": "2026-10-09T11:47:41.526391+00:00",
   "results": [
     {
       "name": "positive_vulnerable_exposure",
@@ -47,6 +47,32 @@
         [
           "agent_a",
           "orders_db"
+        ]
+      ],
+      "passed": true,
+      "fail_closed_ok": true,
+      "gate_decision": "BLOCK"
+    },
+    {
+      "name": "multi_hop_chain_detected",
+      "expected": [
+        [
+          "orders_db",
+          "analytics_db"
+        ],
+        [
+          "researcher",
+          "analytics_db"
+        ]
+      ],
+      "derived": [
+        [
+          "orders_db",
+          "analytics_db"
+        ],
+        [
+          "researcher",
+          "analytics_db"
         ]
       ],
       "passed": true,

@@ -150,7 +150,32 @@ def default_policy() -> tuple[list[Rule], list[PolicyRule]]:
             ),
             head=Pattern("?agent", "exposes", "?component"),
             description="An agent operating a tool on a vulnerable component exposes it.",
-        ),
+            ),
+            Rule(
+                name="reaches_base",
+                body=(Pattern("?from", "operates_on", "?to"),),
+                head=Pattern("?from", "reaches", "?to"),
+                description="Direct operation implies reachability.",
+            ),
+            Rule(
+                name="reaches_transitive",
+                body=(
+                    Pattern("?from", "reaches", "?mid"),
+                    Pattern("?mid", "reaches", "?to"),
+                ),
+                head=Pattern("?from", "reaches", "?to"),
+                description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
+            ),
+            Rule(
+                name="transitive_exposure",
+                body=(
+                    Pattern("?agent", "calls", "?tool"),
+                    Pattern("?agent", "reaches", "?component"),
+                    Pattern("?component", "has_vulnerability", "?cve"),
+                ),
+                head=Pattern("?agent", "exposes", "?component"),
+                description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
+            ),
         Rule(
             name="policy_denied_action",
             body=(

@@ -65,7 +65,7 @@ hand-derived from the facts, not produced by the engine. Latest run:
 
 | metric | value |
 |---|---|
-| scenarios | 6 |
+| scenarios | 7 |
 | recall | 2/2 = 100% |
 | false positives | 0 |
 | fail-closed on incomplete evidence | OK |

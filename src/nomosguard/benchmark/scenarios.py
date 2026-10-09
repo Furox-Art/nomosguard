@@ -100,6 +100,25 @@ def build_all_scenarios() -> list[Scenario]:
             expected_exposed=frozenset({("agent_a", "orders_db")}),
         ),
         Scenario(
+            name="multi_hop_chain_detected",
+            description=(
+                "A 3-hop chain: researcher -> orders_db -> analytics_db, where "
+                "analytics_db has the CVE. The transitive reaches rules must "
+                "carry the exposure through the chain — the pre-index engine "
+                "could not see this at all."
+            ),
+            claims=(
+                _tool_call("researcher", "sql_query", "orders_db", 1),
+                _tool_call("orders_db", "replicate_to", "analytics_db", 2),
+                _vuln("analytics_db", "CVE-2026-7777"),
+            ),
+            # researcher reaches analytics_db through orders_db and is exposed
+            expected_exposed=frozenset({
+                ("researcher", "analytics_db"),
+                ("orders_db", "analytics_db"),
+            }),
+        ),
+        Scenario(
             name="incomplete_evidence",
             description="A tool call with no vulnerability record — fail-closed default applies.",
             claims=(

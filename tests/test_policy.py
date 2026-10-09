@@ -14,7 +14,7 @@ from nomosguard.policy import PolicyConfigError, load_policy, default_policy
 class TestDefaultPolicy:
     def test_default_policy_loads(self):
         rules, gate = default_policy()
-        assert len(rules) == 2
+        assert len(rules) == 5  # direct exposure + policy_denied + reaches_base + reaches_transitive + transitive_exposure
         assert len(gate) == 2
 
 
@@ -22,7 +22,7 @@ class TestLoadValidPolicy:
     def test_committed_default_file_loads(self):
         path = Path(__file__).resolve().parents[1] / "examples" / "default_policy.json"
         rules, gate = load_policy(path)
-        assert len(rules) == 2
+        assert len(rules) == 5
         assert len(gate) == 2
         assert rules[0].name == "tool_on_vulnerable_component"
 

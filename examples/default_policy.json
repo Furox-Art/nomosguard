@@ -3,21 +3,112 @@
     {
       "name": "tool_on_vulnerable_component",
       "body": [
-        ["?agent", "calls", "?tool"],
-        ["?agent", "operates_on", "?component"],
-        ["?component", "has_vulnerability", "?cve"]
+        [
+          "?agent",
+          "calls",
+          "?tool"
+        ],
+        [
+          "?agent",
+          "operates_on",
+          "?component"
+        ],
+        [
+          "?component",
+          "has_vulnerability",
+          "?cve"
+        ]
       ],
-      "head": ["?agent", "exposes", "?component"],
+      "head": [
+        "?agent",
+        "exposes",
+        "?component"
+      ],
       "description": "An agent operating a tool on a vulnerable component exposes it."
     },
     {
       "name": "policy_denied_action",
       "body": [
-        ["?agent", "calls", "?tool"],
-        ["?agent", "policy_denies", "?action"]
+        [
+          "?agent",
+          "calls",
+          "?tool"
+        ],
+        [
+          "?agent",
+          "policy_denies",
+          "?action"
+        ]
       ],
-      "head": ["?agent", "violates", "policy"],
+      "head": [
+        "?agent",
+        "violates",
+        "policy"
+      ],
       "description": "An agent calling a tool whose action is policy-denied violates policy."
+    },
+    {
+      "name": "reaches_base",
+      "body": [
+        [
+          "?from",
+          "operates_on",
+          "?to"
+        ]
+      ],
+      "head": [
+        "?from",
+        "reaches",
+        "?to"
+      ],
+      "description": "Direct operation implies reachability."
+    },
+    {
+      "name": "reaches_transitive",
+      "body": [
+        [
+          "?from",
+          "reaches",
+          "?mid"
+        ],
+        [
+          "?mid",
+          "reaches",
+          "?to"
+        ]
+      ],
+      "head": [
+        "?from",
+        "reaches",
+        "?to"
+      ],
+      "description": "Transitive reachability: X reaches Z when X reaches Y and Y reaches Z."
+    },
+    {
+      "name": "transitive_exposure",
+      "body": [
+        [
+          "?agent",
+          "calls",
+          "?tool"
+        ],
+        [
+          "?agent",
+          "reaches",
+          "?component"
+        ],
+        [
+          "?component",
+          "has_vulnerability",
+          "?cve"
+        ]
+      ],
+      "head": [
+        "?agent",
+        "exposes",
+        "?component"
+      ],
+      "description": "An agent that can reach a vulnerable component (directly or through a chain) exposes it."
     }
   ],
   "gate": [
