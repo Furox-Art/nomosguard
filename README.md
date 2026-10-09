@@ -55,6 +55,9 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.mcp_server` | MCP session layer: 5 tools (`evidence_ingest`, `assert_claim`, `derive_paths`, `decide`, `explain`) |
 | `nomosguard.mcp_stdio` | JSON-RPC stdio server (`python -m nomosguard.mcp_stdio`) |
 | `nomosguard.benchmark` | Attack-scenario corpus with measured recall / false-positive / fail-closed results |
+| `nomosguard.facts_security` | Host/network/user/service/privilege facts (MulVAL vocabulary) |
+| `nomosguard.rules_security` | MulVAL-style rules: exploit, lateral movement, privilege escalation |
+| `nomosguard.policy_security` | Containment decisions: ISOLATE_HOST, REVOKE_ACCESS, ESCALATE |
 | `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 
 ### Benchmark (measured, not asserted)
@@ -107,8 +110,9 @@ Committed samples: `examples/sample_toolcalls.jsonl`,
 ```bash
 pip install -e .
 python -m nomosguard.demo    # committed scenario: derivation + BLOCK
-pytest tests/                # 51 tests incl. full stdio protocol
-python -m nomosguard.benchmark.run_suite_main   # measured recall / false-positive
+pytest tests/                # 107 tests incl. security suite
+python -m nomosguard.benchmark.run_suite_main          # tool-call corpus (11 scenarios)
+python -m nomosguard.benchmark.security_main           # security corpus (5 scenarios)
 ```
 
 ### Use it from an MCP client

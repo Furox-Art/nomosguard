@@ -29,6 +29,10 @@ class Decision(str, Enum):
     ALLOW = "ALLOW"
     ALERT = "ALERT"
     BLOCK = "BLOCK"
+    # security containment decisions (MulVAL-style attack response)
+    ISOLATE_HOST = "ISOLATE_HOST"
+    REVOKE_ACCESS = "REVOKE_ACCESS"
+    ESCALATE = "ESCALATE"
 
 
 @dataclass(frozen=True)

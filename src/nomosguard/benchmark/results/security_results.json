@@ -1,0 +1,125 @@
+{
+  "scenarios": 5,
+  "exec_code_recall": "4/4",
+  "can_access_recall": "7/7",
+  "grants_recall": "1/1",
+  "false_positives": 0,
+  "all_passed": true,
+  "run_at": "2026-10-09T12:35:39.643634+00:00",
+  "results": [
+    {
+      "name": "single_host_exploit",
+      "exec_code": [
+        [
+          "web01",
+          "attacker"
+        ]
+      ],
+      "can_access": [
+        [
+          "attacker",
+          "web01"
+        ]
+      ],
+      "grants": [],
+      "decisions": [
+        "REVOKE_ACCESS",
+        "ISOLATE_HOST"
+      ],
+      "passed": true
+    },
+    {
+      "name": "lateral_movement",
+      "exec_code": [
+        [
+          "host1",
+          "attacker"
+        ]
+      ],
+      "can_access": [
+        [
+          "attacker",
+          "host1"
+        ],
+        [
+          "attacker",
+          "host2"
+        ],
+        [
+          "internal",
+          "host2"
+        ]
+      ],
+      "grants": [],
+      "decisions": [
+        "REVOKE_ACCESS",
+        "REVOKE_ACCESS",
+        "ISOLATE_HOST"
+      ],
+      "passed": true
+    },
+    {
+      "name": "privilege_escalation",
+      "exec_code": [
+        [
+          "db01",
+          "attacker"
+        ]
+      ],
+      "can_access": [
+        [
+          "attacker",
+          "db01"
+        ]
+      ],
+      "grants": [
+        [
+          "db01",
+          "admin"
+        ]
+      ],
+      "decisions": [
+        "REVOKE_ACCESS",
+        "ISOLATE_HOST",
+        "ESCALATE"
+      ],
+      "passed": true
+    },
+    {
+      "name": "no_reach_no_compromise",
+      "exec_code": [
+        [
+          "internal-db",
+          "admin-laptop"
+        ]
+      ],
+      "can_access": [
+        [
+          "admin-laptop",
+          "internal-db"
+        ]
+      ],
+      "grants": [],
+      "decisions": [
+        "REVOKE_ACCESS",
+        "ISOLATE_HOST"
+      ],
+      "passed": true
+    },
+    {
+      "name": "reach_but_no_vuln",
+      "exec_code": [],
+      "can_access": [
+        [
+          "attacker",
+          "web02"
+        ]
+      ],
+      "grants": [],
+      "decisions": [
+        "REVOKE_ACCESS"
+      ],
+      "passed": true
+    }
+  ]
+}
