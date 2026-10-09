@@ -5,6 +5,42 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-10-09
+
+### Fixed — the core is actually deterministic now
+
+- **Ledger hash included the wall-clock timestamp** — the same claims
+  produced different hashes on every run, so the decision chain was not
+  reproducible. `_entry_hash` now hashes (seq, claim, prev_hash) only;
+  the timestamp stays on the entry for audit but is never hashed.
+  Caught by the new determinism tests — the claim "deterministic core"
+  was previously asserted, not verified.
+
+### Fixed — missing evidence is no longer silent
+
+- Policy rules now declare `requires` (the claim kinds a decision needs).
+- The gate unions sources across every fact matching a policy relation
+  (previously it deduped by (subject, relation) and kept only the first
+  fact's sources — a subject deriving the same relation through two
+  independent chains looked like it was missing evidence it had).
+- Every decision now carries `missing_evidence`; the aggregate result
+  reports the union. An incomplete chain is visible, never swallowed.
+
+### Added — evidence production pipeline
+
+- `benchmark/model_compare/pipeline.py`: four-stage evidence pipeline
+  around the LLM — SAMPLE (N draws) -> VOTE (>= M draws agree) ->
+  AUDIT (flag suspicious claims, never delete) -> GROUND
+  (deterministic verbatim-evidence check, the hard floor).
+- Only grounding removes claims by rule; audit attaches suspicion as
+  metadata so correct evidence is never silently lost.
+- Benchmark harness measures latency and token proxies per call.
+
+### Tests
+
+132 pass (was 113). New: 5 determinism, 5 evidence-completeness,
+14 pipeline tests (all offline, mock-model based).
+
 ## [0.2.2] - 2026-10-09
 
 ### Added — LLM edge integration

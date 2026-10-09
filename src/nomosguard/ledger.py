@@ -101,11 +101,16 @@ class EvidenceLedger:
     # -- construction helpers -------------------------------------------------
 
     @staticmethod
-    def _entry_hash(seq: int, timestamp: str, claim: Claim, prev_hash: str) -> str:
+    def _entry_hash(seq: int, claim: Claim, prev_hash: str) -> str:
+        """Content-addressed hash: identical claims -> identical hash.
+
+        Deliberately excludes the wall-clock timestamp: the chain must be
+        reproducible, so the same evidence always yields the same hash.
+        The timestamp is kept on the entry for audit but never hashed.
+        """
         body = _canonical(
             {
                 "seq": seq,
-                "timestamp": timestamp,
                 "claim": asdict(claim),
                 "prev_hash": prev_hash,
             }
@@ -138,7 +143,7 @@ class EvidenceLedger:
         seq = len(self._entries) + 1
         timestamp = datetime.now(timezone.utc).isoformat()
         prev_hash = self.head_hash
-        entry_hash = self._entry_hash(seq, timestamp, claim, prev_hash)
+        entry_hash = self._entry_hash(seq, claim, prev_hash)
         entry = LedgerEntry(
             seq=seq,
             timestamp=timestamp,
@@ -166,7 +171,7 @@ class EvidenceLedger:
             if entry.prev_hash != prev_hash:
                 return False, f"chain broken at seq {entry.seq}: prev_hash mismatch"
             # entry_hash must be recomputable from content
-            recomputed = self._entry_hash(entry.seq, entry.timestamp, entry.claim, entry.prev_hash)
+            recomputed = self._entry_hash(entry.seq, entry.claim, entry.prev_hash)
             if recomputed != entry.entry_hash:
                 return False, f"tamper detected at seq {entry.seq}: entry_hash mismatch"
             prev_hash = entry.entry_hash
@@ -287,7 +292,7 @@ class EvidenceLedger:
                 # Recompute hashes from content; never trust the stored hashes.
                 prev_hash = ledger.head_hash
                 recomputed = EvidenceLedger._entry_hash(
-                    expected_seq, record["timestamp"], claim, prev_hash
+                    expected_seq, claim, prev_hash
                 )
                 if recomputed != record.get("entry_hash"):
                     raise LedgerFileError(

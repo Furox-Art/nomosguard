@@ -41,6 +41,11 @@ class PolicyRule:
 
     `match_relation` matches the derived fact's relation; `match_object`
     (optional) further constrains the object. `decision` is emitted.
+
+    `requires` lists the claim kinds that must be present for this
+    decision to be considered complete. A decision derived without them
+    is flagged with `missing_evidence` — it may be correct, but the
+    chain is thinner than the policy demands.
     """
 
     name: str
@@ -48,6 +53,7 @@ class PolicyRule:
     decision: Decision
     match_object: str | None = None
     description: str = ""
+    requires: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -59,6 +65,7 @@ class GateDecision:
     chain: tuple[str, ...]          # human-readable derivation steps
     policy_rule: str                # which policy rule fired
     derived_from: tuple[str, ...]   # claim kinds that backed the derivation
+    missing_evidence: tuple[str, ...] = ()  # required kinds absent from the chain
 
 
 class PolicyGate:
@@ -78,29 +85,44 @@ class PolicyGate:
         Deterministic: same engine state -> same decisions, always.
         """
         decisions: list[GateDecision] = []
-        seen: set[tuple[str, str]] = set()
 
+        # Collect facts per (policy rule, subject), UNIONING sources across
+        # every fact that matches — a subject may derive the same relation
+        # through several independent chains, and the evidence base is the
+        # union of all of them, never just the first one seen.
+        grouped: dict[tuple[str, str], list[Fact]] = {}
+        policy_of: dict[tuple[str, str], PolicyRule] = {}
         for fact in engine.facts:
             for policy in self.policy_rules:
                 if fact.relation != policy.match_relation:
                     continue
                 if policy.match_object is not None and fact.object != policy.match_object:
                     continue
-                key = (fact.subject, fact.relation)
-                if key in seen:
-                    continue
-                seen.add(key)
-                chain = self._build_chain(fact, engine)
-                decisions.append(
-                    GateDecision(
-                        decision=policy.decision,
-                        subject=fact.subject,
-                        chain=tuple(chain),
-                        policy_rule=policy.name,
-                        derived_from=fact.sources,
-                    )
-                )
+                key = (policy.name, fact.subject)
+                grouped.setdefault(key, []).append(fact)
+                policy_of[key] = policy
                 break  # first matching policy rule wins for this fact
+
+        for (policy_name, subject), facts in sorted(grouped.items()):
+            policy = policy_of[(policy_name, subject)]
+            # Union of every source kind backing any fact for this subject
+            present: set[str] = set()
+            for f in facts:
+                present.update(f.sources)
+            missing = tuple(k for k in policy.requires if k not in present)
+            chain: list[str] = []
+            for f in facts:
+                chain.extend(self._build_chain(f, engine))
+            decisions.append(
+                GateDecision(
+                    decision=policy.decision,
+                    subject=subject,
+                    chain=tuple(chain),
+                    policy_rule=policy_name,
+                    derived_from=tuple(sorted(present)),
+                    missing_evidence=missing,
+                )
+            )
 
         return decisions
 
@@ -136,18 +158,28 @@ class PolicyGate:
             Decision.ALLOW: 1,
         }
         worst = max(decisions, key=lambda d: order[d.decision])
+        # Aggregate missing evidence across all decisions — an incomplete
+        # chain is reported, never silently swallowed.
+        all_missing: list[str] = []
+        for d in decisions:
+            for kind in d.missing_evidence:
+                if kind not in all_missing:
+                    all_missing.append(kind)
         return {
             "decision": worst.decision.value,
             "reason": f"{len(decisions)} decision(s); strongest is {worst.decision.value}",
             "policy_rule": worst.policy_rule,
             "chain": list(worst.chain),
             "derived_from": list(worst.derived_from),
+            "missing_evidence": all_missing,
             "all_decisions": [
                 {
                     "subject": d.subject,
                     "decision": d.decision.value,
                     "policy_rule": d.policy_rule,
                     "chain": list(d.chain),
+                    "derived_from": list(d.derived_from),
+                    "missing_evidence": list(d.missing_evidence),
                 }
                 for d in decisions
             ],

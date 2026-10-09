@@ -60,7 +60,40 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.policy_security` | Containment decisions: ISOLATE_HOST, REVOKE_ACCESS, ESCALATE |
 | `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 
-### Benchmark (measured, not asserted)
+### Evidence production pipeline
+
+The LLM edge is where hallucinations live — every model in the 16-model
+benchmark invented at least one claim. `nomosguard.benchmark.model_compare.pipeline`
+wraps model output in four stages, ordered by how much they can be trusted:
+
+```
+1. SAMPLE   N independent draws from the model
+2. VOTE     keep a claim only if >= M draws produced it
+            (one-off claims are likely hallucinations)
+3. AUDIT    a second prompt asks the model to FLAG suspicious claims
+            — it never deletes them (measured: deletion cost recall)
+4. GROUND   deterministic: a claim survives only if its evidence
+            field is a verbatim substring of the raw logs
+```
+
+Only stage 4 removes claims by hard rule. Stage 3 attaches suspicion as
+metadata (`result.flagged`); the claim survives so no correct evidence
+is ever silently lost. A first measured pass (step-5-preview-free,
+4 scenarios) showed the pipeline trading −9 recall points for +20
+precision points against single-pass extraction — the flag-not-delete
+audit design exists to close that recall gap.
+
+```python
+from nomosguard.benchmark.model_compare.pipeline import run_pipeline
+
+result = run_pipeline(model_fn, raw_logs, draws=3, min_votes=2)
+# result.claims  — surviving claims, each with vote support
+# result.flagged — suspicious claims, kept but marked
+# result.report  — per-stage removals, for measurement
+```
+
+
+## Benchmark (measured, not asserted)
 
 Run with `python -m nomosguard.benchmark.run_suite_main --output DIR`. The
 corpus is committed and deterministic; the expected outcomes are

@@ -23,17 +23,26 @@ def containment_policy_rules() -> list[PolicyRule]:
             match_relation="execCode",
             decision=Decision.ISOLATE_HOST,
             description="A host with derived code execution is compromised — isolate it.",
+            # execCode is trustworthy when it is *derived* (exploit) or
+            # directly attested (exec_code claim). A bare access path is
+            # NOT enough — see revoke_attacker_access, which requires no
+            # compromise evidence.
+            requires=("network", "exec_code"),
         ),
         PolicyRule(
             name="revoke_attacker_access",
             match_relation="canAccessHost",
             decision=Decision.REVOKE_ACCESS,
             description="An attacker with a derived access path must have it revoked.",
+            # Access paths need only network evidence; vulnerability or
+            # execution evidence is not required to revoke a path.
+            requires=("network",),
         ),
         PolicyRule(
             name="escalate_privileged_compromise",
             match_relation="grantsPrivilege",
             decision=Decision.ESCALATE,
             description="A privileged compromise needs human escalation.",
+            requires=("network", "privilege"),
         ),
     ]

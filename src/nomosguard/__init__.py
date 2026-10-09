@@ -6,4 +6,4 @@ Language models never cross the decision boundary: the ledger, the rule
 engine, and the policy gate are fully deterministic.
 """
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"

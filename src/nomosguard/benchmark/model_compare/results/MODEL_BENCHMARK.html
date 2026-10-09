@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NomosGuard — LLM benchmark</title>
+<style>
+  :root {
+    --fg: #111827; --muted: #6b7280; --border: #e5e7eb;
+    --bg: #ffffff; --hl: #eef4ff; --good: #ecfdf5; --mid: #fffbeb; --bad: #fef2f2;
+    --good-fg: #047857; --mid-fg: #b45309; --bad-fg: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+          color: var(--fg); background: var(--bg); margin: 28px 32px; font-size: 14px;
+          line-height: 1.45; }
+  h1 { font-size: 19px; font-weight: 600; margin: 0 0 2px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 22px; font-size: 13px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 26px; }
+  th { text-align: left; font-size: 10.5px; text-transform: uppercase;
+        letter-spacing: .06em; color: var(--muted); font-weight: 600;
+        border-bottom: 1.5px solid var(--border); padding: 7px 10px; white-space: nowrap; }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  .model { font-weight: 500; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+            font-size: 12.5px; white-space: nowrap; }
+  .adapter { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  .hl { background: var(--hl); font-weight: 600; }
+  .good { background: var(--good); color: var(--good-fg); font-weight: 600; text-align: center; }
+  .mid { background: var(--mid); color: var(--mid-fg); text-align: center; }
+  .bad { background: var(--bad); color: var(--bad-fg); text-align: center; }
+  .err { color: var(--muted); text-align: center; }
+  h2 { font-size: 15px; font-weight: 600; margin: 26px 0 6px; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 14px;
+           border-top: 1px solid var(--border); padding-top: 12px; }
+  .note b { color: var(--fg); font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>LLM benchmark — security telemetry parsing</h1>
+<p class="sub">NomosGuard LLM-edge evaluation · 9 models · 4 scenarios · 40 runs · all values measured by script</p>
+
+<table>
+  <thead><tr>
+    <th>Model</th><th>Source</th><th>JSON</th><th>Schema</th>
+    <th>Recall</th><th>Precision</th><th>Evidence</th><th>Halluc.</th>
+  </tr></thead>
+  <tbody><tr>
+  <td class="model">claude-opus-4.6</td>
+  <td class="adapter">Antigravity (your quota)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">100%</td>
+  <td>88%</td>
+  <td>100%</td>
+  <td>2</td>
+</tr><tr>
+  <td class="model">gemini-3.8-flash</td>
+  <td class="adapter">Antigravity (your quota)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">100%</td>
+  <td>96%</td>
+  <td>100%</td>
+  <td>1</td>
+</tr><tr>
+  <td class="model">gpt-oss-120b</td>
+  <td class="adapter">Antigravity (your quota)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">100%</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td>0</td>
+</tr><tr>
+  <td class="model">opencode/step-5-preview-free</td>
+  <td class="adapter"></td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">100%</td>
+  <td>88%</td>
+  <td>100%</td>
+  <td>2</td>
+</tr><tr>
+  <td class="model">claude-sonnet-4.6</td>
+  <td class="adapter">Antigravity (your quota)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">95%</td>
+  <td>83%</td>
+  <td>100%</td>
+  <td>2</td>
+</tr><tr>
+  <td class="model">gemini-3.1-pro</td>
+  <td class="adapter">Antigravity (your quota)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">95%</td>
+  <td>95%</td>
+  <td>100%</td>
+  <td>1</td>
+</tr><tr>
+  <td class="model">opencode/mimo-v2.6-flash-free</td>
+  <td class="adapter"></td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">95%</td>
+  <td>95%</td>
+  <td>100%</td>
+  <td>1</td>
+</tr><tr>
+  <td class="model">opencode/longcat-2.5-preview-free</td>
+  <td class="adapter">OpenCode Zen (free)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">95%</td>
+  <td>83%</td>
+  <td>100%</td>
+  <td>2</td>
+</tr><tr>
+  <td class="model">opencode/nemotron-3-ultra-free</td>
+  <td class="adapter">OpenCode Zen (free)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">95%</td>
+  <td>95%</td>
+  <td>100%</td>
+  <td>1</td>
+</tr><tr>
+  <td class="model">opencode/space-bunny-free</td>
+  <td class="adapter">OpenCode Zen (free)</td>
+  <td>100%</td>
+  <td>75%</td>
+  <td class="hl">95%</td>
+  <td>87%</td>
+  <td>100%</td>
+  <td>1</td>
+</tr><tr>
+  <td class="model">opencode/ling-3.1-flash-free</td>
+  <td class="adapter"></td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">93%</td>
+  <td>82%</td>
+  <td>100%</td>
+  <td>2</td>
+</tr><tr>
+  <td class="model">opencode/big-pickle</td>
+  <td class="adapter">OpenCode Zen (free)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">88%</td>
+  <td>88%</td>
+  <td>100%</td>
+  <td>1</td>
+</tr><tr>
+  <td class="model">mistral-medium-3.5</td>
+  <td class="adapter">vibe</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">87%</td>
+  <td>78%</td>
+  <td>100%</td>
+  <td>2</td>
+</tr><tr>
+  <td class="model">opencode/muse-spark-1.3-contributor-free</td>
+  <td class="adapter">OpenCode Zen (free)</td>
+  <td>100%</td>
+  <td>100%</td>
+  <td class="hl">55%</td>
+  <td>62%</td>
+  <td>75%</td>
+  <td>1</td>
+</tr><tr>
+  <td class="model">gemini-3.7-flash</td>
+  <td class="adapter">Antigravity (your quota)</td>
+  <td>25%</td>
+  <td>25%</td>
+  <td class="hl">25%</td>
+  <td>25%</td>
+  <td>25%</td>
+  <td>0</td>
+</tr><tr>
+  <td class="model">gemini-3.6-flash</td>
+  <td class="adapter">Antigravity (your quota)</td>
+  <td>0%</td>
+  <td>0%</td>
+  <td class="hl">0%</td>
+  <td>0%</td>
+  <td>0%</td>
+  <td>0</td>
+</tr></tbody>
+</table>
+
+<h2>Recall by scenario</h2>
+<table>
+  <thead><tr><th>Model</th><th>brute force then pivot</th><th>benign admin window</th><th>lateral movement pair</th><th>privilege escalation</th></tr></thead>
+  <tbody><tr><td class="model">claude-opus-4.6</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">gemini-3.8-flash</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">gpt-oss-120b</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">opencode/step-5-preview-free</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">claude-sonnet-4.6</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">gemini-3.1-pro</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">opencode/mimo-v2.6-flash-free</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">opencode/longcat-2.5-preview-free</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">opencode/nemotron-3-ultra-free</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">opencode/space-bunny-free</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">opencode/ling-3.1-flash-free</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="err">—</td></tr><tr><td class="model">opencode/big-pickle</td><td class="good">100%</td><td class="bad">50%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">mistral-medium-3.5</td><td class="mid">80%</td><td class="good">100%</td><td class="good">100%</td><td class="bad">67%</td></tr><tr><td class="model">opencode/muse-spark-1.3-contributor-free</td><td class="bad">20%</td><td class="bad">0%</td><td class="good">100%</td><td class="good">100%</td></tr><tr><td class="model">gemini-3.7-flash</td><td class="bad">0%</td><td class="bad">0%</td><td class="good">100%</td><td class="bad">0%</td></tr><tr><td class="model">gemini-3.6-flash</td><td class="bad">0%</td><td class="bad">0%</td><td class="bad">0%</td><td class="bad">0%</td></tr></tbody>
+</table>
+
+<div class="note">
+  <b>Methodology:</b> each model receives the same prompt on the same 4 hand-derived
+  scenarios; outputs are scored by script — JSON validity, schema conformance,
+  claim recall/precision against ground truth, verbatim evidence citation, and
+  hallucination count. Ground truth was derived from the raw logs before any model
+  output was seen. All numbers come from actual runs; none are hand-computed.
+  Runs executed 2026-10-09 via OpenCode Zen (free tier) and Antigravity CLI
+  (user account quota).
+</div>
+</body>
+</html>
