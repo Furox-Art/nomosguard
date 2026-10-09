@@ -168,6 +168,9 @@ class RuleEngine:
         self.rules: list[Rule] = list(rules) if rules else []
         self._facts: dict[tuple[str, str, str], Fact] = {}
         self._derivation_trace: list[dict[str, Any]] = []
+        # lookup indexes, rebuilt at the start of each fixpoint round
+        self._index_ro: dict[tuple[str, str], list[Fact]] = {}
+        self._index_sr: dict[tuple[str, str], list[Fact]] = {}
 
     # -- fact management ------------------------------------------------------
 
@@ -207,6 +210,7 @@ class RuleEngine:
         changed = True
         while changed:
             changed = False
+            self._rebuild_index()  # facts grew since the last round
             for rule in self.rules:
                 for match in self._match_rule(rule):
                     subject, relation, obj = rule.head.substitute(match.bindings)
@@ -234,18 +238,80 @@ class RuleEngine:
 
     # -- internal matching ----------------------------------------------------
 
+    def _rebuild_index(self) -> None:
+        """Build lookup indexes over the current fact set.
+
+        Two indexes:
+        - by_relation_object: (relation, object) -> facts  — used when the
+          pattern's object position is concrete
+        - by_subject_relation: (subject, relation) -> facts — used when the
+          subject position is concrete (already bound)
+
+        Both are rebuilt lazily before each fixpoint round (facts only grow
+        within a round, and the round re-iterates until no new facts appear).
+        """
+        by_ro: dict[tuple[str, str], list[Fact]] = {}
+        by_sr: dict[tuple[str, str], list[Fact]] = {}
+        for fact in self._facts.values():
+            by_ro.setdefault((fact.relation, fact.object), []).append(fact)
+            by_sr.setdefault((fact.subject, fact.relation), []).append(fact)
+        for lst in by_ro.values():
+            lst.sort(key=lambda f: f.key)
+        for lst in by_sr.values():
+            lst.sort(key=lambda f: f.key)
+        self._index_ro = by_ro
+        self._index_sr = by_sr
+
+    def _candidates(self, pattern: Pattern, bindings: dict[str, str]) -> list[Fact]:
+        """Narrow the candidate facts for a pattern using the indexes.
+
+        Selection logic (most selective first):
+        1. If the subject position is already bound (variable with a known
+           value), look up by (subject, relation).
+        2. Else if the subject position is concrete (non-variable), look up
+           by (subject, relation) as well.
+        3. Else if the relation+object are concrete, look up by
+           (relation, object).
+        4. Otherwise fall back to all facts (fully-variable pattern).
+        """
+        subj = pattern.subject
+        relation = pattern.relation
+
+        # subject concrete or already bound -> index by (subject, relation)
+        if not _is_variable(subj):
+            return self._index_sr.get((subj, relation), [])
+        bound_subj = bindings.get(subj)
+        if bound_subj is not None:
+            return self._index_sr.get((bound_subj, relation), [])
+
+        # relation+object concrete -> index by (relation, object)
+        obj = pattern.object
+        if not _is_variable(obj):
+            return self._index_ro.get((relation, obj), [])
+        bound_obj = bindings.get(obj)
+        if bound_obj is not None:
+            return self._index_ro.get((relation, bound_obj), [])
+
+        # fully-variable pattern: scan all facts with this relation
+        all_with_rel: list[Fact] = []
+        for (r, _o), facts in self._index_ro.items():
+            if r == relation:
+                all_with_rel.extend(facts)
+        all_with_rel.sort(key=lambda f: f.key)
+        return all_with_rel
+
     def _match_rule(self, rule: Rule) -> list[Match]:
         """Find all substitutions satisfying the rule body.
 
-        Backtracking unification: for each body literal, every fact is tried
-        in deterministic (sorted) order; a candidate survives only if it
-        unifies with the bindings accumulated from the previous literals.
-        The same variable binding to two different facts is rejected, so
-        body literals cannot silently select different entities.
+        Backtracking unification: for each body literal, only index-selected
+        candidate facts are tried (deterministic sorted order); a candidate
+        survives only if it unifies with the bindings accumulated from the
+        previous literals. The same variable binding to two different facts
+        is rejected, so body literals cannot silently select different
+        entities.
         """
-        all_facts = sorted(self._facts.values(), key=lambda f: f.key)
         matches: list[Match] = []
-        self._unify_body(rule.body, 0, {}, [], all_facts, matches)
+        self._unify_body(rule.body, 0, {}, [], matches)
         return matches
 
     def _unify_body(
@@ -254,18 +320,17 @@ class RuleEngine:
         idx: int,
         bindings: dict[str, str],
         facts_so_far: list[Fact],
-        all_facts: list[Fact],
         out: list[Match],
     ) -> None:
         if idx == len(body):
             out.append(Match(dict(bindings), tuple(facts_so_far)))
             return
         pattern = body[idx]
-        for fact in all_facts:
+        for fact in self._candidates(pattern, bindings):
             new_bindings = pattern.unify(fact, bindings)
             if new_bindings is not None:
                 facts_so_far.append(fact)
-                self._unify_body(body, idx + 1, new_bindings, facts_so_far, all_facts, out)
+                self._unify_body(body, idx + 1, new_bindings, facts_so_far, out)
                 facts_so_far.pop()
 
 

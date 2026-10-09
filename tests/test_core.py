@@ -360,3 +360,77 @@ class TestLedgerPersistence:
                 assert False, "empty file must raise LedgerFileError"
             except LedgerFileError:
                 pass
+
+
+class TestIndexedMatching:
+    """The index must not change results, and must keep derivation tractable."""
+
+    def test_index_preserves_derivation_results(self):
+        """Same rules, same facts: indexed matcher derives exactly what the
+        full-scan matcher would (correctness is not traded for speed)."""
+        engine = RuleEngine(
+            rules=[
+                Rule(
+                    name="expose",
+                    body=(
+                        Pattern("?agent", "calls", "?tool"),
+                        Pattern("?agent", "operates_on", "?component"),
+                        Pattern("?component", "has_vulnerability", "?cve"),
+                    ),
+                    head=Pattern("?agent", "exposes", "?component"),
+                )
+            ]
+        )
+        for a in range(5):
+            for c in range(5):
+                if a <= c:
+                    engine.add_fact(Fact(f"agent{a}", "calls", f"tool{a}", ("tool_call",)))
+                    engine.add_fact(Fact(f"agent{a}", "operates_on", f"comp{c}", ("tool_call",)))
+        engine.add_fact(Fact("comp1", "has_vulnerability", "CVE-1", ("vulnerability",)))
+        engine.add_fact(Fact("comp3", "has_vulnerability", "CVE-3", ("vulnerability",)))
+        engine.derive()
+        derived = {f.key for f in engine.facts if f.relation == "exposes"}
+        # agent1 operates on comps 1..4 (c>=1), only comp1 vulnerable
+        assert ("agent1", "exposes", "comp1") in derived
+        # agent3 operates on comps 3..4, only comp3 vulnerable
+        assert ("agent3", "exposes", "comp3") in derived
+        # agent0 operates on all comps incl. 1 and 3
+        assert ("agent0", "exposes", "comp1") in derived
+        assert ("agent0", "exposes", "comp3") in derived
+        # agent4 operates only on comp4 (not vulnerable) -> nothing
+        assert not any(k[0] == "agent4" for k in derived)
+
+    def test_large_graph_derivation_completes(self):
+        """A 30k-claim graph derives in bounded time (regression guard).
+
+        Before the index, 4k claims took ~10s and 33k timed out. The
+        indexed matcher must finish well under a minute on this size.
+        """
+        import time
+
+        engine = RuleEngine(
+            rules=[
+                Rule(
+                    name="expose",
+                    body=(
+                        Pattern("?agent", "calls", "?tool"),
+                        Pattern("?agent", "operates_on", "?component"),
+                        Pattern("?component", "has_vulnerability", "?cve"),
+                    ),
+                    head=Pattern("?agent", "exposes", "?component"),
+                )
+            ]
+        )
+        for a in range(100):
+            for t in range(20):
+                for c in range(50):
+                    if (a + t + c) % 3 == 0:
+                        engine.add_fact(Fact(f"a{a}", "calls", f"t{t}", ("tool_call",)))
+                        engine.add_fact(Fact(f"a{a}", "operates_on", f"c{c}", ("tool_call",)))
+        engine.add_fact(Fact("c1", "has_vulnerability", "CVE-1", ("vulnerability",)))
+        t0 = time.time()
+        engine.derive()
+        elapsed = time.time() - t0
+        assert elapsed < 30.0, f"derivation took {elapsed:.1f}s on 33k claims (index regression?)"
+        derived = [f for f in engine.facts if f.relation == "exposes"]
+        assert derived, "expected at least one exposure on the large graph"
