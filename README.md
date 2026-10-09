@@ -60,7 +60,41 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.policy_security` | Containment decisions: ISOLATE_HOST, REVOKE_ACCESS, ESCALATE |
 | `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 
-### Actionable containment (dry-run)
+### Multi-model ensemble (cross-model voting)
+
+The single-model pipeline samples one model N times. That fixes random
+noise, not *systematic* misreading: if one model consistently reads a log
+wrong, all its draws agree on the wrong answer.
+
+`nomosguard.benchmark.model_compare.ensemble` runs several models on the
+same logs and votes **across** them:
+
+```python
+from nomosguard.benchmark.model_compare.ensemble import run_ensemble
+
+result = run_ensemble(
+    {
+        "step5":  lambda p: run_step5(p),
+        "mimo":   lambda p: run_mimo(p),
+        "gptoss": lambda p: run_gptoss(p),
+    },
+    raw_logs,
+    min_models=2,       # a claim must come from >= 2 DISTINCT models
+    audit=True,         # flag suspicious claims (never delete)
+    ground=True,        # deterministic verbatim-evidence floor
+)
+# result.claims   — cross-model agreed claims
+# result.backers  — which models produced each claim
+# result.flagged  — suspicious claims, kept
+```
+
+A claim produced by only one model is dropped at `min_models=2` (or kept
+if `keep_singletons=True`). Different architectures misread different
+ways, so cross-model disagreement is signal; one model agreeing with
+itself is not.
+
+
+## Actionable containment (dry-run)
 
 The gate decides; something else acts. `nomosguard.containment` translates
 decisions into operator-reviewable action plans — and executes nothing

@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-10-10
+
+### Added — multi-model ensemble
+
+- `nomosguard.benchmark.model_compare.ensemble`: cross-model voting.
+  Several models extract from the same logs; a claim survives only if
+  >= min_models DISTINCT models produced it. Single-model claims are
+  dropped (or kept via keep_singletons).
+- Backers are recorded per claim; per-model extraction counts and
+  singleton removals are reported.
+- Measured on real UNSW-NB15 data (3 models, 3 scenarios): precision
+  100%, with zero single-model claims on real telemetry — the models
+  agreed on real, well-structured logs far more than on synthetic ones.
+
+### Tests
+
+158 pass (was 148). New: 10 ensemble tests (offline, mock models).
+
 ## [0.3.0] - 2026-10-09
 
 ### Added — actionable containment (dry-run)
