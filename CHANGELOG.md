@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-10-10
+
+### Added — temporal rules (deterministic time-window correlation)
+
+- `nomosguard.temporal`: threshold rules over timestamped events. A
+  brute force is not one failed login — it is 5+ failures from one
+  source within 2 minutes. That pattern exists only in the time
+  dimension, which no static rule engine can see.
+- Built-in rules: brute force, port scan, exfil burst. Custom rules
+  supported (group-by regex, match regex, threshold, window).
+- Fully deterministic: same events + same rules -> same facts; order
+  independent. Timestamps parse from [HH:MM:SS], ISO-8601, epoch.
+
+### Removed — LLM benchmark suite
+
+- `benchmark/model_compare/` (16-model comparison, pipeline, ensemble)
+- `benchmark/real_corpus/` (UNSW-NB15 scenario builder)
+- `docs/benchmark/` (published results + methodology)
+- The benchmark work answered its questions (LLMs hallucinate, the
+  gate holds, models agree on real telemetry) and is out of scope for
+  the core. The original tool-call and security corpora
+  (`benchmark/run_suite.py`, `security_run_suite.py`) remain.
+
+### Tests
+
+140 pass. New: 9 temporal tests. Removed: 24 benchmark tests.
+
 ## [0.3.1] - 2026-10-10
 
 ### Added — multi-model ensemble
