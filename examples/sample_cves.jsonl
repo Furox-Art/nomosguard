@@ -1,0 +1,5 @@
+{"component": "orders_db", "cve": "CVE-2026-1234", "severity": "high", "description": "SQL injection"}
+{"component": "analytics_db", "cve": "CVE-2026-7777", "severity": "critical"}
+{"component": "orders_db", "cve": "CVE-2026-1234", "severity": "high", "description": "SQL injection"}
+{"component": "users_db", "cve": "CVE-2026-9999", "severity": "medium"}
+{"component": "broken_db"}

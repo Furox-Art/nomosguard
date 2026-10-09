@@ -75,16 +75,21 @@ What the corpus does NOT cover (stated honestly): real-world logs, evidence
 tampering *inside* the ledger (that is the ledger's own test suite's job),
 and any scenario requiring an LLM to judge.
 
-### Ingestion
+### Ingestion (three evidence types, one discipline)
 
-```bash
-python -m nomosguard.ingest.cli examples/sample_toolcalls.jsonl [--ledger PATH]
-```
+Three adapters, each with the same contract: every claim cites
+`sha256:<hex>` of the raw source line; malformed records are rejected with
+line number and reason (fail-closed); duplicate lines are counted, never
+re-appended.
 
-Every accepted record becomes a claim whose evidence field is
-`sha256:<hex>` of the raw log line — independently verifiable. Malformed
-records are rejected with line number and reason; duplicate lines are
-counted, never re-appended.
+| Adapter | Input (JSONL) | Claim kind |
+|---|---|---|
+| `ingest.toolcall_jsonl` | `{"agent", "tool", "target", "args"?}` | `tool_call` |
+| `ingest.vuln_jsonl` | `{"component", "cve": "CVE-YYYY-NNNN", "severity", "description"?}` | `vulnerability` |
+| `ingest.policy_jsonl` | `{"subject", "action", "resource", "effect": "allow\|deny"}` | `policy_rule` |
+
+Committed samples: `examples/sample_toolcalls.jsonl`,
+`examples/sample_cves.jsonl`, `examples/sample_policies.jsonl`.
 
 
 

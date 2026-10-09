@@ -1,0 +1,4 @@
+{"subject": "researcher", "action": "sql_query", "resource": "orders_db", "effect": "deny"}
+{"subject": "researcher", "action": "file_reader", "resource": "/data/clean.csv", "effect": "allow"}
+{"subject": "analyst", "action": "sql_query", "resource": "customers_db", "effect": "allow"}
+{"subject": "bad-actor", "action": "shell_exec", "resource": "*", "effect": "deny"}
