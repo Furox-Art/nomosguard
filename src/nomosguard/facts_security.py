@@ -8,6 +8,9 @@ Fact vocabulary:
     (host, execCode, user)           — code executes on host as user
     (host, netAccess, protocol:port) — host accepts network connections
     (host, vulExists, cve)           — host has a known vulnerability
+    (host, vulnSeverity, severity)   — host has a vulnerability at an NVD
+                                       CVSS band (CRITICAL/HIGH/MEDIUM/LOW),
+                                       grounded by nomosguard.vuln_db
     (attacker, canAccessHost, host)  — attacker can reach the host
     (user, hasPrivilege, privilege)  — user holds a privilege
     (host, runsService, service)     — host runs a service
@@ -102,4 +105,37 @@ def _extract_vuln_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
     facts = []
     if host and cve:
         facts.append(Fact(host, "vulExists", cve, ("vuln_host",)))
+    return facts
+
+
+# -- NVD-grounded severity ----------------------------------------------------
+# The vuln_host claim says only "some CVE is present". The vuln_severity
+# claim adds the NVD-grounded CVSS band, so the engine can distinguish
+# "has a CVE" from "has a CRITICAL CVE" — a distinction the bare relation
+# could not express. The severity is grounded by nomosguard.vuln_db
+# (NVD API 2.0, offline-cached) before the claim reaches the ledger; this
+# extractor is a pure function of the already-enriched payload, so no I/O
+# and no nondeterminism enters the core.
+
+@register_extractor("vuln_severity")
+def _extract_vuln_severity(payload: dict[str, Any], evidence: str) -> list[Fact]:
+    """Extract severity facts from an NVD-enriched vulnerability record.
+
+    Payload convention:
+      {"host": str, "cve": str, "cvss": float, "severity": "CRITICAL"|...}
+
+    Produces: (host, vulnSeverity, severity) — e.g.
+      Fact("web01", "vulnSeverity", "CRITICAL").
+
+    The extractor trusts the severity already carried by the payload (it was
+    grounded by the NVD layer at ingestion time) rather than re-deriving it,
+    which keeps the core free of the NVD dependency. A payload missing the
+    severity field yields no fact — the engine stays silent instead of
+    guessing a band.
+    """
+    host = str(payload.get("host", ""))
+    severity = str(payload.get("severity", "")).strip().upper()
+    facts = []
+    if host and severity and severity != "UNKNOWN":
+        facts.append(Fact(host, "vulnSeverity", severity, ("vuln_severity",)))
     return facts

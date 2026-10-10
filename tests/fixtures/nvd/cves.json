@@ -1,0 +1,2969 @@
+{
+ "cves": [
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "vsftpd 2.3.4 downloaded between 20110630 and 20110703 contains a backdoor which opens a shell on port 6200/tcp."
+    },
+    {
+     "lang": "es",
+     "value": "vsftpd versi\u00f3n 2.3.4 descargado entre 20110630 y 20110703, contiene una puerta trasera (backdoor) que abre un shell en el puerto 6200/tcp."
+    }
+   ],
+   "id": "CVE-2011-2523",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 10.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2019-11-27T21:15:12.387",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The RPC code generator in Samba 3.x before 3.4.16, 3.5.x before 3.5.14, and 3.6.x before 3.6.4 does not implement validation of an array length in a manner consistent with validation of array memory allocation, which allows remote attackers to execute arbitrary code via a crafted RPC call."
+    },
+    {
+     "lang": "es",
+     "value": "El generador de c\u00f3digo RPC de Samba 3.x anteriores a 3.4.16, 3.5.x anteriores a 3.5.14, y 3.6.x anteriores a 3.6.4 no implementa la validaci\u00f3n de una longitud de array de una manera consistente con la validaci\u00f3n de la reserva de memoria del array, lo que permite a atacantes remotos ejecutar c\u00f3digo arbitrario a trav\u00e9s de una llamada RPC modificada."
+    }
+   ],
+   "id": "CVE-2012-1182",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 10.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ]
+   },
+   "published": "2012-04-10T21:55:02.203",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "sql/password.c in Oracle MySQL 5.1.x before 5.1.63, 5.5.x before 5.5.24, and 5.6.x before 5.6.6, and MariaDB 5.1.x before 5.1.62, 5.2.x before 5.2.12, 5.3.x before 5.3.6, and 5.5.x before 5.5.23, when running in certain environments with certain implementations of the memcmp function, allows remote attackers to bypass authentication by repeatedly authenticating with the same incorrect password, which eventually causes a token comparison to succeed due to an improperly-checked return value."
+    },
+    {
+     "lang": "es",
+     "value": "sql/password.c en Oracle MySQL 5.1.x anterior a 5.1.63, 5.5.x anterior a 5.5.24, y 5.6.x anterior a  5.6.6, y MariaDB 5.1.x anterior a 5.1.62, 5.2.x anterior a  5.2.12, 5.3.x anterior a 5.3.6, y 5.5.x anterior a 5.5.23, cuando se ejecuta en determinados entornos con determinadas implementaciones de la funci\u00f3n memcmp, permite que atacantes remotos eviten la autenticaci\u00f3n utilizando repetidamente la misma contrase\u00f1a incorrecta, lo que eventualmente provoca una comparaci\u00f3n de token con resultado de \u00e9xito en una variable de retorno no validada"
+    }
+   ],
+   "id": "CVE-2012-2122",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "HIGH",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 5.1,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:H/Au:N/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 4.9,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ]
+   },
+   "published": "2012-06-26T18:55:05.083",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "nginx 0.8.41 through 1.4.3 and 1.5.x before 1.5.7 allows remote attackers to bypass intended restrictions via an unescaped space character in a URI."
+    },
+    {
+     "lang": "es",
+     "value": "nginx 0.8.41 hasta la versi\u00f3n 1.4.3 y 1.5.x anterior a la versi\u00f3n 1.5.7 permite a atacantes remotos evadir restricciones intencionadas a trav\u00e9s de un car\u00e1cter de espacio sin escape en una URI."
+    }
+   ],
+   "id": "CVE-2013-4547",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 7.5,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ]
+   },
+   "published": "2013-11-23T18:55:04.687",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The (1) TLS and (2) DTLS implementations in OpenSSL 1.0.1 before 1.0.1g do not properly handle Heartbeat Extension packets, which allows remote attackers to obtain sensitive information from process memory via crafted packets that trigger a buffer over-read, as demonstrated by reading private keys, related to d1_both.c and t1_lib.c, aka the Heartbleed bug."
+    },
+    {
+     "lang": "es",
+     "value": "Las implementaciones de (1) TLS y (2) DTLS en OpenSSL 1.0.1 en versiones anteriores a 1.0.1g no manejan adecuadamente paquetes Heartbeat Extension, lo que permite a atacantes remotos obtener informaci\u00f3n sensible desde la memoria de proceso a trav\u00e9s de paquetes manipulados que desencadenan una sobrelectura del buffer, seg\u00fan lo demostrado mediante la lectura de claves privadas, relacionado con d1_both.c y t1_lib.c, tambi\u00e9n conocido como bug Heartbleed."
+    }
+   ],
+   "id": "CVE-2014-0160",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.0,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2014-0160",
+       "options": [
+        {
+         "exploitation": "active"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-02-07T13:32:34.600181Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2014-04-07T22:55:03.893",
+   "vulnStatus": "Analyzed"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The Netlogon server implementation in smbd in Samba 3.5.x and 3.6.x before 3.6.25, 4.0.x before 4.0.25, 4.1.x before 4.1.17, and 4.2.x before 4.2.0rc5 performs a free operation on an uninitialized stack pointer, which allows remote attackers to execute arbitrary code via crafted Netlogon packets that use the ServerPasswordSet RPC API, as demonstrated by packets reaching the _netr_ServerPasswordSet function in rpc_server/netlogon/srv_netlog_nt.c."
+    },
+    {
+     "lang": "es",
+     "value": "La implentaci\u00f3n del servidor Netlogon en smbd en Samba 3.5.x y 3.6.x anterior a 3.6.25, 4.0.x anterior a 4.0.25, 4.1.x anterior a 4.1.17, y 4.2.x anterior a 4.2.0rc5 realiza una operaci\u00f3n libre sobre un puntero de pila no inicializado, lo que permite a atacantes remotos ejecutar c\u00f3digo arbitrario a trav\u00e9s de paquetes Netlogon manipulados que utilizan la API RPC ServerPasswordSet, tal y como fue demostrado mediante paquetes alcanzando la funci\u00f3n _netr_ServerPasswordSet en rpc_server/netlogon/srv_netlog_nt.c."
+    }
+   ],
+   "id": "CVE-2015-0240",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 10.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ]
+   },
+   "published": "2015-02-24T01:59:00.050",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "Unspecified vulnerability in vsftpd 3.0.2 and earlier allows remote attackers to bypass access restrictions via unknown vectors, related to deny_file parsing."
+    },
+    {
+     "lang": "es",
+     "value": "Una vulnerabilidad no especificada en vsftpd versiones 3.0.2 y anteriores permite a los atacantes remotos omitir las restricciones de acceso por medio de vectores desconocidos, relacionados con el an\u00e1lisis deny_file."
+    }
+   ],
+   "id": "CVE-2015-1419",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.0,
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:L/Au:N/C:N/I:P/A:N",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ]
+   },
+   "published": "2015-01-28T11:59:08.417",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The snprintf implementation in PostgreSQL before 9.0.20, 9.1.x before 9.1.16, 9.2.x before 9.2.11, 9.3.x before 9.3.7, and 9.4.x before 9.4.2 does not properly handle system-call errors, which allows attackers to obtain sensitive information or have other unspecified impact via unknown vectors, as demonstrated by an out-of-memory error."
+    },
+    {
+     "lang": "es",
+     "value": "La implementaci\u00f3n de snprintf en PostgreSQL versiones anteriores a 9.0.20, versiones 9.1.x anteriores a 9.1.16, versiones 9.2.x anteriores a 9.2.11, versiones 9.3.x anteriores a 9.3.7 y versiones 9.4.x anteriores a 9.4.2, no maneja apropiadamente los errores de llamadas al sistema , lo que permite a atacantes obtener informaci\u00f3n confidencial o tener otro impacto no especificado por medio de vectores desconocidos, como es demostrado por un error fuera de la memoria."
+    }
+   ],
+   "id": "CVE-2015-3166",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 7.5,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2019-11-20T21:15:11.413",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "Unspecified vulnerability in Oracle MySQL 5.6.29 and earlier and 5.7.11 and earlier allows remote attackers to affect confidentiality, integrity, and availability via vectors related to Pluggable Authentication."
+    },
+    {
+     "lang": "es",
+     "value": "Vulnerabilidad no especificada en Oracle MySQL 5.6.29 y versiones anteriores y 5.7.11 y versiones anteriores permite atacantes remotos afectar a la confidencialidad, integridad y confidencialidad a trav\u00e9s de vectores relacionados con Pluggable Authentication."
+    }
+   ],
+   "id": "CVE-2016-0639",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 10.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV30": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.0"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2016-0639",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2024-10-15T18:53:06.453099Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2016-04-21T10:59:09.070",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The resend_bytes function in roaming_common.c in the client in OpenSSH 5.x, 6.x, and 7.x before 7.1p2 allows remote servers to obtain sensitive information from process memory by requesting transmission of an entire buffer, as demonstrated by reading a private key."
+    },
+    {
+     "lang": "es",
+     "value": "La funci\u00f3n resend_bytes en roaming_common.c en el cliente en OpenSSH 5.x, 6.x y 7.x en versiones anteriores a 7.1p2 permite a servidores remotos obtener informaci\u00f3n sensible desde la memoria de proceso mediante la petici\u00f3n de transmisi\u00f3n de un buffer completo, seg\u00fan lo demostrado mediante la lectura de una clave privada."
+    }
+   ],
+   "id": "CVE-2016-0777",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "SINGLE",
+       "availabilityImpact": "NONE",
+       "baseScore": 4.0,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:L/Au:S/C:P/I:N/A:N",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.0,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV30": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 6.5,
+       "baseSeverity": "MEDIUM",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.0/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.0"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 6.5,
+       "baseSeverity": "MEDIUM",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 3.6,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2016-0777",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2026-05-29T20:29:54.649786Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2016-01-14T22:59:01.140",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The AES-NI implementation in OpenSSL before 1.0.1t and 1.0.2 before 1.0.2h does not consider memory allocation during a certain padding check, which allows remote attackers to obtain sensitive cleartext information via a padding-oracle attack against an AES CBC session. NOTE: this vulnerability exists because of an incorrect fix for CVE-2013-0169."
+    },
+    {
+     "lang": "es",
+     "value": "La implementaci\u00f3n de AES-NI en OpenSSL en versiones anteriores a 1.0.1t y 1.0.2 en versiones anteriores a 1.0.2h no considera la asignaci\u00f3n de memoria durante una comprobaci\u00f3n de relleno determinada, lo que permite a atacantes remotos obtener informaci\u00f3n de texto claro sensible a trav\u00e9s de un ataque de padding-oracle contra una sesi\u00f3n AES CBC . NOTA: esta vulnerabilidad existe debido a una correcci\u00f3n incorrecta para CVE-2013-0169."
+    }
+   ],
+   "id": "CVE-2016-2107",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "LOW",
+      "cvssData": {
+       "accessComplexity": "HIGH",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "NONE",
+       "baseScore": 2.6,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:H/Au:N/C:P/I:N/A:N",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 4.9,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.9,
+       "baseSeverity": "MEDIUM",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2016-05-05T01:59:03.200",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "Oracle MySQL through 5.5.52, 5.6.x through 5.6.33, and 5.7.x through 5.7.15; MariaDB before 5.5.51, 10.0.x before 10.0.27, and 10.1.x before 10.1.17; and Percona Server before 5.5.51-38.1, 5.6.x before 5.6.32-78.0, and 5.7.x before 5.7.14-7 allow local users to create arbitrary configurations and bypass certain protection mechanisms by setting general_log_file to a my.cnf configuration. NOTE: this can be leveraged to execute arbitrary code with root privileges by setting malloc_lib. NOTE: the affected MySQL version information is from Oracle's October 2016 CPU. Oracle has not commented on third-party claims that the issue was silently patched in MySQL 5.5.52, 5.6.33, and 5.7.15."
+    },
+    {
+     "lang": "es",
+     "value": "Oracle MySQL hasta la versi\u00f3n 5.5.52, 5.6.x hasta la versi\u00f3n 5.6.33 y 5.7.x hasta la versi\u00f3n 5.7.15; MariaDB en versiones anteriores a 5.5.51, 10.0.x en versiones anteriores a 10.0.27 y 10.1.x en versiones anteriores a 10.1.17; y Percona Server en versiones anteriores a 5.5.51-38.1, 5.6.x en versiones anteriores a 5.6.32-78.0 y 5.7.x en versiones anteriores a 5.7.14-7 permiten a usuarios locales crear configuraciones arbitrarias y eludir ciertos mecanismos de protecci\u00f3n estableciendo general_log_file a una configuraci\u00f3n my.cnf NOTA: esto puede ser aprovechado para ejecutar c\u00f3digo arbitrario con privilegios root estableciendo malloc_lib. NOTA: la informaci\u00f3n sobre la versi\u00f3n de MySQL afectada es de la CPU de Octubre de 2016 de Oracle. Oracle no ha comentado sobre las reclamaciones de terceros que el problema fue parcheado silenciosamente en MySQL 5.5.52, 5.6.33 y 5.7.15."
+    }
+   ],
+   "id": "CVE-2016-6662",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 10.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV30": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.0/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.0"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2016-09-20T18:59:00.127",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "mysqld_safe in Oracle MySQL through 5.5.51, 5.6.x through 5.6.32, and 5.7.x through 5.7.14; MariaDB; Percona Server before 5.5.51-38.2, 5.6.x before 5.6.32-78-1, and 5.7.x before 5.7.14-8; and Percona XtraDB Cluster before 5.5.41-37.0, 5.6.x before 5.6.32-25.17, and 5.7.x before 5.7.14-26.17, when using file-based logging, allows local users with access to the mysql account to gain root privileges via a symlink attack on error logs and possibly other files."
+    },
+    {
+     "lang": "es",
+     "value": "mysqld_safe en Oracle MySQL hasta la versi\u00f3n 5.5.51, 5.6.x hasta la versi\u00f3n 5.6.32 y 5.7.x hasta la versi\u00f3n 5.7.14; MariaDB; Percona Server en versiones anteriores a 5.5.51-38.2, 5.6.x en versiones anteriores a 5.6.32-78-1 y 5.7.x en versiones anteriores a 5.7.14-8 y Percona XtraDB Cluster en versiones anteriores a 5.5.41-37.0, 5.6.x en versiones anteriores a 5.6.32-25.17 y 5.7.x en versiones anteriores a 5.7.14-26.17, cuando usa un inicio de sesi\u00f3n basada en archivo, permite a usuarios locales con acceso a la cuenta mysql obtener privilegios de root a trav\u00e9s de un ataque de enlace simb\u00f3lico en errores de acceso y posiblemente otros archivos."
+    }
+   ],
+   "id": "CVE-2016-6664",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "MEDIUM",
+       "accessVector": "LOCAL",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 6.9,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:L/AC:M/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 3.4,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.0,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.0,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2016-12-13T21:59:01.740",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "Samba since version 3.5.0 and before 4.6.4, 4.5.10 and 4.4.14 is vulnerable to remote code execution vulnerability, allowing a malicious client to upload a shared library to a writable share, and then cause the server to load and execute it."
+    },
+    {
+     "lang": "es",
+     "value": "Samba desde la versi\u00f3n 3.5.0 y anteriores a 4.6.4, versiones 4.5.10 y 4.4.14, son vulnerables a la ejecuci\u00f3n de c\u00f3digo remota, lo que permite que un cliente malicioso cargar una biblioteca compartida en un recurso compartido editable, y luego causar que el servidor lo cargue y ejecute."
+    }
+   ],
+   "id": "CVE-2017-7494",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 10.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2017-7494",
+       "options": [
+        {
+         "exploitation": "active"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-02-07T13:29:34.869777Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2017-05-30T18:29:00.190",
+   "vulnStatus": "Analyzed"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "Nginx versions since 0.5.6 up to and including 1.13.2 are vulnerable to integer overflow vulnerability in nginx range filter module resulting into leak of potentially sensitive information triggered by specially crafted request."
+    },
+    {
+     "lang": "es",
+     "value": "Las versiones desde la 0.5.6 hasta 1.13.2 incluy\u00e9ndola de Nginx, son susceptibles a una vulnerabilidad de desbordamiento de enteros en el m\u00f3dulo filtro de rango de nginx, resultando en un filtrado de informaci\u00f3n potencialmente confidencial activada por una petici\u00f3n especialmente creada."
+    }
+   ],
+   "id": "CVE-2017-7529",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.0,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2017-07-13T13:29:00.220",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A flaw was found in the way Postgresql allowed a user to modify the behavior of a query for other users. An attacker with a user account could use this flaw to execute code with the permissions of superuser in the database. Versions 9.3 through 10 are affected."
+    },
+    {
+     "lang": "es",
+     "value": "Se ha encontrado un error en la forma en la que Postgresql permit\u00eda que un usuario modificase el comportamiento de una consulta para otros usuarios. Un atacante con una cuenta de usuario podr\u00eda emplear este error para ejecutar c\u00f3digo con permisos de superusuario en la base de datos. Se han visto afectadas las versiones 9.3 hasta la 10."
+    }
+   ],
+   "id": "CVE-2018-1058",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "SINGLE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 6.5,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:L/Au:S/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.0,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2018-03-02T15:29:00.337",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "OpenSSH through 7.7 is prone to a user enumeration vulnerability due to not delaying bailout for an invalid authenticating user until after the packet containing the request has been fully parsed, related to auth2-gss.c, auth2-hostbased.c, and auth2-pubkey.c."
+    },
+    {
+     "lang": "es",
+     "value": "OpenSSH hasta la versi\u00f3n 7.7 es propenso a una vulnerabilidad de enumeraci\u00f3n de usuarios debido a que no retrasa el rescate de un usuario de autenticaci\u00f3n no v\u00e1lido hasta que el paquete que contiene la petici\u00f3n haya sido analizado completamente. Esto est\u00e1 relacionado con auth2-gss.c, auth2-hostbased.c, y auth2-pubkey.c."
+    }
+   ],
+   "id": "CVE-2018-15473",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.0,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:L/Au:N/C:P/I:N/A:N",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.3,
+       "baseSeverity": "MEDIUM",
+       "confidentialityImpact": "LOW",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 1.4,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.9,
+       "baseSeverity": "MEDIUM",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 3.6,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2018-15473",
+       "options": [
+        {
+         "exploitation": "poc"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-12-17T21:22:43.940038Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2018-08-17T19:29:00.223",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "In Apache HTTP Server 2.4 releases 2.4.17 to 2.4.38, with MPM event, worker or prefork, code executing in less-privileged child processes or threads (including scripts executed by an in-process scripting interpreter) could execute arbitrary code with the privileges of the parent process (usually root) by manipulating the scoreboard. Non-Unix systems are not affected."
+    },
+    {
+     "lang": "es",
+     "value": "En Apache HTTP Server 2.4, versiones 2.4.17 a 2.4.38, con el evento MPM, worker o prefork, el c\u00f3digo ejecut\u00e1ndose en procesos hijo (o hilos) menos privilegiados (incluyendo scripts ejecutados por un int\u00e9rprete de scripts en proceso) podr\u00eda ejecutar c\u00f3digo arbitrario con los privilegios del proceso padre (normalmente root) manipulando el marcador. Los sistemas que no son Unix no se ven afectados."
+    }
+   ],
+   "id": "CVE-2019-0211",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "LOCAL",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 7.2,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:L/AC:L/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.8,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.8,
+      "impactScore": 5.9,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2019-0211",
+       "options": [
+        {
+         "exploitation": "active"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-02-06T21:03:33.852786Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2019-04-08T22:29:00.387",
+   "vulnStatus": "Analyzed"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "PostgreSQL versions 10.x before 10.9 and versions 11.x before 11.4 are vulnerable to a stack-based buffer overflow. Any authenticated user can overflow a stack-based buffer by changing the user's own password to a purpose-crafted value. This often suffices to execute arbitrary code as the PostgreSQL operating system account."
+    },
+    {
+     "lang": "es",
+     "value": "Las versiones 10.x de PostgreSQL anteriores a 10.9 y 11.x anteriores a 11.4 son vulnerables a un desbordamiento de b\u00fafer basado en pilas. Cualquier usuario autenticado puede desbordar un b\u00fafer basado en pila cambiando la propia contrase\u00f1a del usuario a un valor dise\u00f1ado espec\u00edficamente. Esto a menudo es suficiente para ejecutar c\u00f3digo arbitrario como la cuenta del sistema operativo PostgreSQL."
+    }
+   ],
+   "id": "CVE-2019-10164",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "SINGLE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 9.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:S/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV30": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.0/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.0"
+      },
+      "exploitabilityScore": 1.6,
+      "impactScore": 5.9,
+      "source": "secalert@redhat.com",
+      "type": "Secondary"
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2019-06-26T16:15:09.707",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "An elevation of privilege vulnerability exists when an attacker establishes a vulnerable Netlogon secure channel connection to a domain controller, using the Netlogon Remote Protocol (MS-NRPC). An attacker who successfully exploited the vulnerability could run a specially crafted application on a device on the network.\nTo exploit the vulnerability, an unauthenticated attacker would be required to use MS-NRPC to connect to a domain controller to obtain domain administrator access.\nMicrosoft is addressing the vulnerability in a phased two-part rollout. These updates address the vulnerability by modifying how Netlogon handles the usage of Netlogon secure channels.\nFor guidelines on how to manage the changes required for this vulnerability and more information on the phased rollout, see  How to manage the changes in Netlogon secure channel connections associated with CVE-2020-1472 (updated September 28, 2020).\nWhen the second phase of Windows updates become available in Q1 2021, customers will be notified via a revision to this security vulnerability. If you wish to be notified when these updates are released, we recommend that you register for the security notifications mailer to be alerted of content changes to this advisory. See Microsoft Technical Security Notifications."
+    },
+    {
+     "lang": "es",
+     "value": "Se presenta una vulnerabilidad de elevaci\u00f3n de privilegios cuando un atacante establece una conexi\u00f3n de canal seguro Netlogon vulnerable hacia un controlador de dominio, usando el Netlogon Remote Protocol (MS-NRPC), tambi\u00e9n se conoce como \"Netlogon Elevation of Privilege Vulnerability\"."
+    }
+   ],
+   "id": "CVE-2020-1472",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "MEDIUM",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 9.3,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:M/Au:N/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.6,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "NONE",
+       "baseScore": 5.5,
+       "baseSeverity": "MEDIUM",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.8,
+      "impactScore": 3.6,
+      "source": "secure@microsoft.com",
+      "type": "Secondary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 10.0,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "CHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 6.0,
+      "source": "nvd@nist.gov",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2020-1472",
+       "options": [
+        {
+         "exploitation": "active"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2024-01-30T18:45:11.261978Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2020-08-17T19:15:15.117",
+   "vulnStatus": "Analyzed"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "Vulnerability in the MySQL Server product of Oracle MySQL (component: Server: Security: LDAP Auth). Supported versions that are affected are 8.0.21 and prior. Easily exploitable vulnerability allows low privileged attacker with access to the physical communication segment attached to the hardware where the MySQL Server executes to compromise MySQL Server. Successful attacks of this vulnerability can result in takeover of MySQL Server. CVSS 3.1 Base Score 8.0 (Confidentiality, Integrity and Availability impacts). CVSS Vector: (CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H)."
+    },
+    {
+     "lang": "es",
+     "value": "Vulnerabilidad en el producto MySQL Server de Oracle MySQL (componente: Server: Security: LDAP Auth).&#xa0;Las versiones compatibles que est\u00e1n afectadas son 8.0.21 y anteriores.&#xa0;Una vulnerabilidad explotable f\u00e1cilmente permite a un atacante con pocos privilegios acceder al segmento de comunicaci\u00f3n f\u00edsica conectado al hardware donde se ejecuta MySQL Server para comprometer a MySQL Server.&#xa0;Los ataques con \u00e9xito de esta vulnerabilidad pueden resultar en la toma de control de MySQL Server.&#xa0;CVSS 3.1 Puntuaci\u00f3n Base 8.0 (Impactos de la Confidencialidad, Integridad y Disponibilidad).&#xa0;Vector CVSS: (CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+    }
+   ],
+   "id": "CVE-2020-14878",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "ADJACENT_NETWORK",
+       "authentication": "SINGLE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 7.7,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:A/AC:L/Au:S/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 5.1,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "ADJACENT_NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.0,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:A/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.1,
+      "impactScore": 5.9,
+      "source": "secalert_us@oracle.com",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2020-14878",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2024-09-26T19:53:51.965373Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2020-10-21T15:15:25.063",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A flaw was found in PostgreSQL versions before 13.1, before 12.5, before 11.10, before 10.15, before 9.6.20 and before 9.5.24. An attacker having permission to create non-temporary objects in at least one schema can execute arbitrary SQL functions under the identity of a superuser. The highest threat from this vulnerability is to data confidentiality and integrity as well as system availability."
+    },
+    {
+     "lang": "es",
+     "value": "Se encontr\u00f3 un fallo en PostgreSQL versiones anteriores a 13.1, anteriores a 12.5, anteriores a 11.10, anteriores a 10.15, anteriores a 9.6.20 y anteriores a 9.5.24.&#xa0;Un atacante que tenga permiso para crear objetos no temporales en al menos un esquema puede ejecutar funciones SQL arbitrarias bajo la identidad de un superusuario.&#xa0;La mayor amenaza de esta vulnerabilidad es la confidencialidad e integridad de los datos, as\u00ed como la disponibilidad del sistema"
+    }
+   ],
+   "id": "CVE-2020-25695",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "SINGLE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 6.5,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:L/Au:S/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.0,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2020-11-16T01:15:12.780",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A security issue in nginx resolver was identified, which might allow an attacker who is able to forge UDP packets from the DNS server to cause 1-byte memory overwrite, resulting in worker process crash or potential other impact."
+    },
+    {
+     "lang": "es",
+     "value": "Se identific\u00f3 un problema de seguridad en el solucionador de nginx, que podr\u00eda permitir a un atacante que pueda falsificar paquetes UDP desde el servidor DNS para causar una sobrescritura de memoria de 1 byte, lo que causar\u00eda un bloqueo del proceso de trabajo u otro impacto potencial"
+    }
+   ],
+   "id": "CVE-2021-23017",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "MEDIUM",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 6.8,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.6,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "LOW",
+       "baseScore": 7.7,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:L",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 5.5,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2021-06-01T13:15:07.853",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "VSFTPD 3.0.3 allows attackers to cause a denial of service due to limited number of connections allowed."
+    },
+    {
+     "lang": "es",
+     "value": "VSFTPD 3.0.3 permite a los atacantes provocar una denegaci\u00f3n de servicio debido al n\u00famero limitado de conexiones permitidas."
+    }
+   ],
+   "id": "CVE-2021-30047",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2021-30047",
+       "options": [
+        {
+         "exploitation": "poc"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2024-10-03T17:59:44.381641Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2023-08-22T19:16:20.290",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A flaw was found in postgresql in versions before 13.3, before 12.7, before 11.12, before 10.17 and before 9.6.22. While modifying certain SQL array values, missing bounds checks let authenticated database users write arbitrary bytes to a wide area of server memory. The highest threat from this vulnerability is to data confidentiality and integrity as well as system availability."
+    },
+    {
+     "lang": "es",
+     "value": "Se ha encontrado un fallo en postgresql en las versiones anteriores a 13.3, versiones anteriores a 12.7, versiones anteriores a 11.12, versiones anteriores a 10.17 y versiones anteriores a 9.6.22. Cuando se modifican determinados valores de matrices SQL, una falta de comprobaci\u00f3n de l\u00edmites permite a usuarios autentificados de la base de datos escribir bytes arbitrarios en una amplia zona de la memoria del servidor. La mayor amenaza de esta vulnerabilidad es la confidencialidad e integridad de los datos, as\u00ed como la disponibilidad del sistema"
+    }
+   ],
+   "id": "CVE-2021-32027",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "SINGLE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 6.5,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:L/Au:S/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.0,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ]
+   },
+   "published": "2021-06-01T14:15:09.993",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "An OpenSSL TLS server may crash if sent a maliciously crafted renegotiation ClientHello message from a client. If a TLSv1.2 renegotiation ClientHello omits the signature_algorithms extension (where it was present in the initial ClientHello), but includes a signature_algorithms_cert extension then a NULL pointer dereference will result, leading to a crash and a denial of service attack. A server is only vulnerable if it has TLSv1.2 and renegotiation enabled (which is the default configuration). OpenSSL TLS clients are not impacted by this issue. All OpenSSL 1.1.1 versions are affected by this issue. Users of these versions should upgrade to OpenSSL 1.1.1k. OpenSSL 1.0.2 is not impacted by this issue. Fixed in OpenSSL 1.1.1k (Affected 1.1.1-1.1.1j)."
+    },
+    {
+     "lang": "es",
+     "value": "Un servidor OpenSSL TLS puede cometer un fallo si un cliente env\u00eda un mensaje ClientHello de renegociaci\u00f3n dise\u00f1ado maliciosamente.&#xa0;Si una renegociaci\u00f3n de TLSv1.2 ClientHello omite la extensi\u00f3n signature_algorithms (donde estaba presente en el ClientHello inicial), pero incluye una extensi\u00f3n signature_algorithms_cert, se producir\u00e1 una desreferencia del puntero NULL, lo que conllevar\u00e1 un bloqueo y un ataque de denegaci\u00f3n de servicio.&#xa0;Un servidor solo es vulnerable si tiene TLSv1.2 y la renegociaci\u00f3n habilitada (que es la configuraci\u00f3n predeterminada).&#xa0;Los clientes de OpenSSL TLS no est\u00e1n afectados por este problema.&#xa0;Todas las versiones de OpenSSL versi\u00f3n 1.1.1 est\u00e1n afectadas por este problema.&#xa0;Los usuarios de estas versiones deben actualizar a OpenSSL versi\u00f3n 1.1.1k.&#xa0;OpenSSL versi\u00f3n 1.0.2 no est\u00e1 afectado por este problema.&#xa0;Corregido en OpenSSL versi\u00f3n 1.1.1k (Afectadas versiones 1.1.1-1.1.1j)"
+    }
+   ],
+   "id": "CVE-2021-3449",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "MEDIUM",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 4.3,
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:M/Au:N/C:N/I:N/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.6,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 5.9,
+       "baseSeverity": "MEDIUM",
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2021-3449",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2026-10-08T21:05:43.522199Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2021-03-25T15:15:13.450",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A crafted request uri-path can cause mod_proxy to forward the request to an origin server choosen by the remote user. This issue affects Apache HTTP Server 2.4.48 and earlier."
+    },
+    {
+     "lang": "es",
+     "value": "Un uri-path dise\u00f1ado puede causar que mod_proxy reenv\u00ede la petici\u00f3n a un servidor de origen elegido por el usuario remoto. Este problema afecta a Apache HTTP Server versiones 2.4.48 y anteriores"
+    }
+   ],
+   "id": "CVE-2021-40438",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "MEDIUM",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 6.8,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:M/Au:N/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.6,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.0,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "CHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 6.0,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.0,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "CHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:C/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 6.0,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2021-40438",
+       "options": [
+        {
+         "exploitation": "active"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2021-10-14T00:00:00+00:00",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2021-09-16T15:15:07.633",
+   "vulnStatus": "Analyzed"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A flaw was found in a change made to path normalization in Apache HTTP Server 2.4.49. An attacker could use a path traversal attack to map URLs to files outside the directories configured by Alias-like directives. If files outside of these directories are not protected by the usual default configuration \"require all denied\", these requests can succeed. If CGI scripts are also enabled for these aliased pathes, this could allow for remote code execution. This issue is known to be exploited in the wild. This issue only affects Apache 2.4.49 and not earlier versions. The fix in Apache HTTP Server 2.4.50 was found to be incomplete, see CVE-2021-42013."
+    },
+    {
+     "lang": "es",
+     "value": "Se ha encontrado un fallo en un cambio realizado en la normalizaci\u00f3n de rutas en Apache HTTP Server 2.4.49. Un atacante podr\u00eda utilizar un ataque de recorrido para asignar URLs a archivos fuera de los directorios configurados por las directivas tipo Alias. Si los archivos fuera de estos directorios no est\u00e1n protegidos por la configuraci\u00f3n habitual por defecto \"require all denied\", estas peticiones pueden tener \u00e9xito. Si los scripts CGI tambi\u00e9n est\u00e1n habilitados para estas rutas alias, esto podr\u00eda permitir la ejecuci\u00f3n remota de c\u00f3digo. Se sabe que este problema ha sido explotado en la naturaleza. Este problema s\u00f3lo afecta a Apache 2.4.49 y no a versiones anteriores. La correcci\u00f3n en Apache HTTP Server 2.4.50 es incompleta, v\u00e9ase CVE-2021-42013"
+    }
+   ],
+   "id": "CVE-2021-41773",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "MEDIUM",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "NONE",
+       "baseScore": 4.3,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:M/Au:N/C:P/I:N/A:N",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.6,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "NONE",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2021-41773",
+       "options": [
+        {
+         "exploitation": "active"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-02-04T14:41:10.766482Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2021-10-05T09:15:07.593",
+   "vulnStatus": "Analyzed"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "It was found that the fix for CVE-2021-41773 in Apache HTTP Server 2.4.50 was insufficient. An attacker could use a path traversal attack to map URLs to files outside the directories configured by Alias-like directives. If files outside of these directories are not protected by the usual default configuration \"require all denied\", these requests can succeed. If CGI scripts are also enabled for these aliased pathes, this could allow for remote code execution. This issue only affects Apache 2.4.49 and Apache 2.4.50 and not earlier versions."
+    },
+    {
+     "lang": "es",
+     "value": "Se ha detectado que la correcci\u00f3n de CVE-2021-41773 en Apache HTTP Server versi\u00f3n 2.4.50 no era suficiente. Un atacante pod\u00eda usar un ataque de salto de ruta para asignar URLs a archivos fuera de los directorios configurados por las directivas tipo Alias. Si los archivos fuera de estos directorios no est\u00e1n protegidos por la configuraci\u00f3n habitual por defecto \"require all denied\", estas peticiones pueden tener \u00e9xito. Si los scripts CGI tambi\u00e9n est\u00e1n habilitados para estas rutas alias, esto podr\u00eda permitir una ejecuci\u00f3n de c\u00f3digo remota . Este problema s\u00f3lo afecta a Apache versi\u00f3n  2.4.49 y Apache versi\u00f3n 2.4.50 y no a versiones anteriores"
+    }
+   ],
+   "id": "CVE-2021-42013",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 7.5,
+       "confidentialityImpact": "PARTIAL",
+       "integrityImpact": "PARTIAL",
+       "vectorString": "AV:N/AC:L/Au:N/C:P/I:P/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 6.4,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2021-42013",
+       "options": [
+        {
+         "exploitation": "active"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-02-04T14:28:39.366525Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2021-10-07T16:15:09.270",
+   "vulnStatus": "Analyzed"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The Samba vfs_fruit module uses extended file attributes (EA, xattr) to provide \"...enhanced compatibility with Apple SMB clients and interoperability with a Netatalk 3 AFP fileserver.\" Samba versions prior to 4.13.17, 4.14.12 and 4.15.5 with vfs_fruit configured allow out-of-bounds heap read and write via specially crafted extended file attributes. A remote attacker with write access to extended file attributes can execute arbitrary code with the privileges of smbd, typically root."
+    },
+    {
+     "lang": "es",
+     "value": "El m\u00f3dulo vfs_fruit de Samba usa atributos de archivo extendidos (EA, xattr) para proporcionar \"...compatibilidad mejorada con los clientes SMB de Apple e interoperabilidad con un servidor de archivos AFP de Netatalk 3\". Samba versiones anteriores a 4.13.17, 4.14.12 y 4.15.5 con vfs_fruit configurado permiten una lectura y escritura fuera de l\u00edmites de la pila por medio de atributos de archivo extendidos especialmente dise\u00f1ados. Un atacante remoto con acceso de escritura a los atributos de archivo extendidos puede ejecutar c\u00f3digo arbitrario con los privilegios de smbd, t\u00edpicamente root"
+    }
+   ],
+   "id": "CVE-2021-44142",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "HIGH",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "SINGLE",
+       "availabilityImpact": "COMPLETE",
+       "baseScore": 9.0,
+       "confidentialityImpact": "COMPLETE",
+       "integrityImpact": "COMPLETE",
+       "vectorString": "AV:N/AC:L/Au:S/C:C/I:C/A:C",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 8.0,
+      "impactScore": 10.0,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.8,
+      "impactScore": 5.9,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2021-44142",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-04-23T13:30:59.386639Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2022-02-21T15:15:07.380",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The BN_mod_sqrt() function, which computes a modular square root, contains a bug that can cause it to loop forever for non-prime moduli. Internally this function is used when parsing certificates that contain elliptic curve public keys in compressed form or explicit elliptic curve parameters with a base point encoded in compressed form. It is possible to trigger the infinite loop by crafting a certificate that has invalid explicit curve parameters. Since certificate parsing happens prior to verification of the certificate signature, any process that parses an externally supplied certificate may thus be subject to a denial of service attack. The infinite loop can also be reached when parsing crafted private keys as they can contain explicit elliptic curve parameters. Thus vulnerable situations include: - TLS clients consuming server certificates - TLS servers consuming client certificates - Hosting providers taking certificates or private keys from customers - Certificate authorities parsing certification requests from subscribers - Anything else which parses ASN.1 elliptic curve parameters Also any other applications that use the BN_mod_sqrt() where the attacker can control the parameter values are vulnerable to this DoS issue. In the OpenSSL 1.0.2 version the public key is not parsed during initial parsing of the certificate which makes it slightly harder to trigger the infinite loop. However any operation which requires the public key from the certificate will trigger the infinite loop. In particular the attacker can use a self-signed certificate to trigger the loop during verification of the certificate signature. This issue affects OpenSSL versions 1.0.2, 1.1.1 and 3.0. It was addressed in the releases of 1.1.1n and 3.0.2 on the 15th March 2022. Fixed in OpenSSL 3.0.2 (Affected 3.0.0,3.0.1). Fixed in OpenSSL 1.1.1n (Affected 1.1.1-1.1.1m). Fixed in OpenSSL 1.0.2zd (Affected 1.0.2-1.0.2zc)."
+    },
+    {
+     "lang": "es",
+     "value": "La funci\u00f3n BN_mod_sqrt(), que calcula una ra\u00edz cuadrada modular, contiene un error que puede causar un bucle eterno para m\u00f3dulos no primos. Internamente, esta funci\u00f3n es usado cuando son analizados certificados que contienen claves p\u00fablicas de curva el\u00edptica en forma comprimida o par\u00e1metros de curva el\u00edptica expl\u00edcitos con un punto base codificado en forma comprimida. Es posible desencadenar el bucle infinito si es dise\u00f1ado un certificado con par\u00e1metros de curva expl\u00edcitos no v\u00e1lidos. Dado que el an\u00e1lisis del certificado es realizado antes de la verificaci\u00f3n de la firma del certificado, cualquier proceso que analice un certificado suministrado externamente puede ser objeto de un ataque de denegaci\u00f3n de servicio. El bucle infinito tambi\u00e9n puede alcanzarse cuando son analizadas claves privadas dise\u00f1adas, ya que pueden contener par\u00e1metros expl\u00edcitos de la curva el\u00edptica. Por lo tanto, las situaciones vulnerables incluyen: - Clientes TLS que consumen certificados de servidor - Servidores TLS que consumen certificados de cliente - Proveedores de hosting que toman certificados o claves privadas de clientes - Autoridades de certificaci\u00f3n que analizan peticiones de certificaci\u00f3n de suscriptores - Cualquier otra cosa que analice par\u00e1metros de curva el\u00edptica ASN.1 Tambi\u00e9n cualquier otra aplicaci\u00f3n que utilice BN_mod_sqrt() donde el atacante pueda controlar los valores de los par\u00e1metros es vulnerable a este problema de DoS. En OpenSSL versi\u00f3n 1.0.2, la clave p\u00fablica no es analizada durante el an\u00e1lisis inicial del certificado, lo que dificulta ligeramente la activaci\u00f3n del bucle infinito. Sin embargo, cualquier operaci\u00f3n que requiera la clave p\u00fablica del certificado desencadenar\u00e1 el bucle infinito. En particular, el atacante puede usar un certificado autofirmado para desencadenar el bucle durante la verificaci\u00f3n de la firma del certificado. Este problema afecta a OpenSSL versiones 1.0.2, 1.1.1 y 3.0. Fue abordado en las versiones 1.1.1n y 3.0.2 del 15 de marzo de 2022. Corregido en OpenSSL versi\u00f3n 3.0.2 (Afectado 3.0.0,3.0.1). Corregido en OpenSSL versi\u00f3n 1.1.1n (Afectado 1.1.1-1.1.1m). Corregido en OpenSSL versi\u00f3n 1.0.2zd (Afectado 1.0.2-1.0.2zc)"
+    }
+   ],
+   "id": "CVE-2022-0778",
+   "metrics": {
+    "cvssMetricV2": [
+     {
+      "acInsufInfo": false,
+      "baseSeverity": "MEDIUM",
+      "cvssData": {
+       "accessComplexity": "LOW",
+       "accessVector": "NETWORK",
+       "authentication": "NONE",
+       "availabilityImpact": "PARTIAL",
+       "baseScore": 5.0,
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "vectorString": "AV:N/AC:L/Au:N/C:N/I:N/A:P",
+       "version": "2.0"
+      },
+      "exploitabilityScore": 10.0,
+      "impactScore": 2.9,
+      "obtainAllPrivilege": false,
+      "obtainOtherPrivilege": false,
+      "obtainUserPrivilege": false,
+      "source": "nvd@nist.gov",
+      "type": "Primary",
+      "userInteractionRequired": false
+     }
+    ],
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2022-0778",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2026-05-22T13:27:14.476267Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2022-03-15T17:15:08.513",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A buffer overrun can be triggered in X.509 certificate verification, specifically in name constraint checking. Note that this occurs after certificate chain signature verification and requires either a CA to have signed the malicious certificate or for the application to continue certificate verification despite failure to construct a path to a trusted issuer. An attacker can craft a malicious email address to overflow four attacker-controlled bytes on the stack. This buffer overflow could result in a crash (causing a denial of service) or potentially remote code execution. Many platforms implement stack overflow protections which would mitigate against the risk of remote code execution. The risk may be further mitigated based on stack layout for any given platform/compiler. Pre-announcements of CVE-2022-3602 described this issue as CRITICAL. Further analysis based on some of the mitigating factors described above have led this to be downgraded to HIGH. Users are still encouraged to upgrade to a new version as soon as possible. In a TLS client, this can be triggered by connecting to a malicious server. In a TLS server, this can be triggered if the server requests client authentication and a malicious client connects. Fixed in OpenSSL 3.0.7 (Affected 3.0.0,3.0.1,3.0.2,3.0.3,3.0.4,3.0.5,3.0.6)."
+    },
+    {
+     "lang": "es",
+     "value": "Puede activarse una saturaci\u00f3n del b\u00fafer en la verificaci\u00f3n del certificado X.509, espec\u00edficamente en la verificaci\u00f3n de restricciones en el nombre. Tenga en cuenta que esto ocurre despu\u00e9s de la verificaci\u00f3n de la firma de la cadena de certificados y requiere que una CA haya firmado el certificado malicioso o que la aplicaci\u00f3n contin\u00fae con la verificaci\u00f3n del certificado a pesar de no poder construir una ruta a un emisor confiable. Un atacante puede crear una direcci\u00f3n de correo electr\u00f3nico maliciosa para desbordar cuatro bytes en la pila de memoria controlados por el atacante. Este desbordamiento del b\u00fafer podr\u00eda provocar un bloqueo (provocando una denegaci\u00f3n de servicio) o una potencial ejecuci\u00f3n remota de c\u00f3digo. Muchas plataformas implementan protecciones contra el desbordamiento de la pila de memoria que mitigar\u00edan el riesgo de ejecuci\u00f3n remota de c\u00f3digo. El riesgo puede mitigarse, a\u00fan m\u00e1s, seg\u00fan el dise\u00f1o de la pila de memoria para cualquier plataforma/compilador determinado. Los anuncios previos de CVE-2022-3602 describieron este problema como CR\u00cdTICO. Un an\u00e1lisis m\u00e1s detallado basado en algunos de los factores mitigantes descritos anteriormente ha llevado a que esto se rebaje a ALTO. A\u00fan se recomienda a los usuarios que actualicen a una nueva versi\u00f3n lo antes posible. En un cliente TLS, esto se puede desencadenar conect\u00e1ndose a un servidor malicioso. En un servidor TLS, esto se puede activar si el servidor solicita la autenticaci\u00f3n del cliente y se conecta un cliente malintencionado. Corregido en OpenSSL 3.0.7 (Afectado 3.0.0,3.0.1,3.0.2,3.0.3,3.0.4,3.0.5,3.0.6)."
+    }
+   ],
+   "id": "CVE-2022-3602",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.5,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "NONE",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 3.6,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2022-3602",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-04-23T13:26:56.588972Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2022-11-01T18:15:10.983",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "NGINX Open Source before versions 1.23.2 and 1.22.1, NGINX Open Source Subscription before versions R2 P1 and R1 P1, and NGINX Plus before versions R27 P1 and R26 P1 have a vulnerability in the module ngx_http_mp4_module that might allow a local attacker to corrupt NGINX worker memory, resulting in its termination or potential other impact using a specially crafted audio or video file. The issue affects only NGINX products that are built with the ngx_http_mp4_module, when the mp4 directive is used in the configuration file. Further, the attack is possible only if an attacker can trigger processing of a specially crafted audio or video file with the module ngx_http_mp4_module."
+    },
+    {
+     "lang": "es",
+     "value": "NGINX Open Source versiones anteriores a 1.23.2 y 1.22.1, NGINX Open Source Subscription versiones anteriores a R2 P1 y R1 P1, y NGINX Plus anteriores a R27 P1 y R26 P1, presentan una vulnerabilidad en el m\u00f3dulo ngx_http_mp4_module que podr\u00eda permitir a un atacante local corromper la memoria del trabajador de NGINX, resultando en su terminaci\u00f3n o cualquier otro impacto potencial usando un archivo de audio o v\u00eddeo especialmente dise\u00f1ado. El problema afecta s\u00f3lo a productos NGINX que son construidos con el m\u00f3dulo ngx_http_mp4_, cuando es usada la directiva mp4 en el archivo de configuraci\u00f3n. Adem\u00e1s, el ataque s\u00f3lo es posible si un atacante puede desencadenar el procesamiento de un archivo de audio o v\u00eddeo especialmente dise\u00f1ado con el m\u00f3dulo ngx_http_mp4_module"
+    }
+   ],
+   "id": "CVE-2022-41741",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.0,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.0,
+      "impactScore": 5.9,
+      "source": "f5sirt@f5.com",
+      "type": "Secondary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.8,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.8,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2022-41741",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-05-08T18:12:04.179522Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2022-10-19T22:15:12.647",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "NGINX Open Source before versions 1.23.2 and 1.22.1, NGINX Open Source Subscription before versions R2 P1 and R1 P1, and NGINX Plus before versions R27 P1 and R26 P1 have a vulnerability in the module ngx_http_mp4_module that might allow a local attacker to cause a worker process crash, or might result in worker process memory disclosure by using a specially crafted audio or video file. The issue affects only NGINX products that are built with the module ngx_http_mp4_module, when the mp4 directive is used in the configuration file. Further, the attack is possible only if an attacker can trigger processing of a specially crafted audio or video file with the module ngx_http_mp4_module."
+    },
+    {
+     "lang": "es",
+     "value": "NGINX Open Source anteriores as versiones 1.23.2 y 1.22.1, NGINX Open Source Subscription versiones anteriores a R2 P1 y R1 P1, y NGINX Plus versiones anteriores a R27 P1 y R26 P1, presentan una vulnerabilidad en el m\u00f3dulo ngx_http_mp4_module que podr\u00eda permitir a un atacante local causar un bloqueo del proceso del trabajador, o podr\u00eda resultar en una divulgaci\u00f3n de la memoria del proceso del trabajador mediante el uso de un archivo de audio o v\u00eddeo especialmente dise\u00f1ado. El problema afecta s\u00f3lo a los productos NGINX que son construidos con el m\u00f3dulo ngx_http_mp4_module, cuando es usada la directiva mp4 en el archivo de configuraci\u00f3n. Adem\u00e1s, el ataque s\u00f3lo es posible si un atacante puede desencadenar el procesamiento de un archivo de audio o v\u00eddeo especialmente dise\u00f1ado con el m\u00f3dulo ngx_http_mp4_module"
+    }
+   ],
+   "id": "CVE-2022-41742",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.1,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.8,
+      "impactScore": 5.2,
+      "source": "f5sirt@f5.com",
+      "type": "Secondary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "LOCAL",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.1,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "LOW",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 1.8,
+      "impactScore": 5.2,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2022-41742",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-05-08T18:11:21.947795Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2022-10-19T22:15:12.717",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "There is a type confusion vulnerability relating to X.400 address processing\ninside an X.509 GeneralName. X.400 addresses were parsed as an ASN1_STRING but\nthe public structure definition for GENERAL_NAME incorrectly specified the type\nof the x400Address field as ASN1_TYPE. This field is subsequently interpreted by\nthe OpenSSL function GENERAL_NAME_cmp as an ASN1_TYPE rather than an\nASN1_STRING.\n\nWhen CRL checking is enabled (i.e. the application sets the\nX509_V_FLAG_CRL_CHECK flag), this vulnerability may allow an attacker to pass\narbitrary pointers to a memcmp call, enabling them to read memory contents or\nenact a denial of service. In most cases, the attack requires the attacker to\nprovide both the certificate chain and CRL, neither of which need to have a\nvalid signature. If the attacker only controls one of these inputs, the other\ninput must already contain an X.400 address as a CRL distribution point, which\nis uncommon. As such, this vulnerability is most likely to only affect\napplications which have implemented their own functionality for retrieving CRLs\nover a network."
+    }
+   ],
+   "id": "CVE-2023-0286",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.4,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 5.2,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 7.4,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "NONE",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 5.2,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2023-0286",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2025-03-06T15:57:22.031399Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2023-02-08T20:15:24.267",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "ssh-add in OpenSSH before 9.3 adds smartcard keys to ssh-agent without the intended per-hop destination constraints. The earliest affected version is 8.9."
+    }
+   ],
+   "id": "CVE-2023-28531",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2023-28531",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "partial"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2024-01-11T20:20:13.493424Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2023-03-17T04:15:14.553",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "The PKCS#11 feature in ssh-agent in OpenSSH before 9.3p2 has an insufficiently trustworthy search path, leading to remote code execution if an agent is forwarded to an attacker-controlled system. (Code in /usr/lib is not necessarily safe for loading into ssh-agent.) NOTE: this issue exists because of an incomplete fix for CVE-2016-10009."
+    },
+    {
+     "lang": "es",
+     "value": "La caracter\u00edstica PKCS#11 en ssh-agent en OpenSSH anterior a 9.3p2 tiene una ruta de b\u00fasqueda insuficientemente confiable, lo que lleva a la ejecuci\u00f3n remota de c\u00f3digo si un agente se reenv\u00eda a un sistema controlado por un atacante. (El c\u00f3digo en /usr/lib no es necesariamente seguro para cargar en ssh-agent). NOTA: este problema existe debido a una soluci\u00f3n incompleta para CVE-2016-10009."
+    }
+   ],
+   "id": "CVE-2023-38408",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "LOW",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 9.8,
+       "baseSeverity": "CRITICAL",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 3.9,
+      "impactScore": 5.9,
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "type": "Secondary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2023-38408",
+       "options": [
+        {
+         "exploitation": "none"
+        },
+        {
+         "automatable": "yes"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2024-10-15T17:36:21.400489Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2023-07-20T03:15:10.170",
+   "vulnStatus": "Modified"
+  },
+  {
+   "descriptions": [
+    {
+     "lang": "en",
+     "value": "A security regression (CVE-2006-5051) was discovered in OpenSSH's server (sshd). There is a race condition which can lead sshd to handle some signals in an unsafe manner. An unauthenticated, remote attacker may be able to trigger it by failing to authenticate within a set time period."
+    },
+    {
+     "lang": "es",
+     "value": "Se encontr\u00f3 una condici\u00f3n de ejecuci\u00f3n del controlador de se\u00f1ales en el servidor de OpenSSH (sshd), donde un cliente no se autentica dentro de los segundos de LoginGraceTime (120 de forma predeterminada, 600 en versiones anteriores de OpenSSH), luego se llama al controlador SIGALRM de sshd de forma asincr\u00f3nica. Sin embargo, este controlador de se\u00f1ales llama a varias funciones que no son seguras para se\u00f1ales as\u00edncronas, por ejemplo, syslog()."
+    }
+   ],
+   "id": "CVE-2024-6387",
+   "metrics": {
+    "cvssMetricV31": [
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.1,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 5.9,
+      "source": "secalert@redhat.com",
+      "type": "Secondary"
+     },
+     {
+      "cvssData": {
+       "attackComplexity": "HIGH",
+       "attackVector": "NETWORK",
+       "availabilityImpact": "HIGH",
+       "baseScore": 8.1,
+       "baseSeverity": "HIGH",
+       "confidentialityImpact": "HIGH",
+       "integrityImpact": "HIGH",
+       "privilegesRequired": "NONE",
+       "scope": "UNCHANGED",
+       "userInteraction": "NONE",
+       "vectorString": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+       "version": "3.1"
+      },
+      "exploitabilityScore": 2.2,
+      "impactScore": 5.9,
+      "source": "nvd@nist.gov",
+      "type": "Primary"
+     }
+    ],
+    "ssvcV203": [
+     {
+      "source": "134c704f-9b21-4f2e-91b3-4a467353bcc0",
+      "ssvcData": {
+       "id": "CVE-2024-6387",
+       "options": [
+        {
+         "exploitation": "poc"
+        },
+        {
+         "automatable": "no"
+        },
+        {
+         "technicalImpact": "total"
+        }
+       ],
+       "role": "CISA Coordinator",
+       "timestamp": "2024-07-02T13:18:34.695298Z",
+       "version": "2.0.3"
+      }
+     }
+    ]
+   },
+   "published": "2024-07-01T13:15:06.467",
+   "vulnStatus": "Modified"
+  }
+ ],
+ "note": "Recorded verbatim from the NVD API 2.0 (id, descriptions, CVSS metrics). Used only to drive offline tests; the client treats these as cache entries.",
+ "schema": "nvd-2.0-cve-fixture",
+ "source": "https://services.nvd.nist.gov/rest/json/cves/2.0"
+}

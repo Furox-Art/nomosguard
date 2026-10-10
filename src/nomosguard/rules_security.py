@@ -15,6 +15,9 @@ unification engine:
     hasPrivilege(user, priv)       :-  execCode(host, user),
                                        hasPrivilege(user, priv)        [privilege via code execution]
 
+    execCode(host, user)           :-  canAccessHost(attacker, host),
+                                       vulnSeverity(host, "CRITICAL")   [exploit a CRITICAL CVE]
+
 Every derived fact traces back to its source claims (host inventory,
 network config, CVE records) — the same discipline as the tool-call rules.
 """
@@ -159,6 +162,32 @@ def security_rules() -> list[Rule]:
                 "and network reachability is attacking a host that can be "
                 "reached — the signature evidence and the access graph point "
                 "at the same target."
+            ),
+        ),
+
+        # -- severity-gated exploit -------------------------------------------
+        # Same shape as exploit_vulnerability, but gated on the NVD-grounded
+        # CVSS band carried by the vulnSeverity relation. The distinction
+        # matters operationally: a MEDIUM information disclosure and a
+        # CRITICAL pre-auth RCE are both "a CVE is present" to the bare
+        # vulExists relation, but only the latter justifies treating the
+        # reachability as an immediate code-execution path.
+        #
+        # exploit_vulnerability still fires for ANY vulnerable host — this
+        # rule adds the severity signal on top, it does not replace the
+        # general case, so a host with only a MEDIUM CVE still derives
+        # execCode through the original rule.
+        Rule(
+            name="exploit_critical_vulnerability",
+            body=(
+                Pattern("?attacker", "canAccessHost", "?host"),
+                Pattern("?host", "vulnSeverity", "CRITICAL"),
+            ),
+            head=Pattern("?host", "execCode", "?attacker"),
+            description=(
+                "An attacker that can reach a host carrying a CRITICAL "
+                "vulnerability (NVD CVSS base score >= 9.0) achieves code "
+                "execution — severity-gated variant of exploit_vulnerability."
             ),
         ),
     ]
