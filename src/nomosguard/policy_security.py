@@ -66,4 +66,27 @@ def containment_policy_rules() -> list[PolicyRule]:
             description="A host actively exfiltrating data while running attacker code must be isolated.",
             requires=("temporal_exfil_burst", "exec_code"),
         ),
+        # -- signature rules --------------------------------------------------
+        # Evidence from nomosguard.signatures / signature_bridge. The
+        # claim kind is per-signature ("signature_ng-0003"), so the
+        # requirement is expressed on the CONCRETE kind backing the
+        # derivation: "signature_ng-0003". The gate's requires-match is
+        # an exact membership test over the derived fact's sources
+        # (gate.PolicyRule.requires), not a prefix test, so a generic
+        # "signature" entry would always read as missing evidence and
+        # mask a genuinely complete chain. The per-kind requirement is
+        # honest and exact: it names the evidence this rule demands.
+        PolicyRule(
+            name="escalate_malicious_signature_on_reachable_actor",
+            match_relation="hostUnderMaliciousProbe",
+            decision=Decision.ESCALATE,
+            description=(
+                "A critical signature match (encoded PowerShell, credential "
+                "dumping, ransomware) on an actor with a derived access path "
+                "to a host: the hostile behaviour and the reachability point "
+                "at the same target, so a human must decide now — before it "
+                "becomes a compromise."
+            ),
+            requires=("signature_ng-0003", "network"),
+        ),
     ]
