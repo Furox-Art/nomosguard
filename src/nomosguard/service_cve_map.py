@@ -26,7 +26,7 @@ from typing import Any
 
 #: Schema version of this table. Bump when entries are added or corrected so
 #: a downstream consumer can tell which snapshot it is reasoning over.
-MAP_VERSION = "1.0.0"
+MAP_VERSION = "1.1.0"
 
 #: When this snapshot was verified against the NVD API 2.0.
 MAP_VERIFIED_ON = "2026-10-10"
@@ -167,6 +167,54 @@ SERVICE_MAP: tuple[ServiceEntry, ...] = (
             ("CVE-2021-44142", "4.14.0", "4.15.5"),# vfs_fruit EA info leak
         ),
         notes="Zerologon affects only Samba AD DC configurations.",
+    ),
+    ServiceEntry(
+        service="Redis",
+        patterns=("redis",),
+        port=6379,
+        cves=(
+            # verified against NVD API 2.0 (2026-10-10)
+            ("CVE-2022-0543", None, None),          # Lua sandbox escape -> RCE (Debian/Ubuntu pkg), CVSS 10.0
+            ("CVE-2021-32687", "5.0.0", "6.0.16"),  # lua heap corruption -> RCE, CVSS 7.5
+            ("CVE-2016-8339", None, "3.2.4"),       # 3.2.x buffer overflow -> RCE, CVSS 9.8
+            ("CVE-2015-4335", None, "3.0.2"),       # pre-2.8.21/3.0.2 RCE via Lua, CVSS 10.0
+        ),
+        notes="CVE-2022-0543 is the Debian/Ubuntu-packaged Lua sandbox escape; upstream Redis on other distros was not affected.",
+    ),
+    ServiceEntry(
+        service="Apache Tomcat",
+        patterns=("tomcat", "jakarta tomcat"),
+        port=8080,
+        alt_ports=(80, 443, 8443),
+        cves=(
+            # verified against NVD API 2.0 (2026-10-10)
+            ("CVE-2020-1938", None, "7.0.100"),     # AJP Ghostcat file read / RCE, CVSS 9.8
+            ("CVE-2024-50379", "9.0.0", "9.0.98"),  # TOCTOU RCE on case-insensitive FS, CVSS 9.8
+            ("CVE-2019-0232", "7.0.0", None),       # CGI servlet RCE on Windows, CVSS 8.1
+        ),
+        notes="Ghostcat (1938) is the canonical Tomcat exposure; ranges span the 7.0-9.x lines.",
+    ),
+    ServiceEntry(
+        service="Elasticsearch",
+        patterns=("elasticsearch", "elastic"),
+        port=9200,
+        alt_ports=(9300,),
+        cves=(
+            # verified against NVD API 2.0 (2026-10-10)
+            ("CVE-2015-1427", None, "1.4.3"),       # Groovy scripting engine RCE, CVSS 9.8
+            ("CVE-2014-3120", None, "1.2.0"),       # dynamic scripting enabled by default -> RCE, CVSS 8.1
+        ),
+        notes="Pre-1.4.3 scripting RCEs; modern ES ships scripting disabled by default.",
+    ),
+    ServiceEntry(
+        service="MongoDB",
+        patterns=("mongodb", "mongo"),
+        port=27017,
+        cves=(
+            # verified against NVD API 2.0 (2026-10-10)
+            ("CVE-2019-2386", "3.4.0", "3.6.13"),   # auth invalidation after user deletion, CVSS 7.1
+        ),
+        notes="Auth-handling flaw; modern 4.x+ lines carry other (non-map) advisories.",
     ),
 )
 

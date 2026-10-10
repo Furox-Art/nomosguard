@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-10-10
+
+### Added — CVE map extended to 12 services
+
+- Redis, Apache Tomcat, Elasticsearch, MongoDB added to
+  `service_cve_map` (map version 1.1.0).
+- Every new CVE id was verified against the NVD API 2.0 (HTTP 200,
+  non-empty vulnerabilities) with the score and version ranges
+  transcribed from the NVD CPE data. Candidate ids that did not resolve
+  (or matched an unrelated product) were dropped rather than guessed.
+- Map now covers 12 services / 48 CVEs; fixtures extended with the 10
+  new records so the offline suite still fully verifies every mapped
+  CVE exists in the fixture and carries a score.
+
 ## [0.6.3] - 2026-10-10
 
 ### Added — log normalization (format adapters)

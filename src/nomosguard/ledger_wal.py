@@ -84,6 +84,8 @@ class WalRecovery:
 
 
 def _wal_path(ledger_path: str | Path) -> Path:
+    """Alias kept for internal call sites; canonical name is
+    `nomosguard.ledger.wal_path_for` (the WAL path is a ledger concern)."""
     return wal_path_for(ledger_path)
 
 
