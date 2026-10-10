@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import tempfile
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import IO, Any, Iterator
 
 
 LEDGER_FORMAT_VERSION = 1
@@ -44,6 +46,16 @@ def _canonical(obj: Any) -> str:
 
 def _sha256_hex(data: str) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def wal_path_for(ledger_path: str | Path) -> Path:
+    """The write-ahead sidecar path for a ledger file: `<path>.wal`.
+
+    The WAL is a sibling of the ledger, never inside it — it must live on
+    the same filesystem so a rename stays atomic, and it must be trivially
+    associable with its ledger. `ledger.jsonl` -> `ledger.jsonl.wal`.
+    """
+    return Path(str(ledger_path) + ".wal")
 
 
 @dataclass(frozen=True)
@@ -90,6 +102,134 @@ class LedgerEntry:
             "entry_hash": self.entry_hash,
             "prev_hash": self.prev_hash,
         }
+
+
+def _atomic_write_lines(path: Path, lines: list[str]) -> None:
+    """Durably replace `path` with `lines` (JSONL, one item per line).
+
+    Write order matters for crash safety:
+      1. write everything to `<path>.tmp` in the SAME directory
+      2. flush the Python buffers, then fsync the fd (data reaches the
+         device, not just the page cache)
+      3. fsync the parent directory, so the rename itself is durable
+      4. os.replace(tmp, path) — atomic on POSIX and Windows
+
+    A crash at any point leaves either the old file intact or the new
+    file complete: the reader never observes a half-written ledger. A
+    torn *final line* (a crash mid-write, or an interrupted append) is
+    handled at load time — see `iter_ledger_records`, which drops a
+    truncated tail and reports how many bytes/records it discarded.
+    """
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=path.name + ".", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)  # atomic on POSIX and Windows
+        # Make the rename durable: without a directory fsync, a power loss
+        # can resurrect the old directory entry.
+        try:
+            dir_fd = os.open(str(path.parent), os.O_RDONLY)
+        except OSError:
+            dir_fd = None
+        if dir_fd is not None:
+            try:
+                os.fsync(dir_fd)
+            except OSError:
+                pass
+            finally:
+                os.close(dir_fd)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+@dataclass
+class LedgerLoadReport:
+    """What `iter_ledger_records` saw on the way in.
+
+    `entries` are the records that verified. `dropped_tail` counts
+    records thrown away because the file ended mid-write: a JSON decode
+    failure or a hash/link mismatch on the final line. A torn tail is
+    expected after a crash and is *not* tamper evidence; a mismatch
+    anywhere else raises immediately. `tail_detail` explains the drop.
+    """
+
+    entries: list[LedgerEntry]
+    header: dict[str, Any]
+    dropped_tail: int = 0
+    tail_detail: str | None = None
+
+
+def iter_ledger_records(
+    fh: IO[str], *, path: Any = "<stream>"
+) -> Iterator[dict[str, Any]]:
+    """Yield one item per non-blank body line, in file order.
+
+    Each item is a dict with `lineno` (1-based, header is line 1) and one of:
+      - ``{"lineno", "record": <dict>, "torn": False}``  — parsed cleanly
+      - ``{"lineno", "record": None, "torn": True, "error": <str>}`` — the
+        FINAL line could not be parsed, i.e. the file ends mid-write.
+
+    Memory is O(1) per entry: only a single line is buffered at a time
+    (a one-line lookahead is what makes "is this the last line?"
+    answerable). A torn tail is reported to the caller, which decides
+    whether to drop it; a malformed line anywhere else raises
+    LedgerFileError, because a hole in the middle of a chain is
+    corruption, not a crash.
+    """
+    lineno = 1  # the header occupies line 1
+    pending: str | None = None  # one-line lookahead
+
+    def nonblank(text: str | None) -> str | None:
+        return None if text is None or not text.strip() else text
+
+    while True:
+        nxt = fh.readline()
+        if not nxt:
+            break
+        nxt = nonblank(nxt)
+        if nxt is None:
+            continue
+        if pending is not None:
+            lineno += 1
+            yield _parse_line(pending, lineno, path, torn_allowed=False)
+        pending = nxt
+
+    if pending is not None:
+        lineno += 1
+        yield _parse_line(pending, lineno, path, torn_allowed=True)
+
+
+def _parse_line(
+    text: str, lineno: int, path: Any, *, torn_allowed: bool
+) -> dict[str, Any]:
+    body = text.rstrip("\n").rstrip("\r")
+    try:
+        record = json.loads(body)
+    except json.JSONDecodeError as exc:
+        if torn_allowed:
+            return {
+                "lineno": lineno,
+                "record": None,
+                "torn": True,
+                "error": f"line {lineno} is not valid JSON: {exc}",
+            }
+        raise LedgerFileError(
+            f"{path}: line {lineno} is not valid JSON: {exc}"
+        ) from exc
+    if not isinstance(record, dict):
+        msg = f"{path}: line {lineno} is not a JSON object"
+        if torn_allowed:
+            return {"lineno": lineno, "record": None, "torn": True, "error": msg}
+        raise LedgerFileError(msg)
+    return {"lineno": lineno, "record": record, "torn": False}
 
 
 class EvidenceLedger:
@@ -182,17 +322,16 @@ class EvidenceLedger:
     def save(self, path: str | Path) -> None:
         """Persist the full ledger to a JSONL file.
 
-        The file is written atomically: a temp file in the same directory,
-        then os.replace. A crash mid-write never leaves a half-truthful
-        chain on disk. The file is the complete chain — loading it and
-        appending continues from the head.
-        """
-        import json
-        import os
-        import tempfile
+        Crash-safe by construction: the bytes are written to a temp file
+        in the same directory, fsync'd, then atomically renamed over
+        `path`. A crash mid-write leaves either the previous file or the
+        new one complete — never a half-truthful chain.
 
+        The on-disk format is unchanged from 0.5.0 (header line + one
+        JSON entry per line), so ledgers written by 0.5.0 load directly
+        into this version.
+        """
         path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
         header = {
             "format": "nomosguard-ledger",
             "format_version": LEDGER_FORMAT_VERSION,
@@ -201,47 +340,48 @@ class EvidenceLedger:
         }
         lines = [json.dumps(header, sort_keys=True)]
         lines.extend(json.dumps(entry.to_dict(), sort_keys=True) for entry in self._entries)
-
-        fd, tmp = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write("\n".join(lines) + "\n")
-            os.replace(tmp, path)  # atomic on POSIX and Windows
-        except BaseException:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
-            raise
+        _atomic_write_lines(path, lines)
 
     @classmethod
-    def load(cls, path: str | Path) -> "EvidenceLedger":
+    def load(
+        cls,
+        path: str | Path,
+        *,
+        allow_torn_tail: bool = True,
+        report: LedgerLoadReport | None = None,
+    ) -> "EvidenceLedger":
         """Load a ledger from disk, verifying the full chain.
 
         Refuses (raises LedgerFileError) when:
         - the file is missing, unreadable, or not valid JSONL
         - the header is missing or has an unknown format version
-        - the entry count in the header does not match the body
-        - the chain fails verification (tamper or corruption)
+        - an entry is not valid JSON, or its claim is malformed
+        - a sequence number is duplicated or skips a value
+        - a prev_hash link does not match the previous entry
+        - an entry_hash does not recompute from its content (tamper)
+        - the entry count or head_hash in the header does not match
+
+        `allow_torn_tail` (default True) is the crash-recovery escape
+        hatch: if the FINAL line of the file is truncated — a crash
+        mid-write, or an append that never finished — it is dropped and
+        the count is recorded on the `report` object instead of raising.
+        A torn tail is indistinguishable from a crash and is not treated
+        as tamper evidence; anything wrong anywhere else raises.
 
         On success the ledger is open for appending: new entries continue
         from the loaded head hash.
         """
-        import json
-
         path = Path(path)
         if not path.is_file():
             raise LedgerFileError(f"ledger file not found: {path}")
 
-        # Streaming: the file is parsed line by line. Memory is O(1) per
-        # entry — the whole file is never held in memory. The reconstructed
-        # entries (needed for verify/export) grow with chain length, which
-        # is unavoidable, but the raw text is not.
         try:
             fh = path.open("r", encoding="utf-8")
         except OSError as exc:
             raise LedgerFileError(f"cannot read ledger file: {exc}") from exc
 
+        dropped_tail = 0
+        tail_detail: str | None = None
         with fh:
             header_line = fh.readline()
             if not header_line.strip():
@@ -250,6 +390,8 @@ class EvidenceLedger:
                 header = json.loads(header_line)
             except json.JSONDecodeError as exc:
                 raise LedgerFileError(f"ledger header is not valid JSON: {exc}") from exc
+            if not isinstance(header, dict):
+                raise LedgerFileError("ledger header is not a JSON object")
 
             if header.get("format") != "nomosguard-ledger":
                 raise LedgerFileError("missing nomosguard-ledger header")
@@ -261,64 +403,116 @@ class EvidenceLedger:
                 )
 
             ledger = cls()
-            i = 0
-            while True:
-                ln = fh.readline()
-                if not ln:
-                    break
-                if not ln.strip():
-                    continue
-                i += 1
-                ln = ln.rstrip("\n").rstrip("\r")
+            expected_prev = ""       # genesis links to the empty string
+            for item in iter_ledger_records(fh, path=path):
+                lineno = item["lineno"]
+                if item["torn"]:
+                    if not allow_torn_tail:
+                        raise LedgerFileError(
+                            f"{path}: {item['error']} (truncated final entry; "
+                            "pass allow_torn_tail=True to drop it and recover)"
+                        )
+                    dropped_tail += 1
+                    tail_detail = item["error"]
+                    break  # nothing can follow a torn tail
+                record = item["record"]
+                i = lineno - 1  # human-facing entry index
+
+                claim_data = record.get("claim")
+                if not isinstance(claim_data, dict):
+                    raise LedgerFileError(f"entry {i} has a malformed claim: expected an object")
+                missing = [k for k in ("kind", "payload", "evidence") if k not in claim_data]
+                if missing:
+                    raise LedgerFileError(
+                        f"entry {i} has a malformed claim: missing {missing}"
+                    )
                 try:
-                    record = json.loads(ln)
-                except json.JSONDecodeError as exc:
-                    raise LedgerFileError(f"entry {i} is not valid JSON: {exc}") from exc
-                try:
-                    claim_data = record["claim"]
                     claim = Claim(
                         kind=claim_data["kind"],
                         payload=claim_data["payload"],
                         evidence=claim_data["evidence"],
                     )
                 except (KeyError, TypeError) as exc:
-                    raise LedgerFileError(f"entry {i} has a malformed claim: {exc}") from exc
+                    raise LedgerFileError(
+                        f"entry {i} has a malformed claim: {exc}"
+                    ) from exc
 
+                seq = record.get("seq")
+                if not isinstance(seq, int) or isinstance(seq, bool):
+                    raise LedgerFileError(f"entry {i}: seq must be an integer, got {seq!r}")
+
+                # -- load-time conflict detection --------------------------------
                 expected_seq = len(ledger._entries) + 1
-                if record.get("seq") != expected_seq:
+                if seq < expected_seq:
                     raise LedgerFileError(
-                        f"entry {i}: expected seq {expected_seq}, got {record.get('seq')}"
+                        f"entry {i}: duplicate sequence number {seq} "
+                        f"(entry {seq} is already present)"
                     )
-                # Recompute hashes from content; never trust the stored hashes.
-                prev_hash = ledger.head_hash
-                recomputed = EvidenceLedger._entry_hash(
-                    expected_seq, claim, prev_hash
-                )
-                if recomputed != record.get("entry_hash"):
+                if seq > expected_seq:
+                    if seq == expected_seq + 1:
+                        missing_range = str(expected_seq)
+                    else:
+                        missing_range = f"{expected_seq}..{seq - 1}"
                     raise LedgerFileError(
-                        f"entry {i}: hash mismatch — the chain does not verify "
-                        "(tamper or corruption)"
+                        f"entry {i}: sequence gap — expected seq {expected_seq}, "
+                        f"got {seq}; missing seq {missing_range}"
                     )
-                if record.get("prev_hash") != prev_hash:
-                    raise LedgerFileError(f"entry {i}: broken chain link")
-                entry = LedgerEntry(
-                    seq=expected_seq,
-                    timestamp=record["timestamp"],
-                    claim=claim,
-                    entry_hash=recomputed,
-                    prev_hash=prev_hash,
-                )
-                ledger._entries.append(entry)
 
-            if i != header.get("entries"):
-                raise LedgerFileError(
-                    f"header declares {header.get('entries')} entries, "
-                    f"file contains {i}"
+                # Recompute hashes from content; never trust the stored hashes.
+                recomputed = EvidenceLedger._entry_hash(expected_seq, claim, expected_prev)
+                if record.get("entry_hash") != recomputed:
+                    raise LedgerFileError(
+                        f"entry {i} (seq {expected_seq}): hash mismatch — the chain "
+                        "does not verify (tamper or corruption)"
+                    )
+                if record.get("prev_hash") != expected_prev:
+                    raise LedgerFileError(
+                        f"entry {i} (seq {expected_seq}): broken chain link — "
+                        f"prev_hash does not match entry {expected_seq - 1}"
+                    )
+                if "timestamp" not in record:
+                    raise LedgerFileError(f"entry {i}: missing timestamp")
+
+                ledger._entries.append(
+                    LedgerEntry(
+                        seq=expected_seq,
+                        timestamp=record["timestamp"],
+                        claim=claim,
+                        entry_hash=recomputed,
+                        prev_hash=expected_prev,
+                    )
                 )
-            if ledger.head_hash != header.get("head_hash"):
-                raise LedgerFileError(
-                    "header head_hash does not match the recomputed chain head"
-                )
+                expected_prev = recomputed
+
+            if dropped_tail:
+                # A torn tail means the header's count was written for a
+                # chain we no longer fully have. Re-derive the header so
+                # the recovered ledger is internally consistent, and keep
+                # the drop count for the caller to report.
+                if report is not None:
+                    report.dropped_tail = dropped_tail
+                    report.tail_detail = tail_detail
+                    report.header = {
+                        "format": "nomosguard-ledger",
+                        "format_version": LEDGER_FORMAT_VERSION,
+                        "entries": len(ledger._entries),
+                        "head_hash": ledger.head_hash,
+                    }
+            else:
+                if len(ledger._entries) != header.get("entries"):
+                    raise LedgerFileError(
+                        f"header declares {header.get('entries')} entries, "
+                        f"file contains {len(ledger._entries)}"
+                    )
+                if ledger.head_hash != header.get("head_hash"):
+                    raise LedgerFileError(
+                        "header head_hash does not match the recomputed chain head"
+                    )
+                if report is not None:
+                    report.header = header
+
+            if report is not None:
+                report.entries = list(ledger._entries)
             return ledger
 
     def export(self) -> list[dict[str, Any]]:
