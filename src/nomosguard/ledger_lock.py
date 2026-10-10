@@ -12,19 +12,18 @@ is what makes the sequence check safe.
 
 Non-POSIX platforms
 -------------------
-`fcntl` does not exist on Windows. Rather than degrade silently — a no-op
-"lock" that lets two processes clobber each other is far worse than a
-loud failure — importing this module on a non-POSIX platform raises
-`NotImplementedError` at import time, with the platform named. Callers
-that must stay cross-platform should guard the import:
+Two backends, same semantics:
 
-    try:
-        from .ledger_lock import append_locked
-    except NotImplementedError:  # non-POSIX
-        ...
+- POSIX: `fcntl.flock` — dropped by the kernel when the fd closes, so a
+  crashed writer cannot wedge the ledger.
+- Windows: `msvcrt.locking` — locks a byte range of the lock file. Note
+  Windows locks are NOT released on process death (no kernel cleanup
+  like flock); a hard-killed writer on Windows can leave the lock file
+  locked until the OS releases the handle. The timeout parameter is the
+  practical remedy: callers should always pass a finite `timeout`.
 
-`append_locked` itself raises `NotImplementedError` when called on a
-platform without `fcntl`, so a mistaken direct call fails loudly too.
+A platform with neither backend raises `NotImplementedError` at import —
+never a silent no-op, which would let concurrent writers lose entries.
 """
 
 from __future__ import annotations
@@ -38,15 +37,49 @@ from typing import IO, Iterator
 
 from .ledger import Claim, EvidenceLedger, LedgerEntry, _atomic_write_lines, wal_path_for
 
+# -- lock backend: POSIX fcntl, or Windows msvcrt ----------------------------
+# A silent no-op lock is worse than a loud failure: two processes could
+# clobber each other's entries. Both platforms get a real, kernel-backed
+# exclusive lock; unsupported platforms raise at import, not silently.
 try:
     import fcntl
-except ImportError as _exc:  # non-POSIX (e.g. Windows)
-    raise NotImplementedError(
-        "nomosguard.ledger_lock requires POSIX advisory file locking "
-        f"(fcntl), which is unavailable on {sys.platform!r}: {_exc}. "
-        "Multi-writer ledger appends are unsupported here; a silent "
-        "no-op lock would let concurrent writers lose entries."
-    ) from _exc
+
+    _BACKEND = "fcntl"
+
+    def _lock_ex(fh: IO[str], *, blocking: bool) -> None:
+        if blocking:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)
+        else:
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def _lock_un(fh: IO[str]) -> None:
+        fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+
+except ImportError:
+    try:
+        import msvcrt
+
+        _BACKEND = "msvcrt"
+
+        def _lock_ex(fh: IO[str], *, blocking: bool) -> None:
+            # msvcrt.locking locks a byte RANGE, not the file: one byte is
+            # enough. LK_NBLCK retries for ~10s then fails; LK_LOCK blocks
+            # indefinitely. We emulate non-blocking with LK_NBLCK (which
+            # fails immediately) and blocking with a retry loop.
+            mode = msvcrt.LK_NBLCK if not blocking else msvcrt.LK_LOCK
+            msvcrt.locking(fh.fileno(), mode, 1)
+
+        def _lock_un(fh: IO[str]) -> None:
+            msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+
+    except ImportError as _exc:  # a platform with neither
+        raise NotImplementedError(
+            "nomosguard.ledger_lock requires either POSIX advisory file "
+            f"locking (fcntl) or Windows locking (msvcrt); neither is "
+            f"available on {sys.platform!r}: {_exc}. Multi-writer ledger "
+            "appends are unsupported here; a silent no-op lock would let "
+            "concurrent writers lose entries."
+        ) from _exc
 
 __all__ = ["LedgerLock", "append_locked", "lock_path_for", "LedgerLockError"]
 
@@ -91,24 +124,27 @@ class LedgerLock:
             return self
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
         fh = open(self._lock_path, "a+", encoding="utf-8")
-        if self._timeout is None:
-            fcntl.flock(fh.fileno(), fcntl.LOCK_EX)  # blocks until free
-        else:
-            import time
+        try:
+            if self._timeout is None:
+                _lock_ex(fh, blocking=True)  # blocks until free
+            else:
+                import time
 
-            deadline = time.monotonic() + self._timeout
-            while True:
-                try:
-                    fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    break
-                except OSError:
-                    if time.monotonic() >= deadline:
-                        fh.close()
-                        raise LedgerLockError(
-                            f"could not acquire ledger lock {self._lock_path} "
-                            f"within {self._timeout}s — another writer holds it"
-                        ) from None
-                    time.sleep(0.005)
+                deadline = time.monotonic() + self._timeout
+                while True:
+                    try:
+                        _lock_ex(fh, blocking=False)
+                        break
+                    except OSError:
+                        if time.monotonic() >= deadline:
+                            raise LedgerLockError(
+                                f"could not acquire ledger lock {self._lock_path} "
+                                f"within {self._timeout}s — another writer holds it"
+                            ) from None
+                        time.sleep(0.005)
+        except LedgerLockError:
+            fh.close()
+            raise
         self._fh = fh
         return self
 
@@ -116,7 +152,7 @@ class LedgerLock:
         if self._fh is None:
             return
         try:
-            fcntl.flock(self._fh.fileno(), fcntl.LOCK_UN)
+            _lock_un(self._fh)
         except OSError:
             pass
         finally:
@@ -165,10 +201,9 @@ def append_locked(
     concurrently therefore serialize and both entries survive, with a
     valid chain and no gap in the sequence.
     """
-    if "fcntl" not in sys.modules:
+    if _BACKEND not in ("fcntl", "msvcrt"):
         raise NotImplementedError(
-            "append_locked requires POSIX file locking (fcntl); unavailable "
-            f"on {sys.platform!r}"
+            f"append_locked requires a file-locking backend; none available on {sys.platform!r}"
         )
 
     ledger_path = Path(ledger_path)

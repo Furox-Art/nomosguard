@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.2] - 2026-10-10
+
+### Added — Windows multi-writer locking
+
+- `nomosguard.ledger_lock` now supports Windows via `msvcrt.locking`
+  (byte-range locking on the lock file). Same semantics as the POSIX
+  fcntl path: exclusive lock, timeout, context manager.
+- Documented the platform difference honestly: Windows locks are NOT
+  released on process death (unlike flock's kernel cleanup), so callers
+  on Windows should always pass a finite timeout.
+- Platforms with neither backend still raise NotImplementedError at
+  import — never a silent no-op lock.
+
 ## [0.6.1] - 2026-10-10
 
 ### Added — end-to-end demo

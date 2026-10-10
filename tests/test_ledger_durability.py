@@ -47,10 +47,8 @@ from nomosguard.ledger_wal import (
     write_wal,
 )
 
-# fcntl is POSIX-only; the lock module refuses to import elsewhere.
+# The lock module needs a backend: fcntl (POSIX) or msvcrt (Windows).
 try:
-    import fcntl  # noqa: F401
-
     from nomosguard.ledger_lock import (
         LedgerLock,
         LedgerLockError,
@@ -59,12 +57,12 @@ try:
         lock_path_for,
     )
 
-    HAS_FLOCK = True
+    HAS_LOCK = True
 except (ImportError, NotImplementedError):
-    HAS_FLOCK = False
+    HAS_LOCK = False
 
-requires_posix = pytest.mark.skipif(
-    not HAS_FLOCK, reason="fcntl.flock is POSIX-only; multi-writer locking unsupported here"
+requires_lock = pytest.mark.skipif(
+    not HAS_LOCK, reason="no file-locking backend (fcntl/msvcrt) on this platform"
 )
 
 
@@ -645,7 +643,7 @@ def _child_crash_while_locked(ledger_path: str) -> None:
     os._exit(9)
 
 
-@requires_posix
+@requires_lock
 class TestMultiWriterLocking:
     """Real processes, real interleaving: the lost-write bug only shows up here."""
 
@@ -798,7 +796,7 @@ class TestMultiWriterLocking:
                 assert time.monotonic() - started < 5.0
 
 
-@requires_posix
+@requires_lock
 class TestNonPosixBehavior:
     """On a platform without fcntl, the lock must fail loudly, not silently."""
 
