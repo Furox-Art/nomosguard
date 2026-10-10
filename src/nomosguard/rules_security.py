@@ -115,4 +115,50 @@ def security_rules() -> list[Rule]:
             head=Pattern("?host", "dataExfilInProgress", "?actor"),
             description="A host with suspected exfiltration bursts and derived code execution is actively leaking data.",
         ),
+
+        # -- signature rules --------------------------------------------------
+        # Evidence from nomosguard.signatures / signature_bridge: a
+        # signature match over raw log lines, with no model involved. The
+        # facts it produces are behavioural, like the temporal ones — they
+        # say an actor DID something, not that the actor is hostile
+        # everywhere.
+        #
+        # ONE rule, chosen deliberately. Three plausible candidates were
+        # considered:
+        #   (a) signatureMatched + canAccessHost -> probe/attempt fact
+        #   (b) maliciousActivity + canAccessHost -> compromise-ish fact
+        #   (c) maliciousActivity -> standalone alert
+        #
+        # (b) is the one added. Why: it is the only one of the three that
+        # is not already covered by an existing rule. (a) duplicates
+        # brute_force_attempting_access — a signature match against a
+        # reachable actor is the same conclusion the temporal brute-force
+        # rule already reaches, and duplicating it would mean two rules
+        # deriving near-identical facts from overlapping evidence. (c) is
+        # a policy concern, not an inference one: "this actor is doing
+        # something malicious" needs no access graph, so it belongs in
+        # policy_security.py as an escalation, not here.
+        #
+        # (b) answers a question no other rule answers: a CRITICAL
+        # signature (encoded PowerShell, credential dumping, ransomware
+        # notes — behaviour that is malicious on its face, not merely
+        # suspicious) from an actor that can actually REACH a host means
+        # the malicious activity is aimed at a live target. Reachability
+        # is what turns "someone somewhere is running encoded PowerShell"
+        # into "this actor is attacking a host we protect", and the
+        # derived fact says exactly that, per host.
+        Rule(
+            name="signature_malicious_actor",
+            body=(
+                Pattern("?actor", "maliciousActivity", "?sig"),
+                Pattern("?actor", "canAccessHost", "?host"),
+            ),
+            head=Pattern("?actor", "hostUnderMaliciousProbe", "?host"),
+            description=(
+                "An actor with a critical signature match (malicious activity) "
+                "and network reachability is attacking a host that can be "
+                "reached — the signature evidence and the access graph point "
+                "at the same target."
+            ),
+        ),
     ]
