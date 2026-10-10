@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-10-10
+
+### Added — log normalization (format adapters)
+
+- `nomosguard.log_normalize`: deterministic, model-free adapters that
+  convert syslog, CEF, JSON, and key=value log lines into the canonical
+  shape the extractors and temporal rules expect. Same input -> same
+  output, always.
+- Timestamps are canonicalized to [HH:MM:SS] so normalized lines drive
+  the temporal engine exactly like natively-canonical logs — verified
+  by a test that normalizes a syslog brute-force burst and checks the
+  bruteForceDetected fact fires.
+- Unparseable lines pass through unchanged (never drop evidence).
+
 ## [0.6.2] - 2026-10-10
 
 ### Added — Windows multi-writer locking

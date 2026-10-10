@@ -66,7 +66,8 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.vuln_db` | Real CVE data from the NVD (cached; CVSS severity) |
 | `nomosguard.service_cve_map` | Offline service/port -> candidate CVE ids |
 | `nomosguard.ledger_wal` | Write-ahead log: crash recovery, checkpointing |
-| `nomosguard.ledger_lock` | POSIX multi-writer locking (`append_locked`) |
+| `nomosguard.ledger_lock` | Multi-writer locking (`append_locked`; fcntl/msvcrt) |
+| `nomosguard.log_normalize` | Deterministic adapters: syslog / CEF / JSON / key=value -> canonical shape |
 | `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 
 ## Actionable containment (dry-run)
