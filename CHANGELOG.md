@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-10-10
+
+### Added — end-to-end demo
+
+- `python -m nomosguard.demo_e2e`: one incident through the whole
+  deterministic chain — signature matching (model-free) -> temporal
+  correlation (time dimension) -> evidenced ledger -> attack graph ->
+  fail-closed gate -> containment plan. Prints the actual output;
+  nothing hand-written.
+- 7 tests lock the demo: every evidence layer produces facts, the gate
+  escalates and revokes, the ledger chain verifies, the decision is
+  deterministic, signatures fire on the raw logs.
+- README quick start shows the real demo output.
+
 ## [0.6.0] - 2026-10-10
 
 ### Added — signature matching (deterministic, model-free)
