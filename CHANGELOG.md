@@ -5,6 +5,64 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-10
+
+### Added — signature matching (deterministic, model-free)
+
+- `nomosguard.signatures`: Sigma-inspired schema (field+value regex
+  detection with AND semantics, negative filters, stable ids NG-0001..).
+  A signature either matches a log line or it does not — no scoring,
+  no fuzziness, no model.
+- `nomosguard.signatures_builtin`: 12 starter signatures (failed-auth
+  bursts, encoded PowerShell, scanner user-agents, large transfers,
+  privilege grants, firewall deny spikes, ...), each with positive and
+  negative test cases.
+- `nomosguard.signature_bridge`: matches become evidenced ledger claims
+  (`signature_ng-xxxx`) with the exact line as evidence; registered
+  extractors produce `signatureMatched` / `maliciousActivity` facts.
+- New security rule + policy rule connect signature evidence to the
+  access graph: a critical signature on a reachable actor -> ESCALATE.
+
+### Added — real CVE grounding (NVD)
+
+- `nomosguard.vuln_db`: NVD API 2.0 client with an on-disk cache
+  (~/.cache/nomosguard/nvd/); cache hit = zero network. CVSS v3.1 ->
+  v3.0 -> v2 fallback; severity bands (CRITICAL 9.0+, HIGH 7.0+,
+  MEDIUM 4.0+, LOW 0.1+).
+- `nomosguard.service_cve_map`: offline curated table mapping common
+  services (OpenSSH, OpenSSL, nginx, Apache, PostgreSQL, MySQL, vsftpd,
+  Samba) to real, verified CVE ids.
+- New claim kind `vuln_severity` -> `vulnSeverity` fact, and a
+  severity-gated exploit rule: a CRITICAL vulnerability on a reachable
+  host derives execCode. The engine can now distinguish "has some CVE"
+  from "has a CRITICAL CVE".
+- The NVD layer sits OUTSIDE the ledger/rules core (it is I/O); the
+  core stays pure. The full suite passes with zero network access.
+
+### Added — ledger durability + multi-writer safety
+
+- `nomosguard.ledger_wal`: write-ahead log (fsync'd) before the main
+  file changes; `recover()` replays entries the main file never got;
+  `checkpoint()` truncates the WAL once the main file holds everything.
+  A torn WAL tail is dropped and counted; a torn line mid-WAL is a hard
+  error (never guess past unverifiable data).
+- `nomosguard.ledger_lock`: POSIX `fcntl.flock` serialization.
+  `append_locked` runs read -> append -> WAL -> atomic save -> checkpoint
+  under one exclusive lock, so concurrent writers produce one valid
+  chain with no gaps or lost writes.
+- `EvidenceLedger.save` is atomic (tmp + fsync + rename); a torn final
+  line on load is dropped and reported. Ledgers written by 0.5.0 still
+  load (backwards compatible).
+- Bugs fixed during review (caught by the new tests, not by inspection):
+  WAL entries chain to each other, not to the main head; write_wal skips
+  entries already in the WAL (replay double-write); durable_save
+  tolerates a refused checkpoint during replay.
+
+### Tests
+
+299 pass (was 147). New: 39 signature, 40 durability, 13 vuln/NVD tests
+(NVD tests run fully offline against recorded fixtures).
+
 ## [0.5.0] - 2026-10-10
 
 ### Added — the time dimension is now part of the attack graph
