@@ -59,6 +59,7 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.rules_security` | MulVAL-style rules: exploit, lateral movement, privilege escalation |
 | `nomosguard.policy_security` | Containment decisions: ISOLATE_HOST, REVOKE_ACCESS, ESCALATE |
 | `nomosguard.temporal` | Time-window correlation: brute force, port scan, exfil bursts (deterministic) |
+| `nomosguard.temporal_bridge` | Temporal findings -> ledger claims -> rule engine -> gate: the time dimension is part of the attack graph |
 | `nomosguard.containment` | Gate decisions as operator-reviewable action plans (dry-run) |
 | `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 

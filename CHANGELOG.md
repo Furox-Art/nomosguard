@@ -5,6 +5,35 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-10
+
+### Added — the time dimension is now part of the attack graph
+
+- `nomosguard.temporal_bridge`: temporal findings become evidenced
+  ledger claims (kind `temporal_*`), which registered extractors turn
+  into engine facts:
+    (actor, bruteForceDetected, brute_force)
+    (actor, scanDetected, port_scan)
+    (host, exfilSuspected, exfiltration)
+- New security rules connecting temporal facts to the access graph:
+  - brute_force_attempting_access: brute force + reachability ->
+    accessAttemptInProgress
+  - scan_of_reachable_host: scan + reachability -> enumeratingHost
+  - active_exfiltration: exfil suspicion + execCode -> dataExfilInProgress
+- New policy rules: ESCALATE on access attempt in progress, REVOKE_ACCESS
+  on enumeration, ISOLATE_HOST on active exfiltration. Each declares its
+  required evidence classes, so incomplete chains are reported.
+
+The full chain, verified end-to-end: 6 failed SSH logins in 20 seconds
+-> bruteForceDetected -> + network reachability -> accessAttemptInProgress
+-> ESCALATE + REVOKE_ACCESS, with the derivation chain and missing-evidence
+report. Temporal evidence alone never fires a decision — it needs the
+access graph, keeping the decision boundary deterministic.
+
+### Tests
+
+147 pass (was 140). New: 7 temporal-chain tests (offline).
+
 ## [0.4.0] - 2026-10-10
 
 ### Added — temporal rules (deterministic time-window correlation)

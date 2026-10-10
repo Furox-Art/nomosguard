@@ -45,4 +45,25 @@ def containment_policy_rules() -> list[PolicyRule]:
             description="A privileged compromise needs human escalation.",
             requires=("network", "privilege"),
         ),
+        PolicyRule(
+            name="escalate_access_attempt_in_progress",
+            match_relation="accessAttemptInProgress",
+            decision=Decision.ESCALATE,
+            description="An actor brute-forcing with reachability is attempting access right now — a human must decide before it becomes a compromise.",
+            requires=("temporal_brute_force", "network"),
+        ),
+        PolicyRule(
+            name="revoke_enumeration_path",
+            match_relation="enumeratingHost",
+            decision=Decision.REVOKE_ACCESS,
+            description="A scanning actor enumerating a live host must have the path revoked.",
+            requires=("temporal_port_scan", "network"),
+        ),
+        PolicyRule(
+            name="isolate_active_exfiltration",
+            match_relation="dataExfilInProgress",
+            decision=Decision.ISOLATE_HOST,
+            description="A host actively exfiltrating data while running attacker code must be isolated.",
+            requires=("temporal_exfil_burst", "exec_code"),
+        ),
     ]

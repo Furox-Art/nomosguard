@@ -73,4 +73,46 @@ def security_rules() -> list[Rule]:
             head=Pattern("?host", "grantsPrivilege", "?priv"),
             description="Code execution on a host grants the executing user's privileges to that host.",
         ),
+
+        # -- temporal rules ---------------------------------------------------
+        # Patterns that exist only in the time dimension. These do NOT
+        # assert compromise on their own; they mark an ACTOR as hostile
+        # in progress, which the gate escalates. The evidence (event
+        # counts, window) comes from nomosguard.temporal.
+
+        # Brute force + reachability: an actor brute-forcing auth who can
+        # reach a host is attempting access right now -> escalate.
+        Rule(
+            name="brute_force_attempting_access",
+            body=(
+                Pattern("?actor", "bruteForceDetected", "brute_force"),
+                Pattern("?actor", "canAccessHost", "?host"),
+            ),
+            head=Pattern("?actor", "accessAttemptInProgress", "?host"),
+            description="An actor exhibiting brute-force behavior with network reachability is attempting access now.",
+        ),
+
+        # Scan + reachability: a scanning actor that can reach a host is
+        # enumerating it -> the access path must be revoked.
+        Rule(
+            name="scan_of_reachable_host",
+            body=(
+                Pattern("?actor", "scanDetected", "port_scan"),
+                Pattern("?actor", "canAccessHost", "?host"),
+            ),
+            head=Pattern("?actor", "enumeratingHost", "?host"),
+            description="A scanning actor with reachability is enumerating a live host.",
+        ),
+
+        # Exfil suspicion + compromise: a host suspected of exfiltration
+        # that also runs attacker code is actively leaking -> isolate.
+        Rule(
+            name="active_exfiltration",
+            body=(
+                Pattern("?host", "exfilSuspected", "exfiltration"),
+                Pattern("?host", "execCode", "?actor"),
+            ),
+            head=Pattern("?host", "dataExfilInProgress", "?actor"),
+            description="A host with suspected exfiltration bursts and derived code execution is actively leaking data.",
+        ),
     ]
