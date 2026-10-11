@@ -5,6 +5,30 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.4] - 2026-10-11
+
+### Security — adversarial probes v3 (fuzzing, scale, closure) — ALL HELD
+
+- `tests/test_adversarial_v3.py`: 9 tests covering random-input
+  robustness and scale. No defects found — this layer is a regression
+  guard, not a fix.
+  - 2000 random lines x 39 signatures: no crash, no malformed match, <0.1s
+  - 500 random temporal events: no hang
+  - 13 malformed/unicode/nested normalize inputs: survive
+  - gate severity: worst decision wins (ISOLATE outranks REVOKE)
+  - 1MB single line vs 39 signatures: <0.1s
+  - 5000-entry ledger chain verifies in <0.05s
+  - transitive rule closure: n0 reaches all 5 downstream nodes
+  - duplicate facts idempotent (no double-count)
+  - empty inputs across all layers: no crash
+
+The three adversarial layers together (v1: 8, v2: 10, v3: 9 = 27 tests)
+now guard every property the project claims.
+
+### Tests
+
+370 pass (was 361). New: 9 adversarial-v3.
+
 ## [0.7.3] - 2026-10-11
 
 ### Fixed — silent rule-definition errors (adversarial probe v2)
