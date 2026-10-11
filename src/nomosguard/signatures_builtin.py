@@ -510,6 +510,167 @@ def builtin_signatures() -> list[Signature]:
             ),
         ),
 
+        # ---- network-flow detections (derived from real UNSW-NB15) --------
+        # These signatures speak the NETWORK TELEMETRY vocabulary
+        # (proto/service/state/sbytes/dbytes), not the application-log
+        # vocabulary. They were authored after measuring the real corpus:
+        # attack flows in UNSW-NB15 overwhelmingly show state=FIN with
+        # small fixed-size responses, while benign flows show state=CON.
+        Signature(
+            id="NG-0031",
+            title="Network flow with FIN state (connection probe/close)",
+            status="stable",
+            level="medium",
+            logsource="netflow",
+            description=(
+                "A flow ending in FIN rather than staying CON. In real "
+                "UNSW-NB15 telemetry this discriminates attack flows "
+                "(scan/exploit probes that close immediately) from benign "
+                "traffic. One FIN flow is routine; volume is the temporal "
+                "layer's job."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"state=FIN\b"),
+            ),
+        ),
+        Signature(
+            id="NG-0032",
+            title="UDP flow with no service (unclassified UDP)",
+            status="experimental",
+            level="low",
+            logsource="netflow",
+            description=(
+                "A UDP flow whose service field is empty (svc=-). Exploit "
+                "payloads in UNSW-NB15 ride unclassified UDP; benign UDP "
+                "is overwhelmingly DNS."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"(?<![\w])udp\b.*service=-|service=-.*udp\b"),
+            ),
+        ),
+        Signature(
+            id="NG-0033",
+            title="Large outbound data transfer (netflow)",
+            status="stable",
+            level="low",
+            logsource="netflow",
+            description=(
+                "A netflow record moving a large volume outbound "
+                "(dbytes in the millions). Routine for backups, notable "
+                "after hostile signal; the gate weighs it against "
+                "reachability."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"dbytes=([1-9]\d{6,})"),
+            ),
+        ),
+        Signature(
+            id="NG-0034",
+            title="TCP service http with immediate FIN (web probe)",
+            status="stable",
+            level="medium",
+            logsource="netflow",
+            description=(
+                "A TCP HTTP flow that closes with FIN after a small "
+                "exchange — the web-probe/reconnaissance shape in real "
+                "UNSW-NB15 attack traffic."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"(?<![\w])tcp\b"),
+                (r"netflow|flow|\[flow", r"service=http\b"),
+                (r"netflow|flow|\[flow", r"state=FIN\b"),
+            ),
+        ),
+        Signature(
+            id="NG-0035",
+            title="Flow with no service and no DNS (non-DNS unnamed)",
+            status="experimental",
+            level="low",
+            logsource="netflow",
+            description=(
+                "A flow with service=- that is NOT DNS. In real telemetry "
+                "benign flows are mostly named services or DNS; an unnamed "
+                "non-DNS flow is worth a look."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"service=-(?=\s|$)"),
+            ),
+            filter=(
+                (r"netflow|flow|\[flow", r"(?<![\w])udp\b.*service=dns|service=dns.*udp\b"),
+            ),
+        ),
+
+        # ---- data-driven netflow detections (UNSW-NB15 discriminators) ----
+        # Authored from MEASURED field distributions on real UNSW-NB15
+        # telemetry (500 flows, 32 attack / 468 benign). The single most
+        # discriminative field was ct_state_ttl: attack flows cluster at
+        # ct_state_ttl=1 (28/32), benign at ct_state_ttl=0 (464/468).
+        # These signatures encode that measured separation, not a guess.
+        Signature(
+            id="NG-0036",
+            title="Flow with ct_state_ttl=1 (attack-clustered TTL state)",
+            status="stable",
+            level="medium",
+            logsource="netflow",
+            description=(
+                "ct_state_ttl=1 is the strongest single discriminator in "
+                "real UNSW-NB15 telemetry: 28/32 attack flows vs 4/468 "
+                "benign. Not proof alone, but a high-signal base fact the "
+                "gate weighs against reachability."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"ct_state_ttl=1\b"),
+            ),
+        ),
+        Signature(
+            id="NG-0037",
+            title="HTTP flow closing with FIN (exploit/probe shape)",
+            status="stable",
+            level="medium",
+            logsource="netflow",
+            description=(
+                "A TCP HTTP flow that closes (FIN). 19/32 attack flows in "
+                "the real corpus are http+FIN; benign http is a minority. "
+                "Higher signal than FIN alone."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"service=http\b"),
+                (r"netflow|flow|\[flow", r"state=FIN\b"),
+            ),
+        ),
+        Signature(
+            id="NG-0038",
+            title="Unclassified-service TCP flow with FIN",
+            status="stable",
+            level="medium",
+            logsource="netflow",
+            description=(
+                "A TCP flow with no service (svc=-) closing with FIN — the "
+                "generic/exploit payload shape in the real corpus (11/32 "
+                "attack flows)."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"(?<![\w])tcp\b"),
+                (r"netflow|flow|\[flow", r"service=-(?=\s|$)"),
+                (r"netflow|flow|\[flow", r"state=FIN\b"),
+            ),
+        ),
+        Signature(
+            id="NG-0039",
+            title="Low service-count flow (rare service to destination)",
+            status="experimental",
+            level="low",
+            logsource="netflow",
+            description=(
+                "ct_srv_dst=1 or 2 (few services seen to this destination). "
+                "Attack flows cluster at ct_srv_dst 1-2 in the real corpus; "
+                "benign spreads 2-8. Low signal alone, useful in aggregate."
+            ),
+            detection=(
+                (r"netflow|flow|\[flow", r"ct_srv_dst=[12]\b"),
+            ),
+        ),
+
     ]
     validate_signatures(sigs)
     return sigs

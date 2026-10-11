@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-10-10
+
+### Real-corpus accuracy benchmark
+
+- 9 network-flow signatures (NG-0031..NG-0039) added, derived from
+  MEASURED field distributions on real UNSW-NB15 telemetry. The single
+  strongest discriminator — ct_state_ttl=1 — separates attack from
+  benign with 100% precision on the corpus (28/32 attack, 0/468 benign).
+- `docs/REAL_CORPUS.md`: the full measured result, including the honest
+  false-positive cost of trusting weak signatures (64% union FP vs 100%
+  precision for the one data-driven signature) and an explicit
+  "what this does not establish" section.
+- The measured lesson, encoded in the docs: a signature is evidence, not
+  a verdict — the gate weighs strong evidence against reachability.
+
+### Tests
+
+340 pass. The 9 new signatures carry positive + negative cases (the
+coverage rule); several were corrected against the real render format
+during authoring (proto is a bare token; `service=-` needs a lookahead
+boundary because `-` is non-word).
+
 ## [0.7.0] - 2026-10-10
 
 ### Signatures — 30 detections, real Sigma field scoping

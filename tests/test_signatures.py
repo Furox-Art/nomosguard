@@ -173,6 +173,42 @@ CASES: dict[str, tuple[str, str]] = {
         "host: docker run --privileged --pid=host attacker-image",
         "host: docker run --rm nginx:latest",
     ),
+    "NG-0031": (
+        "[flow 1] tcp src=1.2.3.4:5 dst=10.0.0.9:80 service=http state=FIN sbytes=918 dbytes=268 ct_state_ttl=1 ct_srv_dst=1",
+        "[flow 2] tcp src=10.0.0.5:5 dst=10.0.0.9:80 service=http state=CON sbytes=918 dbytes=268 ct_state_ttl=0 ct_srv_dst=4",
+    ),
+    "NG-0032": (
+        "[flow 1] udp src=1.2.3.4:5 dst=10.0.0.9:53 service=- state=INT sbytes=728 dbytes=0 ct_state_ttl=2",
+        "[flow 2] udp src=10.0.0.5:5 dst=10.0.0.9:53 service=dns state=CON sbytes=132 dbytes=164 ct_state_ttl=0",
+    ),
+    "NG-0033": (
+        "[flow 1] tcp src=10.0.0.5:5 dst=10.0.0.9:443 service=https state=CON sbytes=100 dbytes=3500000 ct_state_ttl=0",
+        "[flow 2] tcp src=10.0.0.5:5 dst=10.0.0.9:443 service=https state=CON sbytes=100 dbytes=1500 ct_state_ttl=0",
+    ),
+    "NG-0034": (
+        "[flow 1] tcp src=175.45.176.2:23357 dst=149.171.126.16:80 service=http state=FIN sbytes=918 dbytes=25552 ct_state_ttl=1",
+        "[flow 2] tcp src=10.0.0.5:5 dst=10.0.0.9:80 service=http state=CON sbytes=918 dbytes=268 ct_state_ttl=0",
+    ),
+    "NG-0035": (
+        "[flow 1] tcp src=1.2.3.4:5 dst=10.0.0.9:8080 service=- state=FIN sbytes=844 dbytes=268 ct_state_ttl=1",
+        "[flow 2] udp src=10.0.0.5:5 dst=10.0.0.9:53 service=dns state=CON sbytes=132 dbytes=164 ct_state_ttl=0",
+    ),
+    "NG-0036": (
+        "[flow 1] tcp src=1.2.3.4:5 dst=10.0.0.9:80 service=http state=FIN sbytes=918 dbytes=268 ct_state_ttl=1 ct_srv_dst=1",
+        "[flow 2] tcp src=10.0.0.5:5 dst=10.0.0.9:80 service=http state=CON sbytes=918 dbytes=268 ct_state_ttl=0 ct_srv_dst=4",
+    ),
+    "NG-0037": (
+        "[flow 1] tcp src=1.2.3.4:5 dst=10.0.0.9:80 service=http state=FIN sbytes=844 dbytes=948 ct_state_ttl=1",
+        "[flow 2] tcp src=10.0.0.5:5 dst=10.0.0.9:80 service=http state=CON sbytes=918 dbytes=268 ct_state_ttl=0",
+    ),
+    "NG-0038": (
+        "[flow 1] tcp src=1.2.3.4:5 dst=10.0.0.9:8080 service=- state=FIN sbytes=844 dbytes=268 ct_state_ttl=1",
+        "[flow 2] tcp src=10.0.0.5:5 dst=10.0.0.9:80 service=http state=CON sbytes=918 dbytes=268 ct_state_ttl=0",
+    ),
+    "NG-0039": (
+        "[flow 1] tcp src=1.2.3.4:5 dst=10.0.0.9:80 service=http state=FIN sbytes=918 dbytes=268 ct_state_ttl=1 ct_srv_dst=2",
+        "[flow 2] tcp src=10.0.0.5:5 dst=10.0.0.9:80 service=http state=CON sbytes=918 dbytes=268 ct_state_ttl=0 ct_srv_dst=8",
+    ),
 }
 
 
