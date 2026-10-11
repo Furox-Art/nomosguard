@@ -41,6 +41,8 @@ severity rating scale:
 
 from __future__ import annotations
 
+import re
+
 import json
 import os
 import time
@@ -188,7 +190,18 @@ class CachedNVDClient:
     # -- cache plumbing -------------------------------------------------------
 
     def _cache_path(self, cve_id: str) -> Path:
-        return self.cache_dir / f"{cve_id}.json"
+        """The cache file for a CVE id, SANITIZED.
+
+        The cve_id comes from caller input (and ultimately from NVD
+        responses or LLM-authored claims). It is used as a FILENAME, so
+        it must not be able to escape the cache directory: a value like
+        ``../../etc/evil`` would otherwise write outside the cache.
+        Only the characters a real CVE id contains (letters, digits,
+        hyphens) are kept; everything else becomes ``_``. This can never
+        widen the path beyond the cache dir.
+        """
+        safe = re.sub(r"[^A-Za-z0-9-]", "_", str(cve_id))
+        return self.cache_dir / f"{safe}.json"
 
     def _read_disk_cache(self, cve_id: str) -> dict[str, Any] | None:
         path = self._cache_path(cve_id)

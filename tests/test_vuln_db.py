@@ -666,3 +666,43 @@ class TestCacheTtl:
             import json
             payload = json.loads((Path(td) / "CVE-2024-6387.json").read_text())
             assert isinstance(payload.get("cached_at"), (int, float))
+
+
+# -- security: cache filename must not escape the cache dir -------------------
+
+class TestCachePathSafety:
+    """A cve_id is caller-controlled and becomes a FILENAME — it must not
+    traverse out of the cache directory."""
+
+    def test_traversal_id_cannot_escape(self):
+        import tempfile
+        from nomosguard.vuln_db import CachedNVDClient
+        with tempfile.TemporaryDirectory() as td:
+            client = CachedNVDClient(cache_dir=td, offline=True, cache={})
+            p = client._cache_path("../../../../etc/evil")
+            resolved = p.resolve()
+            cache_root = Path(td).resolve()
+            assert str(resolved).startswith(str(cache_root)), (
+                f"cache path escaped the cache dir: {resolved}"
+            )
+
+    def test_write_with_traversal_id_stays_in_cache(self):
+        import tempfile
+        from nomosguard.vuln_db import CachedNVDClient
+        with tempfile.TemporaryDirectory() as td:
+            client = CachedNVDClient(cache_dir=td, offline=True, cache={})
+            client._write_disk_cache("../../../../tmp/pwned", {"id": "x"})
+            # nothing written outside the cache dir
+            assert not Path("/tmp/pwned.json").exists()
+            # the sanitized file IS inside the cache (all separators -> _)
+            files = [f.name for f in Path(td).iterdir()]
+            assert any(f.endswith("tmp_pwned.json") for f in files), files
+
+    def test_normal_id_unaffected(self):
+        import tempfile
+        from nomosguard.vuln_db import CachedNVDClient
+        with tempfile.TemporaryDirectory() as td:
+            client = CachedNVDClient(cache_dir=td, offline=True, cache={})
+            p = client._cache_path("CVE-2024-6387")
+            assert p.name == "CVE-2024-6387.json"
+            assert p.parent == Path(td)

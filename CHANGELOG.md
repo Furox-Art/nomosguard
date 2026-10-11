@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] - 2026-10-11
+
+### Security — path traversal in the NVD cache (found by adversarial probing)
+
+- `CachedNVDClient._cache_path` used the raw cve_id as a filename. A
+  caller-controlled id like `../../../../tmp/pwned` (from an NVD
+  response or an LLM-authored claim) would write OUTSIDE the cache
+  directory. Now the id is sanitized to `[A-Za-z0-9-]`; anything else
+  becomes `_`, so the path can never leave the cache dir.
+- Regression tests: a traversal id cannot escape; a write with a
+  traversal id stays inside the cache; normal ids are unaffected.
+
+### Security — adversarial regression suite
+
+- `tests/test_adversarial.py`: 8 tests that attempt concrete attacks and
+  assert the invariant holds — tamper-evasion (a rewritten middle entry
+  is still caught), determinism under shuffled claim order, ReDoS
+  (5k-char lines against temporal + all 39 signatures finish in
+  milliseconds), payload quote-injection, empty-evidence rejection,
+  unicode host handling.
+- These are the properties the project CLAIMS; now they are TESTED.
+
+### Tests
+
+350 pass (was 340). New: 3 cache-path-safety, 8 adversarial.
+
 ## [0.7.1] - 2026-10-10
 
 ### Real-corpus accuracy benchmark
