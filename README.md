@@ -41,7 +41,7 @@ and the transcript is tamper-evident.
 
 Early development — see [VISION.md](VISION.md) for the architecture,
 scope, and first-release boundary. The core (evidence ledger, rule
-engine, policy gate) is implemented with 51 passing tests and a
+engine, policy gate) is implemented with 370 passing tests and a
 reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 
 ### Components
@@ -61,7 +61,7 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.temporal` | Time-window correlation: brute force, port scan, exfil bursts (deterministic) |
 | `nomosguard.temporal_bridge` | Temporal findings -> ledger claims -> rule engine -> gate: the time dimension is part of the attack graph |
 | `nomosguard.containment` | Gate decisions as operator-reviewable action plans (dry-run) |
-| `nomosguard.signatures` | Sigma-style deterministic signature matching: 30 built-in detections, opt-in field-scoped (`field:NAME`) matching (no model) |
+| `nomosguard.signatures` | Sigma-style deterministic signature matching: 39 built-in detections, opt-in field-scoped (`field:NAME`) matching (no model) |
 | `nomosguard.signature_bridge` | Signature matches -> ledger claims -> engine facts |
 | `nomosguard.vuln_db` | Real CVE data from the NVD (cached with 7-day TTL; CVSS severity) |
 | `nomosguard.service_cve_map` | Offline service/port -> candidate CVE ids |
@@ -132,21 +132,13 @@ re-appended.
 Committed samples: `examples/sample_toolcalls.jsonl`,
 `examples/sample_cves.jsonl`, `examples/sample_policies.jsonl`.
 
-| Module | What it does |
-|---|---|
-| `nomosguard.ledger` | Append-only SHA-256 hash-chained evidence ledger; rejects unevidenced claims |
-| `nomosguard.rules` | Forward-chaining rule engine (MulVAL-style) with tool-call / CVE / policy extractors |
-| `nomosguard.gate` | Fail-closed policy gate: ALLOW / ALERT / BLOCK with full derivation chains |
-| `nomosguard.mcp_server` | MCP session layer: 5 tools (`evidence_ingest`, `assert_claim`, `derive_paths`, `decide`, `explain`) |
-| `nomosguard.mcp_stdio` | JSON-RPC stdio server (`python -m nomosguard.mcp_stdio`) |
-| `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
-
 ### Run it
 
 ```bash
 pip install -e .
 python -m nomosguard.demo    # committed scenario: derivation + BLOCK
-pytest tests/                # 107 tests incl. security suite
+python -m nomosguard.demo_e2e  # one incident through every deterministic layer
+pytest tests/                # 370 tests incl. security + adversarial suites
 python -m nomosguard.benchmark.run_suite_main          # tool-call corpus (11 scenarios)
 python -m nomosguard.benchmark.security_main           # security corpus (5 scenarios)
 ```

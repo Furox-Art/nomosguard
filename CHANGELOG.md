@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.5] - 2026-10-11
+
+### Fixed — demo_e2e silently produced a weaker decision
+
+- `demo_e2e` imported neither `facts_security` nor `temporal_bridge` at
+  module level, so the engine had no extractor for `network` /
+  `vuln_severity` claim kinds. The attack graph silently lacked
+  `canAccessHost` facts, the brute-force rule could not fire
+  `accessAttemptInProgress`, and the gate returned ALERT instead of
+  ESCALATE + REVOKE_ACCESS. Caught by a full consistency pass (the
+  demo's output no longer matched its own narrative); the unit tests
+  missed it because they set up imports themselves.
+- Extractors are now registered at import; the demo produces the full
+  8-fact attack graph and the ESCALATE + REVOKE_ACCESS decision it
+  documents.
+
+### Docs — README made accurate
+
+- Test count 51 -> 370, signature count 30 -> 39, removed a duplicated
+  stale module table, added the `demo_e2e` run line. The README now
+  matches the code.
+
+### Tests
+
+370 pass.
+
 ## [0.7.4] - 2026-10-11
 
 ### Security — adversarial probes v3 (fuzzing, scale, closure) — ALL HELD

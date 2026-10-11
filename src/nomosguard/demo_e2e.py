@@ -29,6 +29,13 @@ from nomosguard.signatures import Match, match_all
 from nomosguard.signatures_builtin import builtin_signatures
 from nomosguard.temporal import default_temporal_rules
 
+# Register the security + temporal extractors at import time — without
+# these, the engine has no extractor for `network` / `vuln_severity` /
+# `temporal_*` claim kinds and the attack graph silently lacks the
+# canAccessHost facts the brute-force rule needs.
+from nomosguard import facts_security, temporal_bridge  # noqa: F401
+from nomosguard.temporal_bridge import run_temporal_into_ledger
+
 # -- the incident -------------------------------------------------------------
 # A single attacker (203.0.113.77) brute-forces web01, which carries a
 # real CVE; the firewall lets them reach it; exfil-sized transfers start.
@@ -91,7 +98,6 @@ def main() -> int:
     print()
 
     # -- stage 2: temporal correlation ----------------------------------------
-    from nomosguard.temporal_bridge import run_temporal_into_ledger
     ledger, temporal = run_temporal_into_ledger(
         RAW_LOGS, default_temporal_rules(), ledger
     )
