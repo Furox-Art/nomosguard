@@ -63,7 +63,7 @@ What this module guarantees, exactly:
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # -- severity / status vocabulary -------------------------------------------
@@ -207,14 +207,61 @@ class Match:
 def _pair_matches(line: str, pair: tuple[str, str]) -> bool:
     """Whether one (field_pattern, value_pattern) pair matches `line`.
 
-    Both regexes are searched (not anchored) against the whole line.
-    See the module docstring for why this is an approximation of Sigma's
-    field-scoped matching.
+    Two modes, chosen EXPLICITLY by the field pattern's prefix:
+
+    - FIELD-SCOPED (Sigma-accurate), opt-in: when the field pattern is
+      written as ``"field:NAME"`` (a literal ``field:`` prefix followed
+      by a field name), the matcher extracts that field's VALUE from the
+      line — ``NAME=value`` / ``NAME: value`` / ``"NAME": "value"`` /
+      ``<NAME>value</NAME>`` — and matches the value pattern against the
+      VALUE ONLY. This is real Sigma semantics: ``field:eventid`` with
+      value ``4625`` matches EventID=4625 and ignores 4625 elsewhere.
+
+    - LOOSE (the default approximation): any other field pattern is
+      treated as a regex searched across the whole line, alongside the
+      value pattern. This is the original behavior — kept for
+      free-text lines with no field structure, and for backward
+      compatibility with existing signatures.
+
+    The opt-in prefix means existing signatures (whose field patterns
+    are regexes over the whole line) keep their exact behavior; only
+    signatures that explicitly ask for field scoping get it.
+
+    Deterministic either way: a pure function of (line, pair).
     """
     field_pattern, value_pattern = pair
+    if field_pattern.startswith("field:"):
+        field_name = field_pattern[len("field:"):]
+        value = _extract_field_value(line, field_name)
+        if value is None:
+            return False  # the field does not appear in this line
+        return bool(re.search(value_pattern, value))
+    # loose: both patterns appear somewhere in the line
     return bool(re.search(field_pattern, line)) and bool(
         re.search(value_pattern, line)
     )
+
+
+# Field-value extraction shapes our logs actually use. Format STRINGS
+# (not compiled) because the field name is interpolated per call.
+_EXTRACT_FIELD_RES = (
+    r'{field}[=:]\s*"?([^"\s|]+)"?',
+    r'<{field}>([^<]+)</{field}>',
+    r'"{field}":\s*"([^"]+)"',
+)
+
+
+def _extract_field_value(line: str, field_name: str) -> str | None:
+    """The value of `field_name` in `line`, or None if absent.
+
+    Tries the common field-value shapes; first match wins. Deterministic.
+    """
+    esc = re.escape(field_name)
+    for pattern in _EXTRACT_FIELD_RES:
+        m = re.search(pattern.format(field=esc), line, re.IGNORECASE)
+        if m:
+            return m.group(1).strip()
+    return None
 
 
 def match_signature(line: str, sig: Signature) -> bool:

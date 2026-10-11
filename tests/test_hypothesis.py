@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-
+from nomosguard.hypothesis import HypothesisTracker
 from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.rules import Pattern, Rule, RuleEngine
-from nomosguard.hypothesis import Hypothesis, HypothesisTracker
 
 
 def _engine_with_rules() -> RuleEngine:

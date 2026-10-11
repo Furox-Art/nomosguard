@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from nomosguard.ledger import EvidenceLedger
 from nomosguard.ingest import (
     IngestError,
-    ingest_vuln_jsonl,
     ingest_policy_jsonl,
+    ingest_vuln_jsonl,
 )
-from nomosguard.ingest.vuln_jsonl import parse_vuln_line
 from nomosguard.ingest.policy_jsonl import parse_policy_line
+from nomosguard.ingest.vuln_jsonl import parse_vuln_line
+from nomosguard.ledger import EvidenceLedger
 
 
 class TestParseVulnLine:
@@ -161,8 +161,8 @@ class TestThreeEvidenceTypesTogether:
     """All three ingestion paths coexist in one ledger and derive."""
 
     def test_full_ingestion_derives_exposure(self):
-        from nomosguard.rules import Pattern, Rule, RuleEngine
         from nomosguard.gate import Decision, PolicyGate
+        from nomosguard.rules import Pattern, Rule, RuleEngine
 
         with tempfile.TemporaryDirectory() as td:
             from nomosguard.ingest import ingest_toolcall_jsonl

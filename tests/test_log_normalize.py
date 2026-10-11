@@ -8,9 +8,14 @@ bruteForceDetected fact as a canonical one.
 
 from __future__ import annotations
 
+import re
+
 from nomosguard.log_normalize import (
-    normalize_logs, normalize_line, normalize_syslog, normalize_cef,
-    normalize_json, normalize_kv,
+    normalize_cef,
+    normalize_json,
+    normalize_kv,
+    normalize_logs,
+    normalize_syslog,
 )
 
 
@@ -106,14 +111,62 @@ class TestEndToEndWithTemporal:
     def test_normalized_syslog_feeds_temporal(self):
         """The whole point: a syslog brute force, after normalization,
         drives the temporal rule engine exactly like a canonical log."""
-        from nomosguard.temporal import evaluate_temporal, default_temporal_rules
-        from nomosguard.ledger import EvidenceLedger
+        from nomosguard.temporal import default_temporal_rules
         from nomosguard.temporal_bridge import run_temporal_into_ledger
 
         syslog_lines = [
-            "Oct  9 08:14:0%d fw sshd[1]: Failed password for admin from 203.0.113.77 port 1234" % i
+            f"Oct  9 08:14:0{i} fw sshd[1]: Failed password for admin from 203.0.113.77 port 1234"
             for i in range(1, 6)
         ]
         normalized = normalize_logs(syslog_lines)
-        ledger, temporal = run_temporal_into_ledger(normalized, default_temporal_rules())
+        ledger, _temporal = run_temporal_into_ledger(normalized, default_temporal_rules())
         assert any("brute_force" in str(e.claim.kind) for e in ledger.entries)
+
+
+# -- additional formats (v2) ---------------------------------------------------
+
+from nomosguard.log_normalize import normalize_xml, normalize_gelf, normalize_pipe
+
+
+class TestXml:
+    def test_firewall_event(self):
+        r = normalize_xml(
+            "<Event><TimeStamp>2026-10-09T08:33:10</TimeStamp><Provider>Firewall</Provider>"
+            "<SourceIp>203.0.113.77</SourceIp><DestAddress>web02</DestAddress>"
+            "<Action>SCAN</Action></Event>"
+        )
+        assert r is not None
+        assert r.src_ip == "203.0.113.77"
+        assert "action=SCAN" in r.keywords
+
+    def test_not_xml_returns_none(self):
+        assert normalize_xml("plain text") is None
+
+
+class TestGelf:
+    def test_epoch_timestamp_canonicalized(self):
+        r = normalize_gelf(
+            '{"version": "1.1", "host": "fw1", "timestamp": 1728466442.5,'
+            ' "short_message": "failed password for admin", "_src_ip": "203.0.113.77"}'
+        )
+        assert r is not None
+        assert re.match(r"^\d{2}:\d{2}:\d{2}$", r.time)
+        assert r.src_ip == "203.0.113.77"
+        assert "failed password" in r.keywords
+
+    def test_plain_json_is_not_gelf(self):
+        assert normalize_gelf('{"a": 1}') is None
+
+
+class TestPipe:
+    def test_windows_style_record(self):
+        r = normalize_pipe(
+            "Time:08:33:10|Action:SCAN|SourceAddress:203.0.113.77|DestAddress:web02|DestPort:443"
+        )
+        assert r is not None
+        assert r.src_ip == "203.0.113.77"
+        assert r.dst_ip == "web02"
+        assert "action=SCAN" in r.keywords
+
+    def test_not_pipe_returns_none(self):
+        assert normalize_pipe("no delimiters here") is None

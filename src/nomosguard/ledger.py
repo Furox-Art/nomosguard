@@ -18,11 +18,11 @@ import hashlib
 import json
 import os
 import tempfile
-from dataclasses import dataclass, field, asdict
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import IO, Any, Iterator
-
+from typing import IO, Any
 
 LEDGER_FORMAT_VERSION = 1
 
@@ -349,7 +349,7 @@ class EvidenceLedger:
         *,
         allow_torn_tail: bool = True,
         report: LedgerLoadReport | None = None,
-    ) -> "EvidenceLedger":
+    ) -> EvidenceLedger:
         """Load a ledger from disk, verifying the full chain.
 
         Refuses (raises LedgerFileError) when:

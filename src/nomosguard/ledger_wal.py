@@ -52,7 +52,6 @@ from .ledger import (
     Claim,
     EvidenceLedger,
     LedgerEntry,
-    _atomic_write_lines,
     wal_path_for,
 )
 

@@ -7,14 +7,16 @@ must produce a gate decision — and a deterministic one.
 
 from __future__ import annotations
 
-from nomosguard.temporal_bridge import run_temporal_into_ledger
-from nomosguard.temporal import default_temporal_rules
+from nomosguard import (  # noqa: F401 — register extractors
+    facts_security,
+    temporal_bridge,
+)
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
-from nomosguard.gate import PolicyGate, Decision
-from nomosguard.policy_security import containment_policy_rules
-from nomosguard import facts_security, temporal_bridge  # noqa: F401 — register extractors
-
+from nomosguard.temporal import default_temporal_rules
+from nomosguard.temporal_bridge import run_temporal_into_ledger
 
 BRUTE_LOGS = [
     "[08:14:01] auth: src=203.0.113.77:1234 failed password for admin",
@@ -42,13 +44,13 @@ class TestTemporalIntoChain:
         return ledger, temporal, engine, gate.evaluate_with_fallback(engine)
 
     def test_temporal_finding_becomes_ledger_claim(self):
-        ledger, temporal, _, _ = self._run()
+        ledger, _t, _e, _r = self._run()
         assert any("brute_force" in str(e.claim.kind) for e in ledger.entries)
         ok, _ = ledger.verify()
         assert ok  # the chain is intact
 
     def test_temporal_fact_in_engine(self):
-        _, _, engine, _ = self._run()
+        _l, _t, engine, _r = self._run()
         assert any(f.relation == "bruteForceDetected" for f in engine.facts)
 
     def test_brute_force_plus_reachability_escalates(self):
@@ -71,11 +73,11 @@ class TestTemporalIntoChain:
     def test_scan_plus_reachability_revokes(self):
         """Scan burst + reachability -> enumeratingHost -> REVOKE_ACCESS."""
         scan_logs = [
-            "[08:20:0%d] net: src=10.9.9.9:%d SYN scan port %d" % (i, 1000 + i, 20 + i)
+            f"[08:20:0{i}] net: src=10.9.9.9:{1000 + i} SYN scan port {20 + i}"
             for i in range(1, 6)
         ]
-        from nomosguard.temporal import evaluate_temporal, default_temporal_rules
         from nomosguard.ledger import Claim
+        from nomosguard.temporal import default_temporal_rules
         ledger, temporal = run_temporal_into_ledger(scan_logs, default_temporal_rules())
         # add the reachability evidence for the scanner
         ledger.append(Claim(

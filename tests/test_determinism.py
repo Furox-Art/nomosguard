@@ -9,14 +9,12 @@ core" claim is dead.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-from nomosguard.ledger import EvidenceLedger, Claim
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
-from nomosguard.gate import PolicyGate, Decision
-from nomosguard.policy_security import containment_policy_rules
-
 
 # A fixed scenario: the same claims a security incident would produce
 SCENARIO = [
@@ -62,9 +60,9 @@ class TestDeterminism:
         """Run the pipeline twice; snapshots must be byte-for-byte identical."""
         run1 = _run_once()
         run2 = _run_once()
-        j1 = json.dumps(run1, sort_keys=True)
-        j2 = json.dumps(run2, sort_keys=True)
-        assert j1 == j2, "pipeline is not deterministic across runs"
+        assert (
+            json.dumps(run1, sort_keys=True) == json.dumps(run2, sort_keys=True)
+        ), "pipeline is not deterministic across runs"
 
     def test_ledger_hash_chain_is_stable(self):
         """Ledger hashes must be content-addressed, not random."""

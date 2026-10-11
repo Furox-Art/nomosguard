@@ -17,11 +17,11 @@ import sys
 from typing import Any
 
 from .mcp_server import (
-    SERVER_INFO,
     PROTOCOL_VERSION,
+    SERVER_INFO,
     NomosGuardSession,
-    default_rules,
     default_policy_rules,
+    default_rules,
 )
 
 TOOLS = [

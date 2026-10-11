@@ -61,13 +61,13 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.temporal` | Time-window correlation: brute force, port scan, exfil bursts (deterministic) |
 | `nomosguard.temporal_bridge` | Temporal findings -> ledger claims -> rule engine -> gate: the time dimension is part of the attack graph |
 | `nomosguard.containment` | Gate decisions as operator-reviewable action plans (dry-run) |
-| `nomosguard.signatures` | Sigma-style deterministic signature matching over log lines (no model) |
+| `nomosguard.signatures` | Sigma-style deterministic signature matching: 30 built-in detections, opt-in field-scoped (`field:NAME`) matching (no model) |
 | `nomosguard.signature_bridge` | Signature matches -> ledger claims -> engine facts |
-| `nomosguard.vuln_db` | Real CVE data from the NVD (cached; CVSS severity) |
+| `nomosguard.vuln_db` | Real CVE data from the NVD (cached with 7-day TTL; CVSS severity) |
 | `nomosguard.service_cve_map` | Offline service/port -> candidate CVE ids |
 | `nomosguard.ledger_wal` | Write-ahead log: crash recovery, checkpointing |
 | `nomosguard.ledger_lock` | Multi-writer locking (`append_locked`; fcntl/msvcrt) |
-| `nomosguard.log_normalize` | Deterministic adapters: syslog / CEF / JSON / key=value -> canonical shape |
+| `nomosguard.log_normalize` | Deterministic adapters: syslog / CEF / JSON / GELF / XML / key=value / pipe -> canonical shape |
 | `SKILL.md` | Agent behavioral contract: when to invoke the deterministic chain vs. narrate |
 
 ## Actionable containment (dry-run)

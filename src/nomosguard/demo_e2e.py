@@ -18,21 +18,14 @@ The printed report is the actual tool output — nothing hand-written.
 
 from __future__ import annotations
 
-from nomosguard.ledger import EvidenceLedger, Claim
+from nomosguard.containment import render_plan
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.hypothesis import HypothesisTracker
+from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
-from nomosguard.gate import PolicyGate, Decision
-from nomosguard.policy_security import containment_policy_rules
-from nomosguard.hypothesis import HypothesisTracker
-from nomosguard.containment import render_plan
-
-from nomosguard import (
-    facts_security,        # registers the security extractors
-    temporal_bridge,       # registers the temporal extractors
-    signature_bridge,      # registers the signature extractors
-)
-
-from nomosguard.signatures import match_all, Match
+from nomosguard.signatures import Match, match_all
 from nomosguard.signatures_builtin import builtin_signatures
 from nomosguard.temporal import default_temporal_rules
 
@@ -98,9 +91,6 @@ def main() -> int:
     print()
 
     # -- stage 2: temporal correlation ----------------------------------------
-    temporal_findings = []
-    for rule in default_temporal_rules():
-        pass  # evaluated inside run_temporal_into_ledger
     from nomosguard.temporal_bridge import run_temporal_into_ledger
     ledger, temporal = run_temporal_into_ledger(
         RAW_LOGS, default_temporal_rules(), ledger

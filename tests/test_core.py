@@ -6,14 +6,14 @@ import copy
 
 import pytest
 
+from nomosguard.gate import Decision, PolicyGate, PolicyRule
 from nomosguard.ledger import (
     Claim,
     EvidenceLedger,
     LedgerFileError,
     UnevidencedClaimError,
 )
-from nomosguard.rules import Fact, Pattern, Rule, RuleEngine, RuleDefinitionError
-from nomosguard.gate import Decision, PolicyGate, PolicyRule
+from nomosguard.rules import Fact, Pattern, Rule, RuleDefinitionError, RuleEngine
 
 
 class TestEvidenceLedger:

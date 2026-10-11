@@ -24,8 +24,6 @@ network config, CVE records) — the same discipline as the tool-call rules.
 
 from __future__ import annotations
 
-from typing import Any
-
 from .rules import Pattern, Rule
 
 

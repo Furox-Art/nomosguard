@@ -248,6 +248,268 @@ def builtin_signatures() -> list[Signature]:
                  r"mimikatz|lsass|sekurlsa|procdump|hashdump|ntds\.dit"),
             ),
         ),
+        # ---- extended detections (v2) -------------------------------------
+        Signature(
+            id="NG-0013",
+            title="SSH successful login after failures",
+            status="stable",
+            level="high",
+            logsource="auth",
+            description=(
+                "A SUCCESS on the same auth stream that just produced failures "
+                "— the completion of a brute-force. Correlate with the temporal "
+                "layer for the burst; this signature marks the success event."
+            ),
+            detection=(
+                (r"auth|sshd", r"SUCCESS password|Accepted password|session opened"),
+                (r"src=([\d.]+)", r"SUCCESS password|Accepted"),
+            ),
+        ),
+        Signature(
+            id="NG-0014",
+            title="Root or admin login",
+            status="stable",
+            level="medium",
+            logsource="auth",
+            description=(
+                "An interactive root/admin login. Routine for admins, "
+                "noteworthy after any hostile signal — the gate weighs it "
+                "against reachability."
+            ),
+            detection=(
+                (r"auth|sshd|login", r"root|admin"),
+                (r"session opened|accepted|login", r"root|admin"),
+            ),
+        ),
+        Signature(
+            id="NG-0015",
+            title="SQL injection attempt in request",
+            status="stable",
+            level="high",
+            logsource="proxy",
+            description=(
+                "A request carrying classic SQLi markers (UNION SELECT, "
+                "OR 1=1, comment terminators). One of the most common web "
+                "attack payloads."
+            ),
+            detection=(
+                (r"GET|POST|request|http|uri", r"union\s+select|or\s+1=1|--\s|/\*|sleep\(|benchmark\("),
+            ),
+            filter=((r"search|query", r"documentation|tutorial"),),
+        ),
+        Signature(
+            id="NG-0016",
+            title="Path traversal attempt",
+            status="stable",
+            level="high",
+            logsource="proxy",
+            description=(
+                "A request with ../ traversal or encoded variants attempting "
+                "to escape the web root."
+            ),
+            detection=(
+                (r"GET|POST|uri|request|path", r"\.\./|%2e%2e|\.\.%2f|/etc/passwd|/etc/shadow"),
+            ),
+        ),
+        Signature(
+            id="NG-0017",
+            title="Web shell or backdoor access",
+            status="experimental",
+            level="critical",
+            logsource="proxy",
+            description=(
+                "Access to a path commonly used by web shells (c99, r57, "
+                "b374k, eval, or a PHP file taking a cmd= parameter)."
+            ),
+            detection=(
+                (r"GET|uri|request", r"c99|r57\.php|b374k|cmd=|eval\(|system\(|passthru\("),
+            ),
+        ),
+        Signature(
+            id="NG-0018",
+            title="Kerberoasting indicator",
+            status="experimental",
+            level="high",
+            logsource="windows",
+            description=(
+                "An unusual volume of TGS (service ticket) requests with "
+                "RC4 encryption — the Kerberoasting pattern in Windows logs."
+            ),
+            detection=(
+                (r"4769|tgs|service.?ticket", r"rc4|0x17"),
+            ),
+        ),
+        Signature(
+            id="NG-0019",
+            title="Pass-the-hash indicator",
+            status="experimental",
+            level="high",
+            logsource="windows",
+            description=(
+                "NTLM logon with a workstation field mismatch — a classic "
+                "pass-the-hash signature (event 4624 logon type 3)."
+            ),
+            detection=(
+                (r"4624|logon", r"(?i)ntlm"),
+                (r"logon.?type", r"3"),
+            ),
+        ),
+        Signature(
+            id="NG-0020",
+            title="New local admin account created",
+            status="stable",
+            level="high",
+            logsource="windows",
+            description=(
+                "A new account added to a local administrators group — a "
+                "persistence mechanism."
+            ),
+            detection=(
+                (r"4732|4720|net localgroup|useradd", r"admin|administrators|root|wheel"),
+            ),
+        ),
+        Signature(
+            id="NG-0021",
+            title="Ransomware canary file access",
+            status="experimental",
+            level="critical",
+            logsource="host",
+            description=(
+                "Mass rename/encrypt behavior — many files touched in a "
+                "short window with suspicious extensions (.encrypted, "
+                ".locked, .crypt)."
+            ),
+            detection=(
+                (r"file|rename|write", r"\.encrypted|\.locked|\.crypt|\.ryuk|\.locky"),
+            ),
+        ),
+        Signature(
+            id="NG-0022",
+            title="Suspicious scheduled task or cron",
+            status="stable",
+            level="medium",
+            logsource="host",
+            description=(
+                "A scheduled task or cron entry running a script from a "
+                "temp/writable path — a common persistence location."
+            ),
+            detection=(
+                (r"schtasks|cron|crontab|systemd.?timer", r"/tmp/|/var/tmp/|/dev/shm/|powershell|curl|wget|base64"),
+            ),
+        ),
+        Signature(
+            id="NG-0023",
+            title="Base64-encoded command execution",
+            status="stable",
+            level="high",
+            logsource="host",
+            description=(
+                "A shell or PowerShell invocation decoding base64 — used to "
+                "obfuscate payloads."
+            ),
+            detection=(
+                (r"powershell|bash|sh |cmd|exec", r"-enc|-e |-decode|base64\s+-d|base64\s+--decode"),
+            ),
+        ),
+        Signature(
+            id="NG-0024",
+            title="DNS query to known-bad TLD pattern",
+            status="experimental",
+            level="medium",
+            logsource="dns",
+            description=(
+                "A DNS query with a high-entropy or algorithmically "
+                "generated subdomain — tunneling / DGA indicator."
+            ),
+            detection=(
+                (r"query|dns|resolve", r"[a-zA-Z0-9]{20,}\.(tk|ml|ga|cf|gq|top|xyz)"),
+            ),
+        ),
+        Signature(
+            id="NG-0025",
+            title="Outbound connection to rare external port",
+            status="experimental",
+            level="medium",
+            logsource="firewall",
+            description=(
+                "An outbound connection on a non-standard high port — "
+                "possible C2 beacon or data exfil channel."
+            ),
+            detection=(
+                (r"outbound|egress|allow", r"dport=(?:4444|5555|6666|8888|9999|1337|31337)\b"),
+            ),
+        ),
+        Signature(
+            id="NG-0026",
+            title="Credential dumping tool execution",
+            status="stable",
+            level="critical",
+            logsource="host",
+            description=(
+                "Execution of a known credential-dumping tool (mimikatz, "
+                "procdump+lsass, secretsdump)."
+            ),
+            detection=(
+                (r"process|exec|command", r"mimikatz|procdump.*lsass|secretsdump|comsvcs\.dll.*minidump"),
+            ),
+        ),
+        Signature(
+            id="NG-0027",
+            title="Firewall configuration change",
+            status="stable",
+            level="medium",
+            logsource="firewall",
+            description=(
+                "A firewall rule added or modified — relevant when it "
+                "opens access that should be closed."
+            ),
+            detection=(
+                (r"firewall|iptables|netsh|pf", r"rule added|allow all|any any|-A |add rule"),
+            ),
+        ),
+        Signature(
+            id="NG-0028",
+            title="Security tool or logging disabled",
+            status="experimental",
+            level="critical",
+            logsource="host",
+            description=(
+                "An attempt to stop or disable security tooling (AV, "
+                "auditd, sysmon) — defense evasion."
+            ),
+            detection=(
+                (r"process|service|systemctl", r"stop.*(auditd|sysmon|defender|clamav|ossec)|disable.*(audit|monitor)"),
+            ),
+        ),
+        Signature(
+            id="NG-0029",
+            title="Cloud metadata service access",
+            status="experimental",
+            level="high",
+            logsource="proxy",
+            description=(
+                "A request to the cloud instance metadata endpoint "
+                "(169.254.169.254) — SSRF toward credential theft."
+            ),
+            detection=(
+                (r"GET|uri|request|http", r"169\.254\.169\.254|metadata/latest|/computeMetadata"),
+            ),
+        ),
+        Signature(
+            id="NG-0030",
+            title="Container escape or privileged exec",
+            status="experimental",
+            level="high",
+            logsource="host",
+            description=(
+                "A container runtime event with privileged mode, host PID "
+                "namespace, or docker.sock access — container escape."
+            ),
+            detection=(
+                (r"docker|containerd|kubectl|exec", r"--privileged|--pid=host|docker\.sock|/var/run/docker"),
+            ),
+        ),
+
     ]
     validate_signatures(sigs)
     return sigs

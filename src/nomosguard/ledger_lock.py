@@ -28,14 +28,18 @@ never a silent no-op, which would let concurrent writers lose entries.
 
 from __future__ import annotations
 
-import json
-import os
 import sys
+from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import IO, Iterator
+from typing import IO
 
-from .ledger import Claim, EvidenceLedger, LedgerEntry, _atomic_write_lines, wal_path_for
+from .ledger import (
+    Claim,
+    EvidenceLedger,
+    LedgerEntry,
+    wal_path_for,
+)
 
 # -- lock backend: POSIX fcntl, or Windows msvcrt ----------------------------
 # A silent no-op lock is worse than a loud failure: two processes could
@@ -81,7 +85,7 @@ except ImportError:
             "concurrent writers lose entries."
         ) from _exc
 
-__all__ = ["LedgerLock", "append_locked", "lock_path_for", "LedgerLockError"]
+__all__ = ["LedgerLock", "LedgerLockError", "append_locked", "lock_path_for"]
 
 
 class LedgerLockError(OSError):
@@ -119,11 +123,15 @@ class LedgerLock:
     def locked(self) -> bool:
         return self._fh is not None
 
-    def acquire(self) -> "LedgerLock":
+    def acquire(self) -> LedgerLock:
         if self._fh is not None:
             return self
         self._lock_path.parent.mkdir(parents=True, exist_ok=True)
-        fh = open(self._lock_path, "a+", encoding="utf-8")
+        # The file handle is deliberately held for the lock's lifetime:
+        # releasing the fd releases the lock. A context manager here
+        # would close the fd at the end of the block, freeing the lock
+        # immediately — so this open is intentionally not a `with`.
+        fh = open(self._lock_path, "a+", encoding="utf-8")  # noqa: SIM115
         try:
             if self._timeout is None:
                 _lock_ex(fh, blocking=True)  # blocks until free
@@ -159,7 +167,7 @@ class LedgerLock:
             self._fh.close()
             self._fh = None
 
-    def __enter__(self) -> "LedgerLock":
+    def __enter__(self) -> LedgerLock:
         return self.acquire()
 
     def __exit__(self, exc_type, exc, tb) -> None:

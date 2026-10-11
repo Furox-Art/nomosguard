@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import json
 
+from .gate import Decision, PolicyGate, PolicyRule
 from .ledger import Claim, EvidenceLedger
 from .rules import Pattern, Rule, RuleEngine
-from .gate import Decision, PolicyGate, PolicyRule
 
 
 def build_scenario() -> EvidenceLedger:

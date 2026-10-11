@@ -15,10 +15,10 @@ import json
 import sys
 from pathlib import Path
 
+from ..gate import Decision, PolicyGate, PolicyRule
 from ..ledger import EvidenceLedger, LedgerFileError
 from ..rules import Pattern, Rule, RuleEngine
-from ..gate import Decision, PolicyGate, PolicyRule
-from .toolcall_jsonl import ingest_toolcall_jsonl, IngestError
+from .toolcall_jsonl import IngestError, ingest_toolcall_jsonl
 
 
 def default_rules() -> list[Rule]:
@@ -94,7 +94,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--policy", default=None, help="Policy config file (JSON). Defaults to the built-in policy.")
     args = parser.parse_args(argv)
 
-    from ..policy import PolicyConfigError, load_policy, default_policy
+    from ..policy import PolicyConfigError, default_policy, load_policy
 
     try:
         rules, gate_rules = load_policy(args.policy) if args.policy else default_policy()

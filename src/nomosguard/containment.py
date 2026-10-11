@@ -20,7 +20,7 @@ operator-reviewable action plans.
 from __future__ import annotations
 
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from .gate import Decision
@@ -161,6 +161,7 @@ class Executor:
         try:
             proc = subprocess.run(
                 list(command.argv), capture_output=True, text=True, timeout=30,
+                check=False,
             )
             return {
                 "executed": True,
@@ -168,7 +169,7 @@ class Executor:
                 "stdout": proc.stdout[:500],
                 "stderr": proc.stderr[:500],
             }
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             return {"executed": False, "reason": f"exec failed: {exc}"}
 
     def undo(self, command: ContainmentCommand) -> dict[str, Any]:
@@ -179,7 +180,8 @@ class Executor:
         try:
             proc = subprocess.run(
                 list(command.undo), capture_output=True, text=True, timeout=30,
+                check=False,
             )
             return {"executed": True, "returncode": proc.returncode}
-        except Exception as exc:
+        except (OSError, subprocess.SubprocessError) as exc:
             return {"executed": False, "reason": f"undo failed: {exc}"}

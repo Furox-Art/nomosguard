@@ -7,14 +7,14 @@ through the real engine and gate. Nothing is hand-computed.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..gate import Decision, PolicyGate, PolicyRule
 from ..ledger import Claim, EvidenceLedger
 from ..rules import Pattern, Rule, RuleEngine
-from ..gate import Decision, PolicyGate, PolicyRule
 from .scenarios import Scenario, build_all_scenarios
 
 

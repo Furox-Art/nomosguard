@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from nomosguard.temporal import (
-    evaluate_temporal, default_temporal_rules, TemporalRule, _to_seconds,
+    TemporalRule,
+    _to_seconds,
+    default_temporal_rules,
+    evaluate_temporal,
 )
-
 
 BRUTE_LINES = [
     "[08:14:01] auth: src=203.0.113.77:1234 failed password for admin",

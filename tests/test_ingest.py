@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.ingest import IngestError, ingest_toolcall_jsonl
-from nomosguard.ingest.toolcall_jsonl import parse_toolcall_line, _line_hash
+from nomosguard.ingest.toolcall_jsonl import _line_hash, parse_toolcall_line
+from nomosguard.ledger import Claim, EvidenceLedger
 
 
 class TestParseToolcallLine:

@@ -23,8 +23,9 @@ the policy gate then applies its fail-closed default.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from .ledger import EvidenceLedger
 
@@ -37,7 +38,7 @@ def _is_variable(token: str) -> bool:
 class Fact:
     """An atomic (subject, relation, object) assertion."""
 
-    __slots__ = ("subject", "relation", "object", "sources")
+    __slots__ = ("object", "relation", "sources", "subject")
 
     def __init__(self, subject: str, relation: str, object: str, sources: tuple[str, ...] = ()) -> None:
         self.subject = subject

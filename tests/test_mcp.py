@@ -6,13 +6,11 @@ import json
 import subprocess
 import sys
 
-import pytest
-
 from nomosguard.ledger import LedgerFileError
 from nomosguard.mcp_server import (
     NomosGuardSession,
-    default_rules,
     default_policy_rules,
+    default_rules,
 )
 from nomosguard.mcp_stdio import TOOLS
 
@@ -233,9 +231,9 @@ class TestSessionPersistence:
             assert decision["decision"] == "BLOCK"
 
     def test_corrupt_ledger_refused_at_startup(self):
+        import json
         import tempfile
         from pathlib import Path
-        import json
 
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "ledger.jsonl"

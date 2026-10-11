@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from nomosguard.policy import PolicyConfigError, load_policy, default_policy
+from nomosguard.policy import PolicyConfigError, default_policy, load_policy
 
 
 class TestDefaultPolicy:
@@ -117,9 +117,9 @@ class TestFailClosedRejection:
 
 class TestLoadedPolicyWorks:
     def test_loaded_rules_derive_correctly(self):
+        from nomosguard.gate import PolicyGate
         from nomosguard.ledger import Claim, EvidenceLedger
         from nomosguard.rules import RuleEngine
-        from nomosguard.gate import PolicyGate
 
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "policy.json"

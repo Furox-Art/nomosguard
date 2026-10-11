@@ -325,9 +325,7 @@ def cves_for_service(service: str, version: str | None = None) -> list[str]:
         if not _matches_service(entry, service):
             continue
         for cve_id, start, end in entry.cves:
-            if cve_id in seen:
-                continue
-            if _version_in_range(version, start, end):
+            if cve_id not in seen and _version_in_range(version, start, end):
                 seen.add(cve_id)
                 out.append(cve_id)
     return out

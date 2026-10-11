@@ -10,14 +10,14 @@ Three adapters, one discipline:
 3. Re-ingestion is idempotent (duplicate evidence hashes are detected).
 """
 
+from .policy_jsonl import ingest_policy_jsonl
 from .toolcall_jsonl import IngestError, IngestResult, ingest_toolcall_jsonl
 from .vuln_jsonl import ingest_vuln_jsonl
-from .policy_jsonl import ingest_policy_jsonl
 
 __all__ = [
     "IngestError",
     "IngestResult",
+    "ingest_policy_jsonl",
     "ingest_toolcall_jsonl",
     "ingest_vuln_jsonl",
-    "ingest_policy_jsonl",
 ]

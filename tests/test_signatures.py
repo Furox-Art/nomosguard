@@ -19,6 +19,21 @@ from __future__ import annotations
 
 import pytest
 
+from nomosguard import (
+    facts_security,  # noqa: F401 — register extractors
+    signature_bridge,  # noqa: F401 — register extractors
+)
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.policy_security import containment_policy_rules
+from nomosguard.rules import RuleEngine
+from nomosguard.rules_security import security_rules
+from nomosguard.signature_bridge import (
+    claim_kind,
+    run_signatures_into_ledger,
+    signature_claims,
+    subject_of,
+)
 from nomosguard.signatures import (
     Match,
     Signature,
@@ -28,20 +43,6 @@ from nomosguard.signatures import (
     validate_signatures,
 )
 from nomosguard.signatures_builtin import builtin_signatures
-from nomosguard.signature_bridge import (
-    claim_kind,
-    run_signatures_into_ledger,
-    signature_claims,
-    subject_of,
-)
-from nomosguard import signature_bridge  # noqa: F401 — register extractors
-from nomosguard.ledger import Claim, EvidenceLedger
-from nomosguard.rules import RuleEngine
-from nomosguard.rules_security import security_rules
-from nomosguard.gate import Decision, PolicyGate
-from nomosguard.policy_security import containment_policy_rules
-from nomosguard import facts_security  # noqa: F401 — register extractors
-
 
 # -- per-signature positive / negative lines --------------------------------
 #
@@ -100,6 +101,78 @@ CASES: dict[str, tuple[str, str]] = {
         "process: exec C:\\Users\\deploy\\mimikatz.exe by deploy on web01",
         "process: exec C:\\Users\\deploy\\deploy.exe by deploy on web01",
     ),
+    "NG-0013": (
+        "auth: src=203.0.113.77:1234 SUCCESS password for admin",
+        "auth: src=203.0.113.77:1234 failed password for admin",
+    ),
+    "NG-0014": (
+        "auth: session opened for root by deploy",
+        "auth: session opened for deploy by deploy",
+    ),
+    "NG-0015": (
+        "GET /search?q=1'+UNION+SELECT+username,password+FROM+users-- HTTP/1.1",
+        "GET /search?q=select+a+book HTTP/1.1",
+    ),
+    "NG-0016": (
+        "GET /files?path=../../etc/passwd HTTP/1.1",
+        "GET /files?path=reports/2026.pdf HTTP/1.1",
+    ),
+    "NG-0017": (
+        "GET /uploads/shell.php?cmd=whoami HTTP/1.1",
+        "GET /index.php?page=home HTTP/1.1",
+    ),
+    "NG-0018": (
+        "windows: 4769 service ticket request encryption rc4 for svc_sql",
+        "windows: 4769 service ticket request encryption aes256 for svc_sql",
+    ),
+    "NG-0019": (
+        "windows: 4624 logon type 3 authentication NTLM workstation mismatch",
+        "windows: 4624 logon type 2 interactive kerberos",
+    ),
+    "NG-0020": (
+        "windows: 4732 member added to Administrators group newadmin",
+        "windows: 4732 member added to Users group contractor",
+    ),
+    "NG-0021": (
+        "host: file write C:\\Users\\docs\\report.docx.encrypted by process",
+        "host: file write C:\\Users\\docs\\report.docx by process",
+    ),
+    "NG-0022": (
+        "host: schtasks /create /tn upd /tr powershell -enc ... /sc onlogon",
+        "host: schtasks /create /tn backup /tr /usr/bin/backup.sh /sc daily",
+    ),
+    "NG-0023": (
+        "host: powershell -enc SQBFAFgA... executed by deploy",
+        "host: powershell Get-Process executed by deploy",
+    ),
+    "NG-0024": (
+        "dns: query aGVsbG93b3JsZGhlbGxvd29ybGQ.tk type A",
+        "dns: query www.google.com type A",
+    ),
+    "NG-0025": (
+        "firewall: outbound allow 10.0.0.5 -> 1.2.3.4 dport=4444",
+        "firewall: outbound allow 10.0.0.5 -> 1.2.3.4 dport=443",
+    ),
+    "NG-0026": (
+        "host: process exec mimikatz.exe privilege::debug by deploy",
+        "host: process exec notepad.exe by deploy",
+    ),
+    "NG-0027": (
+        "firewall: rule added iptables -A INPUT -j ACCEPT any any",
+        "firewall: packet allow src=1.2.3.4 dst=web01 port=443",
+    ),
+    "NG-0028": (
+        "host: systemctl stop auditd.service requested by deploy",
+        "host: systemctl restart nginx.service requested by deploy",
+    ),
+    "NG-0029": (
+        "GET http://169.254.169.254/latest/meta-data/iam/security-credentials/ HTTP/1.1",
+        "GET http://internal-app/latest/report HTTP/1.1",
+    ),
+    "NG-0030": (
+        "host: docker run --privileged --pid=host attacker-image",
+        "host: docker run --rm nginx:latest",
+    ),
 }
 
 
@@ -116,8 +189,9 @@ class TestSignatureSchema:
         assert len(set(ids)) == len(ids)
 
     def test_signature_is_frozen(self):
+        import dataclasses
         sig = builtin_signatures()[0]
-        with pytest.raises(Exception):
+        with pytest.raises(dataclasses.FrozenInstanceError):
             sig.level = "critical"  # type: ignore[misc]
 
     def test_invalid_level_rejected(self):
@@ -226,7 +300,7 @@ class TestMatchSignature:
 
 
 class TestMatchAll:
-    LINES = [
+    LINES = [  # noqa: RUF012
         "[08:14:01] auth: src=203.0.113.77:1234 failed password for admin",
         "[08:14:31] auth: src=203.0.113.77:1234 accepted password for admin",
         "proxy: GET /x HTTP/1.1 user-agent=\"sqlmap/1.7.2\" src=198.51.100.9",
@@ -322,7 +396,7 @@ class TestSignatureBridgeClaims:
         """A signature claim with empty evidence is refused by the
         ledger — the evidence discipline holds at insert time too."""
         ledger = EvidenceLedger()
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, TypeError)):
             ledger.append(Claim(kind="signature_ng-0001", payload={}, evidence=""))
 
     def test_match_referencing_unknown_signature_is_skipped(self):
@@ -509,3 +583,57 @@ class TestEndToEndSignatureChain:
             [self.ENCODED_PS_LINE], builtin_signatures()
         )
         assert hashes == [e.entry_hash for e in ledger2.entries]
+
+
+# -- field-scoped matching (opt-in via "field:" prefix) -----------------------
+
+class TestFieldScopedMatching:
+    """The opt-in Sigma-accurate mode: field:NAME scopes the value match
+    to that field's VALUE only, not the whole line."""
+
+    def test_field_value_matches(self):
+        sig = Signature(id="NG-TF1", title="t", detection=(("field:eventid", "4625"),))
+        assert match_signature("Windows EventID=4625 audit failure", sig)
+
+    def test_value_elsewhere_does_not_match(self):
+        """4625 appears in the line but NOT in the eventid field — no fire."""
+        sig = Signature(id="NG-TF2", title="t", detection=(("field:eventid", "4625"),))
+        assert not match_signature("EventID=1234 unrelated 4625 text", sig)
+
+    def test_field_absent_does_not_match(self):
+        sig = Signature(id="NG-TF3", title="t", detection=(("field:action", "SCAN"),))
+        assert not match_signature("no action field here", sig)
+
+    def test_action_field_scoping(self):
+        sig = Signature(id="NG-TF4", title="t", detection=(("field:action", "SCAN"),))
+        assert match_signature("time=1 action=SCAN src=1.2.3.4", sig)
+        assert not match_signature("action=ALLOW scan-like text", sig)
+
+    def test_json_field_scoping(self):
+        sig = Signature(id="NG-TF5", title="t", detection=(("field:severity", "critical"),))
+        assert match_signature('{"severity": "critical", "msg": "x"}', sig)
+        assert not match_signature('{"severity": "low", "note": "not critical"}', sig)
+
+    def test_colon_field_form(self):
+        sig = Signature(id="NG-TF6", title="t", detection=(("field:result", "FAILURE"),))
+        assert match_signature("audit result: FAILURE user=deploy", sig)
+
+    def test_xml_field_form(self):
+        sig = Signature(id="NG-TF7", title="t", detection=(("field:action", "DENY"),))
+        assert match_signature("<Event><Action>DENY</Action><Src>1.2.3.4</Src></Event>", sig)
+
+    def test_loose_mode_unchanged_without_prefix(self):
+        """Without the field: prefix, matching stays the loose approximation:
+        both patterns anywhere in the line, case-sensitive as written."""
+        sig = Signature(id="NG-TF8", title="t", detection=(("(?i)eventid", "4625"),))
+        # loose: both patterns anywhere in the line
+        assert match_signature("EventID=1234 unrelated 4625 text", sig)
+
+    def test_field_scoping_is_stricter_than_loose(self):
+        """The same intent: field-scoped rejects, loose accepts the
+        incidental co-presence — that is the whole point of the opt-in."""
+        loose = Signature(id="NG-TF9", title="t", detection=(("(?i)eventid", "4625"),))
+        scoped = Signature(id="NG-TF10", title="t", detection=(("field:eventid", "4625"),))
+        line = "EventID=1234 unrelated 4625 text"
+        assert match_signature(line, loose)
+        assert not match_signature(line, scoped)

@@ -2,17 +2,15 @@
 
 from __future__ import annotations
 
-import pytest
-
+from nomosguard import facts_security  # noqa: F401  — register extractors
+from nomosguard.benchmark.security_run_suite import run_security_scenario
+from nomosguard.benchmark.security_scenarios import build_security_scenarios
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.hypothesis import HypothesisTracker
 from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
-from nomosguard.gate import Decision, PolicyGate
-from nomosguard.policy_security import containment_policy_rules
-from nomosguard.hypothesis import HypothesisTracker
-from nomosguard import facts_security  # noqa: F401  — register extractors
-from nomosguard.benchmark.security_scenarios import build_security_scenarios
-from nomosguard.benchmark.security_run_suite import run_security_scenario
 
 
 class TestSecurityFacts:

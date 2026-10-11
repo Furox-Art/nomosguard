@@ -50,7 +50,7 @@ class HypothesisTracker:
         self._hypotheses: dict[tuple[str, str, str], Hypothesis] = {}
 
     @classmethod
-    def from_engine(cls, engine: RuleEngine) -> "HypothesisTracker":
+    def from_engine(cls, engine: RuleEngine) -> HypothesisTracker:
         """Build a tracker from an engine's derivation trace."""
         tracker = cls()
         for step in engine.derivation_trace:

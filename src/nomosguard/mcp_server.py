@@ -18,17 +18,15 @@ Configure an MCP client to run it over stdio.
 
 from __future__ import annotations
 
-import json
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
-from .rules import Pattern, Rule, RuleEngine
-from .gate import Decision, PolicyGate, PolicyRule
-from .rules_security import security_rules
-from .policy_security import containment_policy_rules
 from . import facts_security  # noqa: F401  — register security extractors
+from .gate import Decision, PolicyGate, PolicyRule
+from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
+from .policy_security import containment_policy_rules
+from .rules import Pattern, Rule, RuleEngine
+from .rules_security import security_rules
 
 # MCP protocol constants
 JSONRPC_VERSION = "2.0"

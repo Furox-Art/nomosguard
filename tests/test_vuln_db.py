@@ -14,13 +14,10 @@ from pathlib import Path
 
 import pytest
 
-from nomosguard.vuln_db import (
-    CachedNVDClient,
-    NVDRateLimitError,
-    enrich_claim,
-    load_fixture_cache,
-    severity_for_score,
-)
+from nomosguard import facts_security  # noqa: F401 — registers extractors
+from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.rules import RuleEngine
+from nomosguard.rules_security import security_rules
 from nomosguard.service_cve_map import (
     MAP_VERSION,
     SERVICE_MAP,
@@ -28,10 +25,13 @@ from nomosguard.service_cve_map import (
     cves_for_service,
     map_summary,
 )
-from nomosguard.ledger import Claim, EvidenceLedger
-from nomosguard.rules import RuleEngine
-from nomosguard.rules_security import security_rules
-from nomosguard import facts_security  # noqa: F401 — registers extractors
+from nomosguard.vuln_db import (
+    CachedNVDClient,
+    NVDRateLimitError,
+    enrich_claim,
+    load_fixture_cache,
+    severity_for_score,
+)
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "nvd"
 FIXTURE_CVES = load_fixture_cache(FIXTURE_DIR / "cves.json")
@@ -609,3 +609,60 @@ class TestFixtureIntegrity:
         finally:
             if saved is not None:
                 os.environ["NVD_API_KEY"] = saved
+
+
+# -- cache staleness (TTL) -----------------------------------------------------
+
+class TestCacheTtl:
+    """A cached CVE older than the TTL is re-fetched, not served forever."""
+
+    def _write_cache(self, td: Path, cve_id: str, age_s: float, *, stamp: bool = True):
+        import json
+        import time
+        payload: dict = {"cve": {"id": cve_id}}
+        if stamp:
+            payload["cached_at"] = time.time() - age_s
+        (td / f"{cve_id}.json").write_text(json.dumps(payload))
+
+    def test_fresh_cache_served(self, tmp_path=None):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            self._write_cache(Path(td), "CVE-2020-1938", age_s=100)
+            client = CachedNVDClient(cache_dir=td, offline=True, cache_ttl_s=999999)
+            assert client.get_cve("CVE-2020-1938") is not None
+
+    def test_stale_cache_not_served(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            self._write_cache(Path(td), "CVE-2020-1938", age_s=999999)
+            client = CachedNVDClient(cache_dir=td, offline=True, cache_ttl_s=100)
+            assert client.get_cve("CVE-2020-1938") is None
+
+    def test_ttl_none_disables_expiry(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            self._write_cache(Path(td), "CVE-2020-1938", age_s=999999)
+            client = CachedNVDClient(cache_dir=td, offline=True, cache_ttl_s=None)
+            assert client.get_cve("CVE-2020-1938") is not None
+
+    def test_undamped_record_without_stamp_is_honored(self):
+        """A cache record written by an older version has no cached_at;
+        it is honored (no expiry without a timestamp to compare)."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            self._write_cache(Path(td), "CVE-2020-1938", age_s=0, stamp=False)
+            client = CachedNVDClient(cache_dir=td, offline=True, cache_ttl_s=10)
+            assert client.get_cve("CVE-2020-1938") is not None
+
+    def test_default_ttl_is_seven_days(self):
+        from nomosguard.vuln_db import DEFAULT_CACHE_TTL_S
+        assert DEFAULT_CACHE_TTL_S == 7 * 24 * 3600.0
+
+    def test_write_stamps_cached_at(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            client = CachedNVDClient(cache_dir=td, offline=True, cache={})
+            client._write_disk_cache("CVE-2024-6387", {"id": "CVE-2024-6387"})
+            import json
+            payload = json.loads((Path(td) / "CVE-2024-6387.json").read_text())
+            assert isinstance(payload.get("cached_at"), (int, float))

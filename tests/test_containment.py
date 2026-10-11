@@ -7,10 +7,11 @@ and that is the property under test.
 from __future__ import annotations
 
 from nomosguard.containment import (
-    render_commands, render_plan, Executor, ContainmentCommand,
+    ContainmentCommand,
+    Executor,
+    render_commands,
+    render_plan,
 )
-from nomosguard.gate import Decision
-
 
 GATE_RESULT = {
     "decision": "ISOLATE_HOST",

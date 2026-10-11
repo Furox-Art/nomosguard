@@ -53,8 +53,6 @@ try:
         LedgerLock,
         LedgerLockError,
         append_locked,
-        ledger_lock,
-        lock_path_for,
     )
 
     HAS_LOCK = True
@@ -287,7 +285,7 @@ class TestWalRoundTrip:
 
             wal_line = json.loads(wal_path_for(path).read_text().splitlines()[-1])
             body_line = json.loads(
-                (path.read_text().splitlines()[-1])
+                path.read_text().splitlines()[-1]
             )
             assert set(wal_line) == set(body_line), (
                 "WAL records must use the same schema as ledger entries"
@@ -626,7 +624,7 @@ def _child_appender(ledger_path: str, tag: str, count: int, q) -> None:
         for i in range(1, count + 1):
             append_locked(ledger_path, _claim(i, tag))
         q.put((tag, count, None))
-    except BaseException as exc:  # surface child failures, don't hang
+    except BaseException as exc:  # noqa: BLE001 — surface child failures, don't hang
         q.put((tag, 0, f"{type(exc).__name__}: {exc}"))
 
 
@@ -733,9 +731,8 @@ class TestMultiWriterLocking:
     def test_lock_is_released_on_exception(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "locked.jsonl"
-            with pytest.raises(RuntimeError):
-                with LedgerLock(path):
-                    raise RuntimeError("writer exploded")
+            with pytest.raises(RuntimeError), LedgerLock(path):
+                raise RuntimeError("writer exploded")
             # The lock must not be held by a dead scope.
             with LedgerLock(path, timeout=2.0):
                 pass
@@ -780,7 +777,7 @@ class TestMultiWriterLocking:
     def test_append_locked_rejects_unevidenced_claims(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "bad.jsonl"
-            with pytest.raises(Exception):
+            with pytest.raises((ValueError, TypeError)):
                 append_locked(path, Claim(kind="tool_call", payload={}, evidence=""))
 
     def test_lock_timeout_is_not_an_indefinite_hang(self):

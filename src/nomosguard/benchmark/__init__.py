@@ -6,7 +6,7 @@ correctness. The honesty section in RESULTS.md states what the corpus does
 not cover.
 """
 
-from .scenarios import Scenario, build_all_scenarios
 from .run_suite import run_suite
+from .scenarios import Scenario, build_all_scenarios
 
 __all__ = ["Scenario", "build_all_scenarios", "run_suite"]

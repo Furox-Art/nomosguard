@@ -5,6 +5,41 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-10-10
+
+### Signatures — 30 detections, real Sigma field scoping
+
+- Built-in set grown from 12 to 30 (NG-0013..NG-0030): pass-the-hash,
+  Kerberoasting, SQLi, path traversal, web shells, credential dumping,
+  ransomware canaries, cloud metadata SSRF, container escape, defense
+  evasion, DGA/TLD, C2 ports, and more. Every signature carries a
+  positive and negative test case (the coverage rule is enforced).
+- FIELD-SCOPED matching, opt-in via the `field:NAME` prefix: `field:eventid`
+  with value `4625` matches EventID=4625 and IGNORES 4625 elsewhere —
+  real Sigma semantics. Without the prefix, matching stays the loose
+  whole-line approximation (backward compatible). 9 new tests prove the
+  scoping is stricter than loose.
+- Fixed two signatures caught by the coverage rule: NG-0019 (NTLM
+  case-sensitivity) and NG-0024 (DGA subdomains are mixed-case).
+
+### Log normalization — 3 more formats
+
+- GELF (JSON with a GELF envelope; Unix-epoch timestamps canonicalized),
+  XML log records, and pipe-delimited Windows-style records. Parser
+  order fixed so GELF is tried before generic JSON. 7 new tests.
+
+### NVD cache — staleness policy
+
+- Cached CVE records are stamped with `cached_at`; a record older than
+  the TTL (default 7 days, configurable, `None` disables) is treated as
+  absent and re-fetched. Records without a stamp (old format) are
+  honored. 6 new tests. This closes the "cache never expires" gap.
+
+### Tests
+
+348 pass (was 319). New: 9 field-scope, 7 format, 6 TTL, plus coverage
+for the 18 new signatures.
+
 ## [0.6.4] - 2026-10-10
 
 ### Added — CVE map extended to 12 services

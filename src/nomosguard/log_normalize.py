@@ -34,10 +34,10 @@ _TIME_PATTERNS = [
 ]
 
 # common event keyword vocabularies -> canonical keywords
-_AUTH_FAIL = re.compile(r"failed|FAILED|failure|auth.?fail", re.I)
-_AUTH_SUCCESS = re.compile(r"SUCCESS|accepted|login ok|session opened", re.I)
-_SCAN = re.compile(r"scan|probe|SYN|recon|portscan", re.I)
-_GRANT = re.compile(r"granted|added to group|privilege", re.I)
+_AUTH_FAIL = re.compile(r"failed|FAILED|failure|auth.?fail", re.IGNORECASE)
+_AUTH_SUCCESS = re.compile(r"SUCCESS|accepted|login ok|session opened", re.IGNORECASE)
+_SCAN = re.compile(r"scan|probe|SYN|recon|portscan", re.IGNORECASE)
+_GRANT = re.compile(r"granted|added to group|privilege", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -213,8 +213,112 @@ def normalize_kv(line: str) -> NormalizedLine | None:
     )
 
 
-# The parser chain, tried in order; first match wins.
-PARSERS = (normalize_json, normalize_cef, normalize_syslog, normalize_kv)
+# -- additional formats (v2) ---------------------------------------------------
+
+def normalize_xml(line: str) -> NormalizedLine | None:
+    """A single XML log record (e.g. `<Event><TimeStamp>...`).
+
+    Deterministic regex extraction — not a full XML parser, but enough
+    for the flat log-record shapes these tools emit. Deeply nested XML
+    does not parse; such lines pass through unchanged.
+    """
+    if not line.strip().startswith("<"):
+        return None
+
+    def _field(*names: str) -> str:
+        for name in names:
+            m = re.search(rf"<{name}[^>]*>([^<]+)</{name}>", line)
+            if m:
+                return m.group(1).strip()
+        return ""
+
+    ts = _field("TimeStamp", "timestamp", "time", "TimeCreated")
+    if not ts:
+        return None
+    cat = _field("EventID", "Provider", "category", "event") or "xml"
+    src = _field("SourceIp", "src_ip", "source_ip", "IpAddress", "srcip")
+    dst = _field("DestinationIp", "dst_ip", "dest_ip", "dstip")
+    dbytes = _field("BytesSent", "bytes_out", "dbytes")
+    text = re.sub(r"<[^>]+>", " ", line)
+    return NormalizedLine(
+        time=_canonical_time(ts), category=cat,
+        src_ip=src, dst_ip=dst, dbytes=dbytes, keywords=_keywords(text),
+    )
+
+
+def normalize_gelf(line: str) -> NormalizedLine | None:
+    """GELF: JSON with a GELF envelope (version, host, short_message)."""
+    stripped = line.strip()
+    if not stripped.startswith("{"):
+        return None
+    try:
+        rec = json.loads(stripped)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(rec, dict) or "version" not in rec or "host" not in rec:
+        return None  # JSON but not GELF
+    ts = str(rec.get("timestamp", ""))
+    if ts and ts.replace(".", "").isdigit():
+        # GELF timestamps are Unix epoch (float seconds)
+        import datetime
+        try:
+            ts = datetime.datetime.fromtimestamp(
+                float(ts), tz=datetime.timezone.utc
+            ).strftime("%H:%M:%S")
+        except (ValueError, OSError, OverflowError):
+            pass
+    cat = str(rec.get("facility") or rec.get("_event") or "gelf")
+    src = str(rec.get("_src_ip") or rec.get("_source_ip") or "")
+    dst = str(rec.get("_dst_ip") or rec.get("_dest_ip") or "")
+    dbytes = str(rec.get("_bytes_out") or rec.get("_dbytes") or "")
+    msg = str(rec.get("short_message", "")) + " " + str(rec.get("full_message", ""))
+    # the timestamp is already converted to HH:MM:SS above (epoch -> UTC)
+    return NormalizedLine(
+        time=ts if re.match(r"^\d{2}:\d{2}:\d{2}$", ts) else _canonical_time(ts),
+        category=cat,
+        src_ip=src, dst_ip=dst, dbytes=dbytes, keywords=_keywords(msg),
+    )
+
+
+def normalize_pipe(line: str) -> NormalizedLine | None:
+    """Pipe-delimited key:value records (common in Windows tooling):
+    `Time:08:33:10|Action:SCAN|SourceAddress:203.0.113.77|DestAddress:web02|DestPort:443`
+    """
+    if "|" not in line or ":" not in line:
+        return None
+    fields = {}
+    for part in line.split("|"):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            fields[k.strip().lower()] = v.strip()
+    if len(fields) < 2:
+        return None
+    ts = fields.get("time") or fields.get("timestamp") or fields.get("date")
+    if not ts:
+        return None
+    cat = fields.get("action") or fields.get("event") or fields.get("category") or "pipe"
+    src = fields.get("sourceaddress") or fields.get("srcip") or fields.get("sourceip") or ""
+    dst = fields.get("destaddress") or fields.get("dstip") or fields.get("destip") or ""
+    dbytes = fields.get("bytessent") or fields.get("dbytes") or ""
+    kw = _keywords(line)
+    if fields.get("action", "").upper() in ("SCAN", "PROBE", "DENY"):
+        kw = kw + ("action=SCAN",) if "action=SCAN" not in kw else kw
+    return NormalizedLine(
+        time=_canonical_time(ts), category=cat,
+        src_ip=src, dst_ip=dst, dbytes=dbytes, keywords=kw,
+    )
+
+
+# Extended parser chain. Order matters: more specific formats first.
+PARSERS = (
+    normalize_gelf,      # GELF before JSON: it IS json, with an envelope
+    normalize_json,
+    normalize_cef,
+    normalize_xml,
+    normalize_syslog,
+    normalize_pipe,
+    normalize_kv,
+)
 
 
 def normalize_line(line: str) -> NormalizedLine | None:

@@ -47,8 +47,9 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 NVD_API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 DEFAULT_CACHE_DIR = Path.home() / ".cache" / "nomosguard" / "nvd"
@@ -60,6 +61,12 @@ PUBLIC_RATE_LIMIT_REQUESTS = 5
 PUBLIC_MIN_INTERVAL_S = PUBLIC_RATE_LIMIT_WINDOW_S / PUBLIC_RATE_LIMIT_REQUESTS
 
 DEFAULT_TIMEOUT_S = 30.0
+
+#: Default cache staleness policy: 7 days. CVE data changes slowly
+#: (new CVEs appear; scores are occasionally revised), so a week is a
+#: sensible freshness bound. ``None`` on the client disables expiry
+#: (the historical behavior: cache forever).
+DEFAULT_CACHE_TTL_S: float | None = 7 * 24 * 3600.0
 
 # CVSS metric keys, most preferred first: v3.1, then v3.0, then v2.
 _CVSS_METRIC_ORDER = ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2")
@@ -162,11 +169,16 @@ class CachedNVDClient:
         offline: bool = True,
         cache: dict[str, dict[str, Any]] | None = None,
         timeout_s: float = DEFAULT_TIMEOUT_S,
+        cache_ttl_s: float | None = DEFAULT_CACHE_TTL_S,
     ) -> None:
         self.cache_dir = Path(cache_dir) if cache_dir is not None else DEFAULT_CACHE_DIR
         self.api_key = api_key if api_key is not None else os.environ.get("NVD_API_KEY")
         self.offline = offline
         self.timeout_s = timeout_s
+        #: Cache staleness policy: a cached CVE older than this (seconds)
+        #: is treated as absent and re-fetched. ``None`` disables expiry
+        #: (the historical behavior: cache forever).
+        self.cache_ttl_s = cache_ttl_s
         # Injected cache takes precedence over the on-disk cache and is never
         # written through to disk.
         self._memory_cache: dict[str, dict[str, Any]] | None = dict(cache) if cache is not None else None
@@ -185,9 +197,19 @@ class CachedNVDClient:
                 payload = json.load(fh)
         except (OSError, ValueError):
             return None
-        if isinstance(payload, dict) and isinstance(payload.get("cve"), dict):
-            return payload["cve"]
-        return None
+        if not (isinstance(payload, dict) and isinstance(payload.get("cve"), dict)):
+            return None
+        # Staleness policy: a cached record older than the TTL is treated
+        # as absent (and re-fetched). Records without a cached_at stamp
+        # (written by an older version) are honored — no expiry without
+        # a timestamp to compare.
+        if self.cache_ttl_s is not None:
+            cached_at = payload.get("cached_at")
+            if isinstance(cached_at, (int, float)):
+                age = time.time() - cached_at
+                if age > self.cache_ttl_s:
+                    return None  # stale: re-fetch
+        return payload["cve"]
 
     def _write_disk_cache(self, cve_id: str, cve: dict[str, Any]) -> None:
         try:
@@ -195,7 +217,7 @@ class CachedNVDClient:
             path = self._cache_path(cve_id)
             tmp = path.with_suffix(".json.tmp")
             with tmp.open("w", encoding="utf-8") as fh:
-                json.dump({"cve": cve}, fh, sort_keys=True)
+                json.dump({"cve": cve, "cached_at": time.time()}, fh, sort_keys=True)
             tmp.replace(path)  # atomic on POSIX and Windows
         except OSError:
             # A cache write failure must never fail the lookup: the caller
