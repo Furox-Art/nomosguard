@@ -5,6 +5,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026-10-11
+
+### Fixed — silent rule-definition errors (adversarial probe v2)
+
+- A rule whose head variable is not bound in the body was silently
+  inert: `derive()` produced nothing and raised nothing. The malformed
+  rule looked "fine" but could never fire. `Rule.validate()` now runs at
+  `RuleEngine` construction: an unbound head variable or an empty body
+  fails immediately and loudly. Fail at definition time, not silently at
+  inference time.
+- The existing unbound-head test moved to expect the error at
+  construction (earlier is better).
+
+### Security — adversarial probes v2
+
+- `tests/test_adversarial_v2.py`: 10 more attacks, all held — forged WAL
+  entry_hash rejected, WAL replay returns the correct pending set, an
+  injected bogus ledger line breaks the chain and is caught, the lock
+  genuinely excludes a second writer and is reacquirable after release,
+  4-process x 8-entry concurrent writes produce one valid 32-entry chain,
+  fail-closed default on an empty gate.
+
+### Tests
+
+361 pass (was 351). New: 10 adversarial-v2.
+
 ## [0.7.2] - 2026-10-11
 
 ### Security — path traversal in the NVD cache (found by adversarial probing)

@@ -151,6 +151,28 @@ class Rule:
     head: Pattern
     description: str = ""
 
+    def validate(self) -> None:
+        """Fail loudly on a malformed rule.
+
+        Every head variable must also appear in the body — otherwise the
+        rule can never produce a concrete fact (its head is partially
+        unbound). Catching this at construction turns a silent production
+        no-op into an immediate, clear error.
+        """
+        body_vars: set[str] = set()
+        for pat in self.body:
+            body_vars.update(pat.variables())
+        for var in self.head.variables():
+            if var not in body_vars:
+                raise RuleDefinitionError(
+                    f"rule {self.name!r}: head variable {var} is not bound "
+                    "in the body — the rule can never fire correctly"
+                )
+        if not self.body:
+            raise RuleDefinitionError(
+                f"rule {self.name!r}: empty body — a rule must have premises"
+            )
+
 
 class Match:
     """One successful body unification: bindings + the facts it consumed."""
@@ -167,6 +189,8 @@ class RuleEngine:
 
     def __init__(self, rules: list[Rule] | None = None) -> None:
         self.rules: list[Rule] = list(rules) if rules else []
+        for rule in self.rules:
+            rule.validate()  # fail at construction, not silently at derive
         self._facts: dict[tuple[str, str, str], Fact] = {}
         self._derivation_trace: list[dict[str, Any]] = []
         # lookup indexes, rebuilt at the start of each fixpoint round

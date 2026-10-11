@@ -163,19 +163,18 @@ class TestRuleEngine:
         assert ("agent2", "exposes", "db_b") in derived
 
     def test_unbound_head_variable_rejected(self):
-        """A head variable absent from the body can never fire."""
-        engine = RuleEngine(
-            rules=[
-                Rule(
-                    name="bad",
-                    body=(Pattern("?a", "calls", "?t"),),
-                    head=Pattern("?a", "reaches", "?nowhere"),  # ?nowhere unbound
-                )
-            ]
-        )
-        engine.add_fact(Fact("agent1", "calls", "tool1"))
+        """A head variable absent from the body can never fire — rejected
+        at RuleEngine construction (fail early, not silently at derive)."""
         with pytest.raises(RuleDefinitionError):
-            engine.derive()
+            RuleEngine(
+                rules=[
+                    Rule(
+                        name="bad",
+                        body=(Pattern("?a", "calls", "?t"),),
+                        head=Pattern("?a", "reaches", "?nowhere"),  # ?nowhere unbound
+                    )
+                ]
+            )
 
     def test_concrete_pattern_matches_exact_value(self):
         """A concrete (non-variable) pattern position matches only that value."""
