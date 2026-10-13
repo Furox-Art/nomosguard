@@ -6,8 +6,10 @@
   "derived_total": 10,
   "false_positives": 0,
   "fail_closed_ok": true,
+  "fail_closed_scenarios": 1,
+  "fail_closed_exercised": 3,
   "all_passed": true,
-  "run_at": "2026-10-09T12:18:18.064907+00:00",
+  "run_at": "2026-10-13T01:47:35.873631+00:00",
   "results": [
     {
       "name": "positive_vulnerable_exposure",
@@ -25,6 +27,7 @@
       ],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": false,
       "gate_decision": "BLOCK"
     },
     {
@@ -33,6 +36,7 @@
       "derived": [],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": true,
       "gate_decision": "BLOCK"
     },
     {
@@ -51,6 +55,7 @@
       ],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": false,
       "gate_decision": "BLOCK"
     },
     {
@@ -77,6 +82,7 @@
       ],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": false,
       "gate_decision": "BLOCK"
     },
     {
@@ -85,6 +91,7 @@
       "derived": [],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": true,
       "gate_decision": "BLOCK"
     },
     {
@@ -92,7 +99,8 @@
       "expected": [],
       "derived": [],
       "passed": true,
-      "fail_closed_ok": true,
+      "fail_closed_ok": null,
+      "fail_closed_exercised": false,
       "gate_decision": "ALERT"
     },
     {
@@ -127,6 +135,7 @@
       ],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": false,
       "gate_decision": "BLOCK"
     },
     {
@@ -145,6 +154,7 @@
       ],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": false,
       "gate_decision": "BLOCK"
     },
     {
@@ -171,6 +181,7 @@
       ],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": false,
       "gate_decision": "BLOCK"
     },
     {
@@ -178,7 +189,8 @@
       "expected": [],
       "derived": [],
       "passed": true,
-      "fail_closed_ok": true,
+      "fail_closed_ok": null,
+      "fail_closed_exercised": false,
       "gate_decision": "ALERT"
     },
     {
@@ -187,6 +199,7 @@
       "derived": [],
       "passed": true,
       "fail_closed_ok": true,
+      "fail_closed_exercised": true,
       "gate_decision": "BLOCK"
     }
   ]

@@ -104,31 +104,37 @@ to action plans a human reviews.
 
 Run with `python -m nomosguard.benchmark.run_suite_main --output DIR`. The
 corpus is committed and deterministic; the expected outcomes are
-hand-derived from the facts, not produced by the engine. Latest run:
+hand-derived from the facts, not produced by the engine. Latest run
+(committed in `src/nomosguard/benchmark/results/`):
 
 | metric | value |
 |---|---|
-| scenarios | 7 tool-call + 5 security |
-| recall | 2/2 = 100% |
+| scenarios | 11 tool-call + 5 security |
+| recall | 10/10 = 100% |
 | false positives | 0 |
-| fail-closed on incomplete evidence | OK (1 of 11 scenarios exercises it) |
+| fail-closed on incomplete evidence | OK — 3 scenarios run the gate's fallback, all BLOCK (1 flagged `incomplete`) |
 | all scenarios passed | yes |
 
 What the corpus does NOT cover (stated honestly): real-world logs, evidence
 tampering *inside* the ledger (that is the ledger's own test suite's job),
 and any scenario requiring an LLM to judge.
 
-The fail-closed KPI is now read off the gate's verdict (`policy_rule ==
-FALLBACK`), in both directions, and the suite reports how many scenarios
-exercised the path. A corpus that does not exercise it reports
-`NOT EXERCISED` — it cannot claim OK for work it did not do.
+The fail-closed KPI is read off the gate's verdict (`policy_rule ==
+FALLBACK`) — in both directions: a scenario that expects a derived path
+must not be decided by the fallback, and a fallback must always deny. The
+suite also reports how many scenarios the corpus *flags* as fail-closed
+(`fail_closed_scenarios`, ground truth) and how many the gate *actually*
+ran the fallback for (`fail_closed_exercised`, measured). If the gate
+never falls back, the headline says **NOT EXERCISED** — it cannot claim OK
+for work it did not do.
 
 ## Fail-closed paths: what is actually proven
 
 The claim is deliberately narrow. The table below names each failure path,
 the test that triggers it, and the behaviour that proves it — not a
 promise. `python -m nomosguard.demo_e2e` runs the same list as stage 8 of
-its narrative and prints the outcome of each mode.
+its narrative and prints the outcome of each mode, and returns non-zero if
+any of them stops failing closed.
 
 | failure mode | refuses how | proven by |
 |---|---|---|

@@ -35,7 +35,9 @@ class ScenarioResult:
     expected: set
     derived: set
     passed: bool
-    fail_closed_ok: bool
+    # Tri-state: True / False, or None when this scenario says nothing
+    # about the fail-closed path (it neither needed one nor ran one).
+    fail_closed_ok: bool | None
     gate_decision: str
     # Did the gate actually FALL BACK (the fail-closed path) on this
     # scenario? Derived from the verdict (`policy_rule == "FALLBACK"`),
@@ -67,15 +69,20 @@ def run_scenario(scenario: Scenario) -> ScenarioResult:
     # substitutes its fallback decision only when NO policy rule matched.
     exercised = decision["policy_rule"] == "FALLBACK"
 
-    # fail-closed correctness is derived from the verdict for EVERY
-    # scenario, in both directions:
-    #   - an incomplete-evidence scenario MUST have fallen back to BLOCK
-    #   - a scenario with evidence MUST NOT have fallen back (falling back
-    #     there means the rules silently derived nothing)
-    if scenario.incomplete:
-        fail_closed_ok = exercised and decision["decision"] == "BLOCK"
-    else:
+    # fail-closed correctness, derived from the verdict per scenario:
+    #   - a scenario that EXPECTS a derived path must be decided by that
+    #     path, never by the fallback (a fallback here means the rules
+    #     silently derived nothing on a positive case)
+    #   - a scenario that expects nothing may fall back (that is the
+    #     fail-closed path working); if it does, the verdict must be the
+    #     fail-closed default, and if it does not there is nothing to
+    #     prove and the KPI is None rather than a defaulted True
+    if expected:
         fail_closed_ok = not exercised
+    elif exercised:
+        fail_closed_ok = decision["decision"] == "BLOCK"
+    else:
+        fail_closed_ok = None
 
     return ScenarioResult(
         name=scenario.name,
@@ -96,10 +103,12 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
     - false_positive: derived on scenarios expecting nothing
     - fail_closed: incomplete-evidence scenarios that fell back to BLOCK
 
-    `fail_closed_scenarios` reports HOW MANY scenarios exercised the
-    fail-closed path, so the headline KPI cannot claim coverage it does
-    not have: a corpus with zero such scenarios reports
-    `fail_closed_ok: None` ("not exercised"), not OK.
+    `fail_closed_scenarios` reports how many scenarios the CORPUS flags as
+    exercising the fail-closed path (ground truth), and
+    `fail_closed_exercised` how many the GATE actually ran it for. Together
+    they stop the headline KPI from claiming coverage it does not have: a
+    corpus with no fail-closed scenario reports `fail_closed_ok: None`
+    ("not exercised"), not OK.
     """
     scenarios = build_all_scenarios()
     results = [run_scenario(s) for s in scenarios]
@@ -110,9 +119,15 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
     false_positives = sum(
         1 for r in results if r.expected == set() and r.derived != set()
     )
-    incomplete = [r for r in results if any(s.incomplete for s in scenarios if s.name == r.name)]
+    # ground truth (the corpus author's flag) vs. what actually happened
+    fail_closed_ground_truth = [
+        r for r in results
+        if any(s.incomplete for s in scenarios if s.name == r.name)
+    ]
+    exercised = [r for r in results if r.fail_closed_exercised]
+    judged = [r for r in results if r.fail_closed_ok is not None]
     fail_closed_ok = (
-        all(r.fail_closed_ok for r in incomplete) if incomplete else None
+        all(r.fail_closed_ok for r in judged) if judged else None
     )
 
     recall = caught / total_expected if total_expected else 1.0
@@ -126,7 +141,8 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
         "false_positives": false_positives,
         # None = "not exercised", never a claim of success
         "fail_closed_ok": fail_closed_ok,
-        "fail_closed_scenarios": len(incomplete),
+        "fail_closed_scenarios": len(fail_closed_ground_truth),
+        "fail_closed_exercised": len(exercised),
         "all_passed": all(r.passed for r in results),
         "run_at": datetime.now(timezone.utc).isoformat(),
         "results": [
@@ -153,10 +169,20 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
 
 
 def _render_markdown(summary: dict[str, Any]) -> str:
-    if summary["fail_closed_ok"] is None:
-        fail_closed = "NOT EXERCISED (0 scenarios)"
+    exercised_count = summary["fail_closed_exercised"]
+    if exercised_count == 0:
+        # The headline is MEASUREMENT, not a flag: if the gate never fell
+        # back, nothing about the fail-closed path was exercised, and the
+        # suite says so instead of claiming OK.
+        fail_closed = (
+            f"NOT EXERCISED (0 of {summary['scenarios']} scenarios ran the "
+            "gate's fallback)"
+        )
     elif summary["fail_closed_ok"]:
-        fail_closed = f"OK ({summary['fail_closed_scenarios']} scenario(s))"
+        fail_closed = (
+            f"OK ({exercised_count} scenario(s) ran the fallback; "
+            f"{summary['fail_closed_scenarios']} flagged incomplete)"
+        )
     else:
         fail_closed = "FAILED"
     lines = [
@@ -177,10 +203,14 @@ def _render_markdown(summary: dict[str, Any]) -> str:
         "|---|---|---|---|---|",
     ]
     for r in summary["results"]:
-        if r["fail_closed_exercised"]:
-            exercised = "exercised (BLOCK)" if r["gate_decision"] == "BLOCK" else "exercised"
-        else:
+        if not r["fail_closed_exercised"]:
             exercised = "n/a"
+        elif r["fail_closed_ok"] is True and r["expected"]:
+            exercised = "exercised (should not have)"
+        elif r["gate_decision"] == "BLOCK":
+            exercised = "exercised (BLOCK)"
+        else:
+            exercised = "exercised"
         lines.append(
             f"| {r['name']} | {r['expected']} | {r['derived']} | "
             f"{'PASS' if r['passed'] else 'FAIL'} | {exercised} |"
