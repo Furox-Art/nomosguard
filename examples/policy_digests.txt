@@ -1,0 +1,13 @@
+# Policy bundle digests: sha256 of each pinned policy file.
+#
+# Pin one at load time:
+#     python -m nomosguard.ingest.cli LOG.jsonl --policy default_policy.json \
+#         --policy-digest @examples/policy_digests.txt
+# or a single digest inline:
+#     --policy-digest sha256:<hex>
+#
+# A policy that changed without review is refused (fail closed), not
+# silently applied. Regenerate with:
+#     python -c "from nomosguard.policy import policy_digest; \
+#       print(policy_digest('examples/default_policy.json'))"
+sha256:5143200773ae2f35abf2b61f846c98c488e9ed1e7474f884cd5f404f6b52c005  default_policy.json

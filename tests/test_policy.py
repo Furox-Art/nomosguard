@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from nomosguard.policy import PolicyConfigError, default_policy, load_policy
+from nomosguard.policy import PolicyConfigError, default_policy, load_policy, policy_digest
 
 
 class TestDefaultPolicy:
@@ -113,6 +113,125 @@ class TestFailClosedRejection:
             })
             with pytest.raises(PolicyConfigError, match="field 'match_relation' is missing"):
                 load_policy(path)
+
+
+class TestPolicyBundlePin:
+    """A policy file is a bundle: digest-pinned and format-checked (M2).
+
+    Before this, any structurally valid JSON was accepted as "the policy",
+    whatever its provenance — a stale copy, a partially copied file, or a
+    file written for another dialect. The pin makes the loaded policy the
+    policy you reviewed.
+    """
+
+    def _write(self, td, data) -> Path:
+        path = Path(td) / "policy.json"
+        path.write_text(json.dumps(data))
+        return path
+
+    def _valid(self) -> dict:
+        return {
+            "rules": [{
+                "name": "r1",
+                "body": [["?a", "calls", "?t"], ["?a", "operates_on", "?c"]],
+                "head": ["?a", "exposes", "?c"],
+            }],
+            "gate": [{"name": "g1", "match_relation": "exposes", "decision": "BLOCK"}],
+        }
+
+    def test_digest_is_reproducible(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._write(td, self._valid())
+            digest = policy_digest(path)
+            assert digest == policy_digest(path)
+            assert digest.startswith("sha256:")
+
+    def test_pinned_digest_loads(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._write(td, self._valid())
+            rules, gate = load_policy(path, expected_digest=policy_digest(path))
+            assert len(rules) == 1
+            assert len(gate) == 1
+
+    def test_corrupted_bundle_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._write(td, self._valid())
+            pinned = policy_digest(path)
+            # corrupt the bundle in place: one byte of one description
+            data = json.loads(path.read_text())
+            data["gate"][0]["decision"] = "ALERT"
+            path.write_text(json.dumps(data))
+            with pytest.raises(PolicyConfigError, match="digest mismatch"):
+                load_policy(path, expected_digest=pinned)
+
+    def test_whitespace_only_change_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = self._write(td, self._valid())
+            pinned = policy_digest(path)
+            path.write_text(path.read_text() + "\n")
+            with pytest.raises(PolicyConfigError, match="digest mismatch"):
+                load_policy(path, expected_digest=pinned)
+
+    def test_unknown_format_name_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            data = self._valid()
+            data["format"] = "someone-elses-policy"
+            path = self._write(td, data)
+            with pytest.raises(PolicyConfigError, match="declares format"):
+                load_policy(path)
+
+    def test_unknown_format_version_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            data = self._valid()
+            data["format"] = "nomosguard-policy"
+            data["format_version"] = 99
+            path = self._write(td, data)
+            with pytest.raises(PolicyConfigError, match="unsupported policy format version"):
+                load_policy(path)
+
+    def test_unpinned_legacy_file_still_loads(self):
+        """A file with no format header is data, not a pinned bundle."""
+        with tempfile.TemporaryDirectory() as td:
+            path = self._write(td, self._valid())
+            rules, _ = load_policy(path)
+            assert len(rules) == 1
+
+    def test_committed_bundle_matches_its_pinned_digest(self):
+        """The shipped example carries the digest it claims to carry."""
+        base = Path(__file__).resolve().parents[1] / "examples"
+        manifest = (base / "policy_digests.txt").read_text(encoding="utf-8")
+        pins = {
+            line.split()[1]: line.split()[0]
+            for line in manifest.splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        }
+        assert pins, "the digest manifest must not be empty"
+        for name, digest in pins.items():
+            assert policy_digest(base / name) == digest, (
+                f"{name} changed without the digest manifest being updated"
+            )
+
+    def test_cli_reads_a_digest_manifest(self):
+        from nomosguard.ingest.cli import _resolve_policy_digest
+
+        base = Path(__file__).resolve().parents[1] / "examples"
+        manifest = str(base / "policy_digests.txt")
+        assert _resolve_policy_digest("@" + manifest) == policy_digest(
+            base / "default_policy.json"
+        )
+        assert _resolve_policy_digest(
+            "@" + manifest + ":default_policy.json"
+        ) == policy_digest(base / "default_policy.json")
+        with pytest.raises(PolicyConfigError, match="no entry for"):
+            _resolve_policy_digest("@" + manifest + ":nope.json")
+
+    def test_cli_requires_a_policy_for_a_digest_pin(self):
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            logfile = Path(td) / "log.jsonl"
+            logfile.write_text('{"agent": "a", "tool": "t"}\n', encoding="utf-8")
+            assert main([str(logfile), "--policy-digest", "sha256:deadbeef"]) == 2
 
 
 class TestLoadedPolicyWorks:

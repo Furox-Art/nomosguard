@@ -6,6 +6,8 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 from nomosguard.ledger import LedgerFileError
 from nomosguard.mcp_server import (
     NomosGuardSession,
@@ -197,10 +199,14 @@ class TestSessionPersistence:
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "ledger.jsonl"
 
+            # creating a new ledger is an explicit opt-in (see
+            # TestLedgerPathFailClosed below): the constructor never
+            # invents an empty ledger behind the caller's back.
             s1 = NomosGuardSession(
                 rules=default_rules(),
                 policy_rules=default_policy_rules(),
                 ledger_path=path,
+                create_if_missing=True,
             )
             r = s1.assert_claim(
                 "tool_call",
@@ -250,3 +256,163 @@ class TestSessionPersistence:
                 assert False, "corrupt ledger must be refused"
             except LedgerFileError:
                 pass
+
+
+class TestLedgerPathFailClosed:
+    """A configured ledger path is loaded, or the session refuses to start.
+
+    A silent empty ledger is the one failure mode that looks like success:
+    the operator believes the evidence endures while every claim is being
+    written nowhere (and, worse, an unrelated fresh ledger is created).
+    """
+
+    def _session(self, path) -> NomosGuardSession:
+        return NomosGuardSession(
+            rules=default_rules(), policy_rules=default_policy_rules(), ledger_path=path
+        )
+
+    def test_missing_file_refused(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "never_created.jsonl"
+            with pytest.raises(LedgerFileError, match="not found"):
+                self._session(path)
+
+    def test_directory_path_refused(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td)
+            with pytest.raises(LedgerFileError, match="not found"):
+                self._session(path)
+
+    def test_missing_parent_directory_refused(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "no" / "such" / "dir" / "ledger.jsonl"
+            with pytest.raises(LedgerFileError, match="not found"):
+                self._session(path)
+
+    def test_explicit_creation_opt_in_still_works(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "new.jsonl"
+            session = NomosGuardSession(
+                rules=default_rules(),
+                policy_rules=default_policy_rules(),
+                ledger_path=path,
+                create_if_missing=True,
+            )
+            assert session.ledger.entries == ()
+            session.assert_claim("tool_call", {"agent": "a", "tool": "t"}, "log line")
+            assert path.is_file()
+
+    def test_directory_path_refused_even_with_opt_in(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td)
+            with pytest.raises(LedgerFileError, match="is a directory"):
+                NomosGuardSession(
+                    rules=default_rules(), ledger_path=path, create_if_missing=True
+                )
+
+    def test_missing_parent_refused_even_with_opt_in(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "no" / "such" / "dir" / "ledger.jsonl"
+            with pytest.raises(LedgerFileError, match="does not exist"):
+                NomosGuardSession(
+                    rules=default_rules(), ledger_path=path, create_if_missing=True
+                )
+
+
+class TestGateDeniedBoundary:
+    """The gate refuses to invent a decision; the SDK converts that to a
+    fail-closed GateResult instead of crashing the caller."""
+
+    def test_unknown_fallback_raises_at_the_gate(self):
+        from nomosguard.gate import GateDenied, PolicyGate
+
+        # the refusal happens at construction: the gate never holds an
+        # undecidable fallback, not even for a moment
+        with pytest.raises(GateDenied, match="must be one of"):
+            PolicyGate(policy_rules=[], fallback="NOT_A_DECISION")
+
+    def test_resolve_decision_refuses_to_guess(self):
+        from nomosguard.gate import Decision, GateDenied, resolve_decision
+
+        assert resolve_decision(Decision.BLOCK) is Decision.BLOCK
+        assert resolve_decision("ALERT") is Decision.ALERT
+        for bad in ("block", "BLOK", 3, None, ["BLOCK"]):
+            with pytest.raises(GateDenied):
+                resolve_decision(bad)
+
+    def test_unknown_fallback_caught_at_the_sdk_boundary(self):
+        from nomosguard.mcp_server import NomosGuardSession
+
+        session = NomosGuardSession(
+            rules=default_rules(), policy_rules=default_policy_rules()
+        )
+        result = session.decide(fallback="NOT_A_DECISION")
+        # a result, not an exception — and it denies
+        assert result["decision"] == "BLOCK"
+        assert result["denied"] is True
+        assert result["policy_rule"] == "GATE_DENIED"
+        assert "must be one of" in result["reason"]
+        assert result["ledger_verified"] is True
+
+    def test_valid_fallback_still_decides(self):
+        from nomosguard.mcp_server import NomosGuardSession
+
+        session = NomosGuardSession(
+            rules=default_rules(), policy_rules=default_policy_rules()
+        )
+        result = session.decide(fallback="ALERT")
+        assert result["decision"] == "ALERT"
+        assert result["denied"] is False
+
+    def test_malformed_rule_set_denies_instead_of_raising(self):
+        from nomosguard.gate import Decision
+        from nomosguard.rules import Pattern, Rule
+
+        bad = Rule(
+            name="never_fires",
+            body=(Pattern("?a", "calls", "?b"),),
+            # head variable is not in the body: the rule can never fire
+            head=Pattern("?x", "exposes", "?y"),
+        )
+        session = NomosGuardSession(rules=[bad], policy_rules=default_policy_rules())
+        with pytest.raises(Exception):
+            RuleEngine(rules=[bad])
+        result = session.decide()
+        assert result["decision"] == "BLOCK"
+        assert result["denied"] is True
+        assert "malformed rule set" in result["reason"]
+        # derive_paths reports the same refusal instead of raising
+        derived = session.derive_paths()
+        assert derived["denied"] is True
+        assert derived["derived_facts"] == []
+
+    def test_explain_survives_a_malformed_rule_set(self):
+        from nomosguard.rules import Pattern, Rule
+
+        bad = Rule(
+            name="never_fires",
+            body=(Pattern("?a", "calls", "?b"),),
+            head=Pattern("?x", "exposes", "?y"),
+        )
+        session = NomosGuardSession(rules=[bad], policy_rules=default_policy_rules())
+        result = session.explain()
+        assert result["decision"] == "BLOCK"
+        assert result["denied"] is True
