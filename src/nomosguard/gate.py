@@ -35,6 +35,39 @@ class Decision(str, Enum):
     ESCALATE = "ESCALATE"
 
 
+class GateDenied(ValueError):
+    """Raised when the gate cannot produce a decision it can defend.
+
+    This is the gate refusing to *invent* a decision — an unknown
+    fallback, a decision name it does not recognise. It is deliberately a
+    typed error so an SDK caller can distinguish "the gate denied because
+    it refused to guess" from an arbitrary crash; the SDK boundary
+    (NomosGuardSession) converts it into a fail-closed GateResult instead
+    of letting it escape to the caller.
+    """
+
+
+def resolve_decision(value: Any, *, field: str = "decision") -> Decision:
+    """Coerce a decision name to a Decision, or refuse loudly.
+
+    Accepts a Decision as-is and a string naming one. Anything else — a
+    typo, a number, a name the gate does not know — raises GateDenied
+    rather than defaulting to ALLOW. A gate that guesses is a gate that
+    can be walked through by a misspelling.
+    """
+    if isinstance(value, Decision):
+        return value
+    if isinstance(value, str):
+        try:
+            return Decision(value)
+        except ValueError:
+            pass
+    allowed = sorted(d.value for d in Decision)
+    from .schema import msg_enum
+
+    raise GateDenied(msg_enum("gate", field, allowed, value))
+
+
 @dataclass(frozen=True)
 class PolicyRule:
     """A gate rule: if a derived fact matches, emit this decision.
@@ -74,10 +107,12 @@ class PolicyGate:
     def __init__(
         self,
         policy_rules: list[PolicyRule],
-        fallback: Decision = Decision.BLOCK,
+        fallback: Decision | str = Decision.BLOCK,
     ) -> None:
         self.policy_rules = list(policy_rules)
-        self.fallback = fallback
+        # Resolved once, loudly: an unknown fallback is a GateDenied at
+        # construction time, not a silently different decision later.
+        self.fallback = resolve_decision(fallback, field="fallback")
 
     def evaluate(self, engine: RuleEngine) -> list[GateDecision]:
         """Evaluate all derived facts against policy rules.

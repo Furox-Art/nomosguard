@@ -20,10 +20,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from .constants import (
+    CLAIM_KIND_EXEC_CODE,
+    CLAIM_KIND_HOST,
+    CLAIM_KIND_NETWORK,
+    CLAIM_KIND_PRIVILEGE,
+    CLAIM_KIND_VULN_HOST,
+    CLAIM_KIND_VULN_SEVERITY,
+)
 from .rules import Fact, register_extractor
 
 
-@register_extractor("host")
+@register_extractor(CLAIM_KIND_HOST)
 def _extract_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract facts from a host inventory record.
 
@@ -37,11 +45,11 @@ def _extract_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
     if hostname and isinstance(services, list):
         for svc in services:
             if isinstance(svc, str) and svc.strip():
-                facts.append(Fact(hostname, "runsService", svc.strip(), ("host",)))
+                facts.append(Fact(hostname, "runsService", svc.strip(), (CLAIM_KIND_HOST,)))
     return facts
 
 
-@register_extractor("network")
+@register_extractor(CLAIM_KIND_NETWORK)
 def _extract_network(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract facts from a network access record.
 
@@ -55,13 +63,13 @@ def _extract_network(payload: dict[str, Any], evidence: str) -> list[Fact]:
     allowed_from = str(payload.get("allowed_from", ""))
     facts = []
     if host and protocol and isinstance(port, int):
-        facts.append(Fact(host, "netAccess", f"{protocol}:{port}", ("network",)))
+        facts.append(Fact(host, "netAccess", f"{protocol}:{port}", (CLAIM_KIND_NETWORK,)))
         if allowed_from:
-            facts.append(Fact(allowed_from, "canAccessHost", host, ("network",)))
+            facts.append(Fact(allowed_from, "canAccessHost", host, (CLAIM_KIND_NETWORK,)))
     return facts
 
 
-@register_extractor("exec_code")
+@register_extractor(CLAIM_KIND_EXEC_CODE)
 def _extract_exec_code(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract facts from a code-execution event.
 
@@ -73,11 +81,11 @@ def _extract_exec_code(payload: dict[str, Any], evidence: str) -> list[Fact]:
     user = str(payload.get("user", ""))
     facts = []
     if host and user:
-        facts.append(Fact(host, "execCode", user, ("exec_code",)))
+        facts.append(Fact(host, "execCode", user, (CLAIM_KIND_EXEC_CODE,)))
     return facts
 
 
-@register_extractor("privilege")
+@register_extractor(CLAIM_KIND_PRIVILEGE)
 def _extract_privilege(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract facts from a privilege assignment record.
 
@@ -89,11 +97,11 @@ def _extract_privilege(payload: dict[str, Any], evidence: str) -> list[Fact]:
     privilege = str(payload.get("privilege", ""))
     facts = []
     if user and privilege:
-        facts.append(Fact(user, "hasPrivilege", privilege, ("privilege",)))
+        facts.append(Fact(user, "hasPrivilege", privilege, (CLAIM_KIND_PRIVILEGE,)))
     return facts
 
 
-@register_extractor("vuln_host")
+@register_extractor(CLAIM_KIND_VULN_HOST)
 def _extract_vuln_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract security-level facts from a host vulnerability record.
 
@@ -104,7 +112,7 @@ def _extract_vuln_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
     cve = str(payload.get("cve", ""))
     facts = []
     if host and cve:
-        facts.append(Fact(host, "vulExists", cve, ("vuln_host",)))
+        facts.append(Fact(host, "vulExists", cve, (CLAIM_KIND_VULN_HOST,)))
     return facts
 
 
@@ -117,7 +125,7 @@ def _extract_vuln_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
 # extractor is a pure function of the already-enriched payload, so no I/O
 # and no nondeterminism enters the core.
 
-@register_extractor("vuln_severity")
+@register_extractor(CLAIM_KIND_VULN_SEVERITY)
 def _extract_vuln_severity(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract severity facts from an NVD-enriched vulnerability record.
 
@@ -137,5 +145,5 @@ def _extract_vuln_severity(payload: dict[str, Any], evidence: str) -> list[Fact]
     severity = str(payload.get("severity", "")).strip().upper()
     facts = []
     if host and severity and severity != "UNKNOWN":
-        facts.append(Fact(host, "vulnSeverity", severity, ("vuln_severity",)))
+        facts.append(Fact(host, "vulnSeverity", severity, (CLAIM_KIND_VULN_SEVERITY,)))
     return facts

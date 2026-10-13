@@ -11,15 +11,16 @@ fail-closed parsing, precise per-record errors, idempotent re-ingestion.
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..constants import VALID_POLICY_EFFECTS
 from ..ledger import Claim, EvidenceLedger
+from ..schema import RecordValidator, parse_json_record
 from .toolcall_jsonl import IngestError
 
-VALID_EFFECTS = {"allow", "deny"}
+VALID_EFFECTS = VALID_POLICY_EFFECTS
 
 
 
@@ -44,30 +45,21 @@ def _line_hash(raw_line: str) -> str:
 
 
 def parse_policy_line(line: str, line_no: int) -> dict[str, Any]:
-    """Parse and validate one JSONL policy-rule record. Raises IngestError."""
-    try:
-        record = json.loads(line)
-    except json.JSONDecodeError as exc:
-        raise IngestError(f"line {line_no}: not valid JSON: {exc}") from exc
+    """Parse and validate one JSONL policy-rule record. Raises IngestError.
 
-    if not isinstance(record, dict):
-        raise IngestError(f"line {line_no}: record must be a JSON object, got {type(record).__name__}")
+    The `effect` field is a closed vocabulary: an unknown value is refused
+    rather than coerced to deny (see `nomosguard.rules._extract_policy_rule`,
+    which holds the same rule on the engine side). Messages follow the
+    project-wide contract in `nomosguard.schema`.
+    """
+    where = f"line {line_no}"
+    record = parse_json_record(line, where, error=IngestError)
+    v = RecordValidator(record, where, error=IngestError)
 
-    subject = record.get("subject")
-    action = record.get("action")
-    resource = record.get("resource")
-    if not isinstance(subject, str) or not subject.strip():
-        raise IngestError(f"line {line_no}: missing or non-string 'subject'")
-    if not isinstance(action, str) or not action.strip():
-        raise IngestError(f"line {line_no}: missing or non-string 'action'")
-    if not isinstance(resource, str) or not resource.strip():
-        raise IngestError(f"line {line_no}: missing or non-string 'resource'")
-
-    effect = record.get("effect", "").lower()
-    if effect not in VALID_EFFECTS:
-        raise IngestError(
-            f"line {line_no}: 'effect' must be one of {sorted(VALID_EFFECTS)}, got {record.get('effect')!r}"
-        )
+    subject = v.string("subject")
+    action = v.string("action")
+    resource = v.string("resource")
+    effect = v.enum("effect", VALID_EFFECTS, default="")
 
     return {
         "subject": subject,

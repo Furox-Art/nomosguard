@@ -26,6 +26,8 @@ def main() -> int:
             "expected_total": summary["expected_total"],
             "false_positives": summary["false_positives"],
             "fail_closed_ok": summary["fail_closed_ok"],
+            "fail_closed_scenarios": summary["fail_closed_scenarios"],
+            "fail_closed_exercised": summary["fail_closed_exercised"],
             "all_passed": summary["all_passed"],
         },
         indent=2,

@@ -11,12 +11,12 @@ verifiable: recompute it from the source log and compare.
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from ..ledger import Claim, EvidenceLedger
+from ..schema import RecordValidator, parse_json_record
 
 
 class IngestError(ValueError):
@@ -56,34 +56,22 @@ def parse_toolcall_line(line: str, line_no: int) -> dict[str, Any]:
 
     Returns the claim payload. Raises IngestError with the line number and
     the precise problem on any deviation — no coercion, no defaults
-    invented for missing fields.
+    invented for missing fields. Messages follow the project-wide contract
+    in `nomosguard.schema`: `<location>: field <name> <reason>[, got <value>]`.
     """
-    try:
-        record = json.loads(line)
-    except json.JSONDecodeError as exc:
-        raise IngestError(f"line {line_no}: not valid JSON: {exc}") from exc
+    where = f"line {line_no}"
+    record = parse_json_record(line, where, error=IngestError)
+    v = RecordValidator(record, where, error=IngestError)
 
-    if not isinstance(record, dict):
-        raise IngestError(f"line {line_no}: record must be a JSON object, got {type(record).__name__}")
-
-    agent = record.get("agent")
-    tool = record.get("tool")
-    if not isinstance(agent, str) or not agent.strip():
-        raise IngestError(f"line {line_no}: missing or non-string 'agent'")
-    if not isinstance(tool, str) or not tool.strip():
-        raise IngestError(f"line {line_no}: missing or non-string 'tool'")
-
-    target = record.get("target")
-    if target is not None and not isinstance(target, str):
-        raise IngestError(f"line {line_no}: 'target' must be a string when present")
+    agent = v.string("agent")
+    tool = v.string("tool")
+    target = v.string("target", required=False)
+    args = v.object("args")
 
     payload: dict[str, Any] = {"agent": agent, "tool": tool}
     if target is not None:
         payload["target"] = target
-    args = record.get("args")
     if args is not None:
-        if not isinstance(args, dict):
-            raise IngestError(f"line {line_no}: 'args' must be an object when present")
         payload["args"] = args
     return payload
 

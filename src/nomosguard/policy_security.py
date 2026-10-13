@@ -12,7 +12,32 @@ discipline as the existing gate.
 
 from __future__ import annotations
 
+from .constants import (
+    CLAIM_KIND_EXEC_CODE,
+    CLAIM_KIND_NETWORK,
+    CLAIM_KIND_PRIVILEGE,
+    CLAIM_KIND_TEMPORAL_BRUTE_FORCE,
+    CLAIM_KIND_TEMPORAL_EXFIL_BURST,
+    CLAIM_KIND_TEMPORAL_PORT_SCAN,
+)
 from .gate import Decision, PolicyRule
+
+
+def _signature_requirement(signature_id: str) -> str:
+    """The claim-kind requirement for one signature (NG-0003 -> ...ng-0003).
+
+    Built through the same function the bridge builds the claim kind
+    with, so a typo cannot make a rule demand evidence that no extractor
+    can ever emit.
+    """
+    from .signature_bridge import claim_kind
+
+    return claim_kind(signature_id)
+
+
+#: Evidence requirement for the critical-signature rule: the concrete
+#: kind of NG-0003's claim, not a generic "signature".
+NUMBERED_SIGNATURE_KIND = _signature_requirement("NG-0003")
 
 
 def containment_policy_rules() -> list[PolicyRule]:
@@ -27,7 +52,7 @@ def containment_policy_rules() -> list[PolicyRule]:
             # directly attested (exec_code claim). A bare access path is
             # NOT enough — see revoke_attacker_access, which requires no
             # compromise evidence.
-            requires=("network", "exec_code"),
+            requires=(CLAIM_KIND_NETWORK, CLAIM_KIND_EXEC_CODE),
         ),
         PolicyRule(
             name="revoke_attacker_access",
@@ -36,35 +61,35 @@ def containment_policy_rules() -> list[PolicyRule]:
             description="An attacker with a derived access path must have it revoked.",
             # Access paths need only network evidence; vulnerability or
             # execution evidence is not required to revoke a path.
-            requires=("network",),
+            requires=(CLAIM_KIND_NETWORK,),
         ),
         PolicyRule(
             name="escalate_privileged_compromise",
             match_relation="grantsPrivilege",
             decision=Decision.ESCALATE,
             description="A privileged compromise needs human escalation.",
-            requires=("network", "privilege"),
+            requires=(CLAIM_KIND_NETWORK, CLAIM_KIND_PRIVILEGE),
         ),
         PolicyRule(
             name="escalate_access_attempt_in_progress",
             match_relation="accessAttemptInProgress",
             decision=Decision.ESCALATE,
             description="An actor brute-forcing with reachability is attempting access right now — a human must decide before it becomes a compromise.",
-            requires=("temporal_brute_force", "network"),
+            requires=(CLAIM_KIND_TEMPORAL_BRUTE_FORCE, CLAIM_KIND_NETWORK),
         ),
         PolicyRule(
             name="revoke_enumeration_path",
             match_relation="enumeratingHost",
             decision=Decision.REVOKE_ACCESS,
             description="A scanning actor enumerating a live host must have the path revoked.",
-            requires=("temporal_port_scan", "network"),
+            requires=(CLAIM_KIND_TEMPORAL_PORT_SCAN, CLAIM_KIND_NETWORK),
         ),
         PolicyRule(
             name="isolate_active_exfiltration",
             match_relation="dataExfilInProgress",
             decision=Decision.ISOLATE_HOST,
             description="A host actively exfiltrating data while running attacker code must be isolated.",
-            requires=("temporal_exfil_burst", "exec_code"),
+            requires=(CLAIM_KIND_TEMPORAL_EXFIL_BURST, CLAIM_KIND_EXEC_CODE),
         ),
         # -- signature rules --------------------------------------------------
         # Evidence from nomosguard.signatures / signature_bridge. The
@@ -87,6 +112,6 @@ def containment_policy_rules() -> list[PolicyRule]:
                 "at the same target, so a human must decide now — before it "
                 "becomes a compromise."
             ),
-            requires=("signature_ng-0003", "network"),
+            requires=(NUMBERED_SIGNATURE_KIND, CLAIM_KIND_NETWORK),
         ),
     ]

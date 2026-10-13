@@ -26,12 +26,20 @@ with the precise location. Nothing is coerced or defaulted.
 
 from __future__ import annotations
 
-import json
+import hashlib
+import hmac
 from pathlib import Path
 from typing import Any
 
+from .constants import (
+    POLICY_FORMAT,
+    POLICY_FORMAT_VERSION,
+    tool_call_gate_rules,
+    tool_call_rules,
+)
 from .gate import Decision, PolicyRule
 from .rules import Pattern, Rule
+from .schema import RecordValidator, parse_json_record
 
 
 class PolicyConfigError(ValueError):
@@ -52,18 +60,17 @@ def _validate_pattern(triple: Any, where: str) -> Pattern:
 
 def _validate_rule(raw: dict, idx: int) -> Rule:
     where = f"rules[{idx}]"
-    name = raw.get("name")
-    if not isinstance(name, str) or not name.strip():
-        raise PolicyConfigError(f"{where}: missing or invalid 'name'")
+    if not isinstance(raw, dict):
+        raise PolicyConfigError(f"{where}: rule must be a JSON object, got {type(raw).__name__}")
+    v = RecordValidator(raw, where, error=PolicyConfigError)
 
-    body_raw = raw.get("body")
-    if not isinstance(body_raw, list) or not body_raw:
-        raise PolicyConfigError(f"{where}: 'body' must be a non-empty list of patterns")
+    name = v.string("name")
+    body_raw = v.list_of("body", non_empty=True)
+    assert body_raw is not None  # required, so present by construction
+    head_raw = v.list_of("head", non_empty=True)
+    assert head_raw is not None
     body = tuple(_validate_pattern(t, f"{where}.body[{i}]") for i, t in enumerate(body_raw))
 
-    head_raw = raw.get("head")
-    if not isinstance(head_raw, list) or len(head_raw) != 3:
-        raise PolicyConfigError(f"{where}: 'head' must be a [subject, relation, object] triple")
     head = _validate_pattern(head_raw, f"{where}.head")
 
     # every head variable must appear in the body, else the rule never fires
@@ -77,53 +84,85 @@ def _validate_rule(raw: dict, idx: int) -> Rule:
                 "(the rule could never fire)"
             )
 
-    description = raw.get("description", "")
-    if not isinstance(description, str):
-        raise PolicyConfigError(f"{where}: 'description' must be a string")
-    return Rule(name=name, body=body, head=head, description=description)
+    description = v.string("description", required=False, allow_blank=True)
+    return Rule(name=name, body=body, head=head, description=description or "")
 
 
 def _validate_gate_entry(raw: dict, idx: int) -> PolicyRule:
     where = f"gate[{idx}]"
-    name = raw.get("name")
-    if not isinstance(name, str) or not name.strip():
-        raise PolicyConfigError(f"{where}: missing or invalid 'name'")
-    relation = raw.get("match_relation")
-    if not isinstance(relation, str) or not relation.strip():
-        raise PolicyConfigError(f"{where}: missing or invalid 'match_relation'")
-    decision = raw.get("decision")
-    if decision not in VALID_DECISIONS:
-        raise PolicyConfigError(
-            f"{where}: decision must be one of {sorted(VALID_DECISIONS)}, got {decision!r}"
-        )
-    match_object = raw.get("match_object")
-    if match_object is not None and not isinstance(match_object, str):
-        raise PolicyConfigError(f"{where}: 'match_object' must be a string when present")
-    description = raw.get("description", "")
+    if not isinstance(raw, dict):
+        raise PolicyConfigError(f"{where}: gate entry must be a JSON object, got {type(raw).__name__}")
+    v = RecordValidator(raw, where, error=PolicyConfigError)
+
+    name = v.string("name")
+    relation = v.string("match_relation")
+    # Decision values are case-sensitive on purpose: the enum's spelling IS
+    # the contract (PolicyConfigError, not a silent normalisation).
+    decision = v.enum("decision", VALID_DECISIONS, fold=None)
+    assert decision is not None
+    match_object = v.string("match_object", required=False)
+    description = v.string("description", required=False, allow_blank=True)
     return PolicyRule(
         name=name,
         match_relation=relation,
         decision=Decision(decision),
         match_object=match_object,
-        description=description if isinstance(description, str) else "",
+        description=description or "",
     )
 
 
-def load_policy(path: str | Path) -> tuple[list[Rule], list[PolicyRule]]:
+def load_policy(
+    path: str | Path,
+    *,
+    expected_digest: str | None = None,
+) -> tuple[list[Rule], list[PolicyRule]]:
     """Load and validate a policy file. Returns (rules, gate_rules).
 
+    A policy file is a BUNDLE, not arbitrary data: it is the rule set the
+    gate will apply, so it is pinned like one.
+
+      - `expected_digest="sha256:<hex>"` verifies the file's bytes before
+        anything is parsed; a mismatch raises PolicyConfigError (fail
+        closed — a policy that is not the one you pinned is not loaded).
+      - a `format_version` header is checked when present, and an unknown
+        one is refused.
+
     Raises PolicyConfigError with a precise location on any problem.
+    Messages follow the contract in `nomosguard.schema`, so a policy file
+    rejection reads exactly like a JSONL record rejection.
     """
     path = Path(path)
     if not path.is_file():
         raise PolicyConfigError(f"policy file not found: {path}")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise PolicyConfigError(f"policy file is not valid JSON: {exc}") from exc
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise PolicyConfigError(f"cannot read policy file: {exc}") from exc
 
-    if not isinstance(data, dict):
-        raise PolicyConfigError("policy file must be a JSON object")
+    if expected_digest is not None:
+        actual = policy_digest(path)
+        if not _digest_matches(actual, expected_digest):
+            raise PolicyConfigError(
+                f"policy digest mismatch: {path} is {actual}, "
+                f"expected {expected_digest} — refusing to run a policy "
+                "that is not the one you pinned"
+            )
+
+    data = parse_json_record(text, "policy file", error=PolicyConfigError)
+
+    declared_format = data.get("format")
+    if declared_format is not None and declared_format != POLICY_FORMAT:
+        raise PolicyConfigError(
+            f"policy file declares format {declared_format!r}, "
+            f"expected {POLICY_FORMAT!r}"
+        )
+    declared_version = data.get("format_version")
+    if declared_version is not None and declared_version != POLICY_FORMAT_VERSION:
+        raise PolicyConfigError(
+            f"unsupported policy format version {declared_version!r} "
+            f"(expected {POLICY_FORMAT_VERSION}); this tool cannot judge a "
+            "policy written for another dialect"
+        )
 
     rules_raw = data.get("rules", [])
     gate_raw = data.get("gate", [])
@@ -137,66 +176,40 @@ def load_policy(path: str | Path) -> tuple[list[Rule], list[PolicyRule]]:
     return rules, gate
 
 
+def policy_digest(path: str | Path) -> str:
+    """The digest pin for a policy file: `sha256:<hex>` of its bytes.
+
+    Commit this next to the policy file (or in a digest manifest) and pass
+    it back as `load_policy(..., expected_digest=...)` so a policy that
+    changed without review is refused instead of silently applied.
+
+    CRLF bytes are normalised to LF before hashing. A digest pinned on one
+    platform must hold on every other: without this, a Windows checkout
+    (``core.autocrlf``) recomputes a different digest for byte-identical
+    JSON and the fail-closed pin rejects a policy nobody changed.
+    """
+    path = Path(path)
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise PolicyConfigError(f"cannot read policy file: {exc}") from exc
+    return "sha256:" + hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+
+
+def _digest_matches(actual: str, expected: str) -> bool:
+    """Compare digests without short-circuiting (constant-time-ish)."""
+    if not isinstance(expected, str) or not expected.startswith("sha256:"):
+        raise PolicyConfigError(
+            f"expected digest must look like sha256:<hex>, got {expected!r}"
+        )
+    return hmac.compare_digest(actual, expected)
+
+
 def default_policy() -> tuple[list[Rule], list[PolicyRule]]:
-    """The built-in tool-call security policy (same as the CLI defaults)."""
-    rules = [
-        Rule(
-            name="tool_on_vulnerable_component",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "operates_on", "?component"),
-                Pattern("?component", "has_vulnerability", "?cve"),
-            ),
-            head=Pattern("?agent", "exposes", "?component"),
-            description="An agent operating a tool on a vulnerable component exposes it.",
-            ),
-            Rule(
-                name="reaches_base",
-                body=(Pattern("?from", "operates_on", "?to"),),
-                head=Pattern("?from", "reaches", "?to"),
-                description="Direct operation implies reachability.",
-            ),
-            Rule(
-                name="reaches_transitive",
-                body=(
-                    Pattern("?from", "reaches", "?mid"),
-                    Pattern("?mid", "reaches", "?to"),
-                ),
-                head=Pattern("?from", "reaches", "?to"),
-                description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
-            ),
-            Rule(
-                name="transitive_exposure",
-                body=(
-                    Pattern("?agent", "calls", "?tool"),
-                    Pattern("?agent", "reaches", "?component"),
-                    Pattern("?component", "has_vulnerability", "?cve"),
-                ),
-                head=Pattern("?agent", "exposes", "?component"),
-                description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
-            ),
-        Rule(
-            name="policy_denied_action",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "policy_denies", "?action"),
-            ),
-            head=Pattern("?agent", "violates", "policy"),
-            description="An agent calling a tool whose action is policy-denied violates policy.",
-        ),
-    ]
-    gate = [
-        PolicyRule(
-            name="block_vulnerable_exposure",
-            match_relation="exposes",
-            decision=Decision.BLOCK,
-            description="Exposure of a vulnerable component is blocked.",
-        ),
-        PolicyRule(
-            name="alert_policy_violation",
-            match_relation="violates",
-            decision=Decision.ALERT,
-            description="Policy violations raise an alert.",
-        ),
-    ]
-    return rules, gate
+    """The built-in tool-call security policy (same as the CLI defaults).
+
+    The rule set and the gate rules are the canonical objects defined in
+    `nomosguard.constants` — not a local copy. A policy rule that exists
+    in two files is a policy rule that will disagree with itself.
+    """
+    return tool_call_rules(), tool_call_gate_rules()

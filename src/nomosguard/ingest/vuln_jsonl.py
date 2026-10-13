@@ -11,12 +11,12 @@ fail-closed parsing, precise per-record errors, idempotent re-ingestion.
 from __future__ import annotations
 
 import hashlib
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from ..ledger import Claim, EvidenceLedger
+from ..schema import RecordValidator, parse_json_record
 from .toolcall_jsonl import IngestError
 
 VALID_SEVERITIES = {"critical", "high", "medium", "low", "unknown"}
@@ -44,35 +44,23 @@ def _line_hash(raw_line: str) -> str:
 
 
 def parse_vuln_line(line: str, line_no: int) -> dict[str, Any]:
-    """Parse and validate one JSONL CVE record. Raises IngestError."""
-    try:
-        record = json.loads(line)
-    except json.JSONDecodeError as exc:
-        raise IngestError(f"line {line_no}: not valid JSON: {exc}") from exc
+    """Parse and validate one JSONL CVE record. Raises IngestError.
 
-    if not isinstance(record, dict):
-        raise IngestError(f"line {line_no}: record must be a JSON object, got {type(record).__name__}")
+    Messages follow the project-wide contract in `nomosguard.schema`.
+    """
+    where = f"line {line_no}"
+    record = parse_json_record(line, where, error=IngestError)
+    v = RecordValidator(record, where, error=IngestError)
 
-    component = record.get("component")
-    cve = record.get("cve")
-    if not isinstance(component, str) or not component.strip():
-        raise IngestError(f"line {line_no}: missing or non-string 'component'")
-    if not isinstance(cve, str) or not cve.strip():
-        raise IngestError(f"line {line_no}: missing or non-string 'cve'")
-    if not cve.upper().startswith("CVE-"):
-        raise IngestError(f"line {line_no}: 'cve' must look like CVE-YYYY-NNNN, got {cve!r}")
+    component = v.string("component")
+    cve = v.pattern(
+        "cve", "CVE-YYYY-NNNN", predicate=lambda value: value.upper().startswith("CVE-")
+    )
+    severity = v.enum("severity", VALID_SEVERITIES, required=False, default="unknown")
+    description = v.string("description", required=False)
 
-    severity = record.get("severity", "unknown")
-    if not isinstance(severity, str) or severity.lower() not in VALID_SEVERITIES:
-        raise IngestError(
-            f"line {line_no}: 'severity' must be one of {sorted(VALID_SEVERITIES)}, got {severity!r}"
-        )
-
-    payload: dict[str, Any] = {"component": component, "cve": cve, "severity": severity.lower()}
-    description = record.get("description")
+    payload: dict[str, Any] = {"component": component, "cve": cve, "severity": severity}
     if description is not None:
-        if not isinstance(description, str):
-            raise IngestError(f"line {line_no}: 'description' must be a string when present")
         payload["description"] = description
     return payload
 

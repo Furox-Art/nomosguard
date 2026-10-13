@@ -22,10 +22,11 @@ from pathlib import Path
 from typing import Any
 
 from . import facts_security  # noqa: F401  — register security extractors
-from .gate import Decision, PolicyGate, PolicyRule
-from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
+from .constants import tool_call_gate_rules, tool_call_rules
+from .gate import Decision, GateDenied, PolicyGate, PolicyRule
+from .ledger import Claim, EvidenceLedger, LedgerFileError, UnevidencedClaimError
 from .policy_security import containment_policy_rules
-from .rules import Pattern, Rule, RuleEngine
+from .rules import ClaimValueError, Rule, RuleDefinitionError, RuleEngine
 from .rules_security import security_rules
 
 # MCP protocol constants
@@ -43,12 +44,56 @@ SERVER_INFO = {
 }
 
 
+def _writable_ledger_target(path: Path) -> None:
+    """Check that `path` can become a ledger file, or raise LedgerFileError.
+
+    Used when a caller explicitly opts into creating a new ledger: the
+    target must not be a directory, and its parent must exist and be
+    writable. A path that cannot possibly work is a broken configuration,
+    which fails loudly instead of at the first save.
+    """
+    from .ledger import LedgerFileError
+
+    if path.is_dir():
+        raise LedgerFileError(
+            f"ledger path is a directory, not a file: {path}"
+        )
+    parent = path.parent
+    if not parent.is_dir():
+        raise LedgerFileError(
+            f"ledger directory does not exist: {parent} "
+            "(refusing to create a ledger in a path that is not there)"
+        )
+    if path.exists():
+        return  # a file, and not a directory: load will verify it
+    probe = parent / f".{path.name}.write-test"
+    try:
+        with probe.open("w", encoding="utf-8") as fh:
+            fh.write("")
+    except OSError as exc:
+        raise LedgerFileError(
+            f"ledger directory is not writable: {parent} ({exc})"
+        ) from exc
+    finally:
+        try:
+            probe.unlink()
+        except OSError:
+            pass
+
+
 class NomosGuardSession:
     """A single session holding one ledger + engine + gate instance.
 
     The MCP server holds one session (or a registry keyed by session id
     for multi-tenant use). All state lives here; the protocol layer is
     stateless.
+
+    This class is the SDK boundary: `decide`, `derive_paths` and
+    `explain` return a *result*, never a control-flow surprise. The gate
+    raises `GateDenied` when it refuses to invent a decision, and a
+    malformed rule set raises `RuleDefinitionError` — both are caught
+    here and converted to a fail-closed result, so an agent that only
+    knows how to read a GateResult cannot be crashed by one.
     """
 
     def __init__(
@@ -56,11 +101,30 @@ class NomosGuardSession:
         rules: list[Rule] | None = None,
         policy_rules: list[PolicyRule] | None = None,
         ledger_path: str | Path | None = None,
+        *,
+        create_if_missing: bool = False,
     ) -> None:
-        self.ledger = EvidenceLedger.load(ledger_path) if ledger_path and Path(ledger_path).is_file() else EvidenceLedger()
+        self.ledger_path = Path(ledger_path) if ledger_path else None
+        if self.ledger_path is None:
+            self.ledger = EvidenceLedger()
+        elif self.ledger_path.is_file():
+            # An explicitly configured ledger path is LOADED: a corrupt or
+            # unreadable file raises LedgerFileError here, loudly, instead
+            # of silently starting an empty (and therefore lying) ledger.
+            self.ledger = EvidenceLedger.load(self.ledger_path)
+        elif create_if_missing:
+            _writable_ledger_target(self.ledger_path)
+            self.ledger = EvidenceLedger()
+        else:
+            # Fail closed: a configured path that is not there is a broken
+            # configuration, not a fresh ledger. Starting empty would let
+            # a typo'd path look like "no evidence, no findings".
+            raise LedgerFileError(
+                f"ledger path configured but not found: {self.ledger_path} "
+                "(pass create_if_missing=True to start a new ledger there)"
+            )
         self.rules = list(rules) if rules else []
         self.policy_rules = list(policy_rules) if policy_rules else []
-        self.ledger_path = Path(ledger_path) if ledger_path else None
 
     def _persist(self) -> None:
         """Flush the ledger to disk if a ledger path is configured.
@@ -71,6 +135,57 @@ class NomosGuardSession:
         """
         if self.ledger_path is not None:
             self.ledger.save(self.ledger_path)
+
+    # -- the fail-closed gate result ------------------------------------------
+
+    def _gate_result(
+        self, fallback: str | Decision = Decision.BLOCK
+    ) -> dict[str, Any]:
+        """Run engine + gate and ALWAYS return a GateResult dict.
+
+        The gate's own refusals (`GateDenied`: unknown decision name) and
+        a malformed rule set (`RuleDefinitionError`) are converted here,
+        at the SDK boundary, into the fail-closed result:
+
+            {"decision": "BLOCK", "denied": True, "reason": <why>, ...}
+
+        The chain stays empty and `ledger_verified` still reports the real
+        chain state, so the caller can see WHY it was denied rather than
+        being handed a bare exception.
+        """
+        try:
+            engine = RuleEngine(rules=self.rules)
+        except RuleDefinitionError as exc:
+            return self._denied(f"malformed rule set: {exc}")
+        try:
+            gate = PolicyGate(policy_rules=self.policy_rules, fallback=fallback)
+        except GateDenied as exc:
+            return self._denied(str(exc))
+        try:
+            engine.add_facts_from_ledger(self.ledger)
+        except ClaimValueError as exc:
+            # A recorded claim the extractors refuse to interpret (an
+            # unknown policy effect, an unreadable value) is evidence the
+            # session cannot reason over: deny, and name the claim.
+            return self._denied(f"uninterpretable claim: {exc}")
+        engine.derive()
+        result = gate.evaluate_with_fallback(engine)
+        result["denied"] = False
+        result["ledger_verified"] = self.ledger.verify()[0]
+        return result
+
+    def _denied(self, reason: str) -> dict[str, Any]:
+        """The fail-closed result: deny, and say why."""
+        return {
+            "decision": Decision.BLOCK.value,
+            "reason": f"gate denied: {reason}",
+            "policy_rule": "GATE_DENIED",
+            "chain": [],
+            "derived_from": [],
+            "missing_evidence": [],
+            "denied": True,
+            "ledger_verified": self.ledger.verify()[0],
+        }
 
     # -- tool implementations -------------------------------------------------
 
@@ -113,29 +228,51 @@ class NomosGuardSession:
         }
 
     def derive_paths(self) -> dict[str, Any]:
-        """Run the rule engine over the current ledger. Pure logic."""
-        engine = RuleEngine(rules=self.rules)
-        engine.add_facts_from_ledger(self.ledger)
+        """Run the rule engine over the current ledger. Pure logic.
+
+        A malformed rule set is reported as a fail-closed result (no
+        derived facts, the reason included) rather than an exception at
+        the SDK caller.
+        """
+        try:
+            engine = RuleEngine(rules=self.rules)
+        except RuleDefinitionError as exc:
+            return {
+                "derived_facts": [],
+                "rules_fired": {},
+                "trace": [],
+                "ledger_verified": self.ledger.verify()[0],
+                "denied": True,
+                "reason": f"malformed rule set: {exc}",
+            }
+        try:
+            engine.add_facts_from_ledger(self.ledger)
+        except ClaimValueError as exc:
+            return {
+                "derived_facts": [],
+                "rules_fired": {},
+                "trace": [],
+                "ledger_verified": self.ledger.verify()[0],
+                "denied": True,
+                "reason": f"uninterpretable claim: {exc}",
+            }
         summary = engine.derive()
         return {
             "derived_facts": [str(f) for f in engine.facts],
             "rules_fired": summary["rules_fired"],
             "trace": summary["trace"],
             "ledger_verified": self.ledger.verify()[0],
+            "denied": False,
         }
 
     def decide(self, fallback: str = "BLOCK") -> dict[str, Any]:
-        """Run the policy gate. Fail-closed; never consults a model."""
-        engine = RuleEngine(rules=self.rules)
-        engine.add_facts_from_ledger(self.ledger)
-        engine.derive()
-        gate = PolicyGate(
-            policy_rules=self.policy_rules,
-            fallback=Decision(fallback),
-        )
-        result = gate.evaluate_with_fallback(engine)
-        result["ledger_verified"] = self.ledger.verify()[0]
-        return result
+        """Run the policy gate. Fail-closed; never consults a model.
+
+        Always returns a GateResult dict — a decision the gate refuses to
+        make (`GateDenied`) or a malformed rule set becomes a BLOCK with
+        `denied: True` and the reason, not an exception at the caller.
+        """
+        return self._gate_result(fallback)
 
     def explain(self) -> dict[str, Any]:
         """Render the current state as a human-readable audit summary.
@@ -145,11 +282,39 @@ class NomosGuardSession:
         reword it, but the facts cited cannot be changed.
         """
         ok, detail = self.ledger.verify()
-        engine = RuleEngine(rules=self.rules)
-        engine.add_facts_from_ledger(self.ledger)
+        decision = self._gate_result(Decision.BLOCK)
+        try:
+            engine = RuleEngine(rules=self.rules)
+        except RuleDefinitionError:
+            engine = None
+        if engine is None:
+            lines = [
+                f"Ledger: {detail}",
+                "Rules: refused — malformed rule set (see decide)",
+                f"Gate decision: {decision['decision']} ({decision['reason']})",
+            ]
+            return {
+                "summary": "\n".join(lines),
+                "ledger_verified": ok,
+                "decision": decision["decision"],
+                "denied": True,
+            }
+        try:
+            engine.add_facts_from_ledger(self.ledger)
+        except ClaimValueError as exc:
+            lines = [
+                f"Ledger: {detail}",
+                "Facts: refused — a claim cannot be interpreted",
+                f"Gate decision: {decision['decision']} ({decision['reason']})",
+            ]
+            return {
+                "summary": "\n".join(lines),
+                "ledger_verified": ok,
+                "decision": decision["decision"],
+                "denied": True,
+                "reason": f"uninterpretable claim: {exc}",
+            }
         summary = engine.derive()
-        gate = PolicyGate(policy_rules=self.policy_rules, fallback=Decision.BLOCK)
-        decision = gate.evaluate_with_fallback(engine)
         lines = [
             f"Ledger: {detail}",
             f"Base facts: {len([f for f in engine.facts if not f.sources])}",
@@ -165,6 +330,7 @@ class NomosGuardSession:
             "summary": "\n".join(lines),
             "ledger_verified": ok,
             "decision": decision["decision"],
+            "denied": decision.get("denied", False),
         }
 
     def export_ledger(self) -> dict[str, Any]:
@@ -185,69 +351,14 @@ def default_rules() -> list[Rule]:
     The tool-call rules handle AI-agent security (exposure chains);
     the security rules handle network security (attack graphs). Both
     use the same ledger and the same gate — one deterministic core.
+
+    The tool-call half is the canonical set from `nomosguard.constants`,
+    not a second copy of it.
     """
-    return [
-        Rule(
-            name="tool_on_vulnerable_component",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "operates_on", "?component"),
-                Pattern("?component", "has_vulnerability", "?cve"),
-            ),
-            head=Pattern("?agent", "exposes", "?component"),
-            description="An agent operating a tool on a vulnerable component exposes it.",
-        ),
-        Rule(
-            name="policy_denied_action",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "policy_denies", "?action"),
-            ),
-            head=Pattern("?agent", "violates", "policy"),
-            description="An agent calling a tool whose action is policy-denied violates policy.",
-        ),
-        Rule(
-            name="reaches_base",
-            body=(Pattern("?from", "operates_on", "?to"),),
-            head=Pattern("?from", "reaches", "?to"),
-            description="Direct operation implies reachability.",
-        ),
-        Rule(
-            name="reaches_transitive",
-            body=(
-                Pattern("?from", "reaches", "?mid"),
-                Pattern("?mid", "reaches", "?to"),
-            ),
-            head=Pattern("?from", "reaches", "?to"),
-            description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
-        ),
-        Rule(
-            name="transitive_exposure",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "reaches", "?component"),
-                Pattern("?component", "has_vulnerability", "?cve"),
-            ),
-            head=Pattern("?agent", "exposes", "?component"),
-            description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
-        ),
-    ] + security_rules()
+    return tool_call_rules() + security_rules()
 
 
 def default_policy_rules() -> list[PolicyRule]:
     """Tool-call + containment decisions together."""
-    return [
-        PolicyRule(
-            name="block_vulnerable_exposure",
-            match_relation="exposes",
-            decision=Decision.BLOCK,
-            description="Exposure of a vulnerable component is blocked.",
-        ),
-        PolicyRule(
-            name="alert_policy_violation",
-            match_relation="violates",
-            decision=Decision.ALERT,
-            description="Policy violations raise an alert.",
-        ),
-    ] + containment_policy_rules()
+    return tool_call_gate_rules() + containment_policy_rules()
 

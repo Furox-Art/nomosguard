@@ -12,6 +12,7 @@ Configure an MCP client (e.g. Claude Desktop, or any MCP SDK) with:
 
 from __future__ import annotations
 
+import io
 import json
 import sys
 from typing import Any
@@ -178,7 +179,82 @@ def _handle(request: dict[str, Any], session: NomosGuardSession) -> dict[str, An
     }
 
 
-def main() -> None:
+def _utf8_stdout():
+    """stdout as a UTF-8 writer, whatever the platform locale says.
+
+    A claim's evidence is a raw log line: it can contain any character the
+    log format allows. On a Windows console whose code page cannot encode
+    that character, writing the response with the locale encoder raises
+    UnicodeEncodeError — which kills the server mid-session and loses every
+    answer it had not flushed yet. Writing UTF-8 explicitly removes that
+    dependency (and the reader side agrees: JSON is UTF-8 by definition).
+    """
+    stream = sys.stdout
+    reconfigure = getattr(stream, "reconfigure", None)
+    if reconfigure is not None:
+        try:
+            reconfigure(encoding="utf-8", newline="\n")
+            return stream
+        except (ValueError, OSError):
+            pass
+    buffer = getattr(stream, "buffer", None)
+    if buffer is not None:
+        return io.TextIOWrapper(buffer, encoding="utf-8", newline="\n", write_through=True)
+    return stream
+
+
+def _write_response(response: dict[str, Any]) -> None:
+    """One request -> one complete, flushed JSON line.
+
+    The whole response is serialized first, then written with a single
+    call and flushed immediately: a reader can never observe half a
+    response interleaved with the next one, and the line does not sit in
+    a buffer waiting for the next request. A write failure (the client
+    closed the pipe) ends the loop cleanly instead of killing the process
+    with a half-flushed line behind it.
+    """
+    try:
+        payload = json.dumps(response) + "\n"
+    except (TypeError, ValueError):  # a response we cannot serialize
+        payload = json.dumps({
+            "jsonrpc": "2.0",
+            "id": response.get("id"),
+            "error": {"code": -32603, "message": "response not serializable"},
+        }) + "\n"
+    try:
+        _out().write(payload)
+        _out().flush()
+    except (BrokenPipeError, OSError):
+        raise SystemExit(0) from None
+
+
+_OUT: Any = None
+
+
+def _out():
+    global _OUT
+    if _OUT is None:
+        _OUT = _utf8_stdout()
+    return _OUT
+
+
+def _stdin_lines():
+    """Yield request lines, and end the loop cleanly on a closed pipe."""
+    try:
+        for line in sys.stdin:
+            yield line
+    except (BrokenPipeError, OSError):
+        return
+
+
+def _parse_and_start(argv: list[str] | None = None) -> NomosGuardSession:
+    """Parse the command line and build the session, or refuse to start.
+
+    A ledger path that is missing (without --create-ledger), unreadable,
+    or corrupt is a broken configuration: the server exits with a FATAL
+    message instead of serving an empty ledger that answers every
+    question with 'no evidence'.
+    """
     import argparse
 
     parser = argparse.ArgumentParser(description="NomosGuard MCP stdio server")
@@ -186,17 +262,33 @@ def main() -> None:
         "--ledger",
         default=None,
         help="Path to a persistent JSONL evidence ledger. Loaded on start "
-        "(chain verified; a corrupt file is refused) and saved on every "
-        "accepted claim. Omit for an in-memory-only session.",
+        "(chain verified; a corrupt or missing file is refused). Saved on "
+        "every accepted claim. Omit for an in-memory-only session.",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--create-ledger",
+        action="store_true",
+        help="With --ledger: start a NEW ledger at that path when no file "
+        "exists yet. Without it, a --ledger path that is not there is a "
+        "configuration error and the server refuses to start.",
+    )
+    args = parser.parse_args(argv)
 
-    session = NomosGuardSession(
-        rules=default_rules(),
-        policy_rules=default_policy_rules(),
-        ledger_path=args.ledger,
-    )
-    for line in sys.stdin:
+    try:
+        return NomosGuardSession(
+            rules=default_rules(),
+            policy_rules=default_policy_rules(),
+            ledger_path=args.ledger,
+            create_if_missing=args.create_ledger,
+        )
+    except Exception as exc:  # fail closed: never serve an empty ledger
+        print(f"FATAL: refusing to start: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+
+
+def _serve_loop(session: NomosGuardSession) -> None:
+    """Read requests until stdin ends, one complete response per request."""
+    for line in _stdin_lines():
         line = line.strip()
         if not line:
             continue
@@ -206,8 +298,12 @@ def main() -> None:
             continue
         response = _handle(request, session)
         if response is not None:
-            sys.stdout.write(json.dumps(response) + "\n")
-            sys.stdout.flush()
+            _write_response(response)
+
+
+def main() -> None:
+    session = _parse_and_start()
+    _serve_loop(session)
 
 
 if __name__ == "__main__":

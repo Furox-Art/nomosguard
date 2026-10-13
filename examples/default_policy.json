@@ -1,4 +1,6 @@
 {
+  "format": "nomosguard-policy",
+  "format_version": 1,
   "rules": [
     {
       "name": "tool_on_vulnerable_component",

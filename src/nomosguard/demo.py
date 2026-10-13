@@ -10,9 +10,10 @@ from __future__ import annotations
 
 import json
 
-from .gate import Decision, PolicyGate, PolicyRule
+from .constants import tool_call_gate_rules, tool_call_rules
+from .gate import Decision, PolicyGate
 from .ledger import Claim, EvidenceLedger
-from .rules import Pattern, Rule, RuleEngine
+from .rules import RuleEngine
 
 
 def build_scenario() -> EvidenceLedger:
@@ -44,57 +45,16 @@ def run() -> dict:
     ledger = build_scenario()
     ok, detail = ledger.verify()
 
-    engine = RuleEngine(
-        rules=[
-            Rule(
-                name="tool_on_vulnerable_component",
-                body=(
-                    Pattern("?agent", "calls", "?tool"),
-                    Pattern("?agent", "operates_on", "?component"),
-                    Pattern("?component", "has_vulnerability", "?cve"),
-                ),
-                head=Pattern("?agent", "exposes", "?component"),
-                description="An agent operating a tool on a vulnerable component exposes it.",
-                ),
-                Rule(
-                    name="reaches_base",
-                    body=(Pattern("?from", "operates_on", "?to"),),
-                    head=Pattern("?from", "reaches", "?to"),
-                    description="Direct operation implies reachability.",
-                ),
-                Rule(
-                    name="reaches_transitive",
-                    body=(
-                        Pattern("?from", "reaches", "?mid"),
-                        Pattern("?mid", "reaches", "?to"),
-                    ),
-                    head=Pattern("?from", "reaches", "?to"),
-                    description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
-                ),
-                Rule(
-                    name="transitive_exposure",
-                    body=(
-                        Pattern("?agent", "calls", "?tool"),
-                        Pattern("?agent", "reaches", "?component"),
-                        Pattern("?component", "has_vulnerability", "?cve"),
-                    ),
-                    head=Pattern("?agent", "exposes", "?component"),
-                    description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
-            ),
-        ]
-    )
+    # The demo runs the SAME canonical rule set and gate rules as the CLI
+    # and the MCP server (nomosguard.constants) — it is a scenario, not a
+    # second policy. An earlier local copy of these rules had quietly lost
+    # `policy_denied_action`, which is exactly what one definition prevents.
+    engine = RuleEngine(rules=tool_call_rules())
     engine.add_facts_from_ledger(ledger)
     derivation = engine.derive()
 
     gate = PolicyGate(
-        policy_rules=[
-            PolicyRule(
-                name="block_vulnerable_exposure",
-                match_relation="exposes",
-                decision=Decision.BLOCK,
-                description="Exposure of a vulnerable component is blocked.",
-            )
-        ],
+        policy_rules=tool_call_gate_rules(),
         fallback=Decision.BLOCK,
     )
     result = gate.evaluate_with_fallback(engine)
