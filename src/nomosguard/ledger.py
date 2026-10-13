@@ -330,6 +330,11 @@ class EvidenceLedger:
         The on-disk format is unchanged from 0.5.0 (header line + one
         JSON entry per line), so ledgers written by 0.5.0 load directly
         into this version.
+
+        Every entry is re-validated here, exactly as it was at append
+        time: a claim that would be refused by `append` is refused by
+        `save` too. The write path and the read path enforce the same
+        invariant, so neither can smuggle a claim the other rejects.
         """
         path = Path(path)
         header = {
@@ -339,7 +344,9 @@ class EvidenceLedger:
             "head_hash": self.head_hash,
         }
         lines = [json.dumps(header, sort_keys=True)]
-        lines.extend(json.dumps(entry.to_dict(), sort_keys=True) for entry in self._entries)
+        for entry in self._entries:
+            entry.claim.validate()
+            lines.append(json.dumps(entry.to_dict(), sort_keys=True))
         _atomic_write_lines(path, lines)
 
     @classmethod
@@ -356,6 +363,9 @@ class EvidenceLedger:
         - the file is missing, unreadable, or not valid JSONL
         - the header is missing or has an unknown format version
         - an entry is not valid JSON, or its claim is malformed
+        - an entry's claim is INVALID: empty kind, non-dict payload, or
+          empty evidence — the same rules `append` enforces, checked here
+          too (a self-consistent file of invalid claims is a forged file)
         - a sequence number is duplicated or skips a value
         - a prev_hash link does not match the previous entry
         - an entry_hash does not recompute from its content (tamper)
@@ -432,6 +442,15 @@ class EvidenceLedger:
                         payload=claim_data["payload"],
                         evidence=claim_data["evidence"],
                     )
+                    # The same validation `append` (and now `save`) applies.
+                    # A file whose entries verify against each other but
+                    # hold an invalid claim is still a tampered file: the
+                    # chain proves consistency, never well-formedness.
+                    claim.validate()
+                except UnevidencedClaimError as exc:
+                    raise LedgerFileError(
+                        f"{path}: entry {i} has an invalid claim: {exc}"
+                    ) from exc
                 except (KeyError, TypeError) as exc:
                     raise LedgerFileError(
                         f"entry {i} has a malformed claim: {exc}"

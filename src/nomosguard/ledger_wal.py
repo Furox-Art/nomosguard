@@ -52,6 +52,7 @@ from .ledger import (
     Claim,
     EvidenceLedger,
     LedgerEntry,
+    UnevidencedClaimError,
     wal_path_for,
 )
 
@@ -267,6 +268,14 @@ def recover(ledger_path: str | Path) -> WalRecovery:
                 payload=claim_data["payload"],
                 evidence=claim_data["evidence"],
             )
+            # Same validation the ledger load path applies: a WAL record
+            # whose hashes verify but whose claim is invalid is a forged
+            # record, and replaying one would launder it into the chain.
+            claim.validate()
+        except UnevidencedClaimError as exc:
+            raise WalError(
+                f"WAL line {lineno} has an invalid claim: {exc}"
+            ) from exc
         except (KeyError, TypeError) as exc:
             raise WalError(f"WAL line {lineno}: malformed claim: {exc}") from exc
 
