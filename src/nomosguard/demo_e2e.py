@@ -18,10 +18,23 @@ The printed report is the actual tool output — nothing hand-written.
 
 from __future__ import annotations
 
+import json
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
 from nomosguard.containment import render_plan
-from nomosguard.gate import Decision, PolicyGate
+from nomosguard.gate import Decision, PolicyGate, PolicyRule
 from nomosguard.hypothesis import HypothesisTracker
-from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.ledger import (
+    Claim,
+    EvidenceLedger,
+    LedgerFileError,
+    UnevidencedClaimError,
+)
+from nomosguard.mcp_server import NomosGuardSession
+from nomosguard.policy import PolicyConfigError
 from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
@@ -162,6 +175,141 @@ def main() -> int:
     print("The model never appears in this chain. Every step is deterministic;")
     print("the same logs always produce the same decision and plan.")
     print("=" * 72)
+    failure_modes()
+    return 0
+
+
+def failure_modes() -> int:
+    """Stage 8: the failure paths, exercised rather than asserted.
+
+    The happy path above proves derivation works. This section proves the
+    other half of the contract — that every failure mode fails CLOSED —
+    by actually triggering each one and printing what came back. Nothing
+    here is a claim about behaviour: it is the behaviour.
+
+    Scenarios exercised (see tests/test_demo_e2e.py for the assertions):
+      1. an unevidenced claim is refused at the ledger
+      2. a tampered ledger (consistent hashes, invalid claim) is refused on load
+      3. a ledger path that is not there refuses to start
+      4. a gate with nothing derived denies by default
+      5. a policy bundle whose digest changed is refused
+      6. an unknown decision is refused, not guessed
+      7. a claim the extractors cannot read is refused, not coerced
+    """
+    print()
+    print("=" * 72)
+    print("STAGE 8: failure modes — each one is triggered here, not promised")
+    print("=" * 72)
+    results: list[tuple[str, str, str]] = []
+
+    # 1 — unevidenced claim ------------------------------------------------
+    try:
+        EvidenceLedger().append(Claim("tool_call", {"agent": "a", "tool": "t"}, ""))
+        results.append(("unevidenced claim", "ACCEPTED", "FAIL"))
+    except UnevidencedClaimError as exc:
+        results.append(("unevidenced claim", "REFUSED", "OK"))
+        detail = str(exc)
+
+    # 2 — tampered ledger file (consistent chain, invalid claim) -----------
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        path = Path(td) / "ledger.jsonl"
+        ledger = EvidenceLedger()
+        ledger.append(Claim("tool_call", {"agent": "a", "tool": "t"}, "log line 1"))
+        ledger.save(path)
+        records = [json.loads(line) for line in path.read_text().splitlines()]
+        records[1]["claim"]["evidence"] = ""
+        # keep the header's entry count and head hash as they are: the file
+        # must be refused on the CLAIM, not only on the chain
+        path.write_text(
+            "\n".join(json.dumps(r, sort_keys=True) for r in records) + "\n"
+        )
+        try:
+            EvidenceLedger.load(path)
+            results.append(("tampered ledger file", "LOADED", "FAIL"))
+        except LedgerFileError:
+            results.append(("tampered ledger file", "REFUSED", "OK"))
+
+    # 3 — a ledger path that is not there -----------------------------------
+    with tempfile.TemporaryDirectory() as td:
+        missing = Path(td) / "never_created.jsonl"
+        try:
+            NomosGuardSession(
+                rules=security_rules(),
+                policy_rules=containment_policy_rules(),
+                ledger_path=missing,
+            )
+            results.append(("missing ledger path", "STARTED EMPTY", "FAIL"))
+        except LedgerFileError:
+            results.append(("missing ledger path", "REFUSED", "OK"))
+
+    # 4 — a gate that derives nothing denies by default ----------------------
+    from nomosguard.policy import default_policy
+
+    rules, gate_rules = default_policy()
+    session = NomosGuardSession(rules=rules, policy_rules=gate_rules)
+    result = session.decide()
+    verdict = "denied by default" if result["decision"] == "BLOCK" else result["decision"]
+    results.append(("gate with no derived path", verdict, "OK" if result["decision"] == "BLOCK" else "FAIL"))
+
+    # 5 — a policy bundle whose bytes changed under the pin ------------------
+    with tempfile.TemporaryDirectory() as td:
+        from nomosguard.policy import load_policy, policy_digest
+
+        policy_path = Path(td) / "policy.json"
+        policy_path.write_text(json.dumps({
+            "rules": [{
+                "name": "r",
+                "body": [["?a", "calls", "?t"]],
+                "head": ["?a", "calls", "?t"],
+            }],
+            "gate": [{"name": "g", "match_relation": "calls", "decision": "BLOCK"}],
+        }))
+        pinned = policy_digest(policy_path)
+        policy_path.write_text(json.dumps({
+            "rules": [{
+                "name": "r",
+                "body": [["?a", "calls", "?t"]],
+                "head": ["?a", "exposes", "?t"],
+            }],
+            "gate": [{"name": "g", "match_relation": "exposes", "decision": "ALERT"}],
+        }))
+        try:
+            load_policy(policy_path, expected_digest=pinned)
+            results.append(("policy bundle digest pin", "LOADED", "FAIL"))
+        except PolicyConfigError:
+            results.append(("policy bundle digest pin", "REFUSED", "OK"))
+
+    # 6 — an unknown decision is refused, not guessed -------------------------
+    denied = session.decide(fallback="NOT_A_DECISION")
+    verdict = (
+        "denied at the boundary" if denied["denied"] and denied["decision"] == "BLOCK"
+        else f"{denied['decision']} (guessed!)"
+    )
+    ok = denied["denied"] and denied["decision"] == "BLOCK"
+    results.append(("unknown fallback decision", verdict, "OK" if ok else "FAIL"))
+
+    # 7 — a claim the extractors cannot read is refused, not coerced ----------
+    session.assert_claim(
+        "policy_rule",
+        {"subject": "a", "action": "sql", "resource": "db", "effect": "maybe"},
+        "policy doc line 1",
+    )
+    denied = session.decide()
+    verdict = (
+        "refused at extraction" if denied["denied"] else denied["decision"]
+    )
+    results.append(("uninterpretable claim", verdict, "OK" if denied["denied"] else "FAIL"))
+
+    for name, outcome, verdict in results:
+        print(f"      [{verdict:4}] {name:32} -> {outcome}")
+    failures = [n for n, _, v in results if v != "OK"]
+    print()
+    if failures:
+        print(f"  FAILED: {len(failures)} failure mode(s) did not fail closed: {failures}")
+        return 1
+    print(f"  {len(results)} failure modes exercised, all fail closed.")
     return 0
 
 
