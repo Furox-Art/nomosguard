@@ -182,13 +182,18 @@ def policy_digest(path: str | Path) -> str:
     Commit this next to the policy file (or in a digest manifest) and pass
     it back as `load_policy(..., expected_digest=...)` so a policy that
     changed without review is refused instead of silently applied.
+
+    CRLF bytes are normalised to LF before hashing. A digest pinned on one
+    platform must hold on every other: without this, a Windows checkout
+    (``core.autocrlf``) recomputes a different digest for byte-identical
+    JSON and the fail-closed pin rejects a policy nobody changed.
     """
     path = Path(path)
     try:
         raw = path.read_bytes()
     except OSError as exc:
         raise PolicyConfigError(f"cannot read policy file: {exc}") from exc
-    return "sha256:" + hashlib.sha256(raw).hexdigest()
+    return "sha256:" + hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
 
 
 def _digest_matches(actual: str, expected: str) -> bool:

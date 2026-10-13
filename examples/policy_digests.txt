@@ -10,4 +10,4 @@
 # silently applied. Regenerate with:
 #     python -c "from nomosguard.policy import policy_digest; \
 #       print(policy_digest('examples/default_policy.json'))"
-sha256:5143200773ae2f35abf2b61f846c98c488e9ed1e7474f884cd5f404f6b52c005  default_policy.json
+sha256:fe305bf586b13bc03e8392ed163d3164be2f5e7a4d8f64e37ebc28458ae44c41  default_policy.json
