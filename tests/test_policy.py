@@ -71,7 +71,7 @@ class TestFailClosedRejection:
     def test_rule_missing_name_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             path = self._write(td, {"rules": [{"body": [["?a", "calls", "?t"]], "head": ["?a", "x", "y"]}]})
-            with pytest.raises(PolicyConfigError, match="missing or invalid 'name'"):
+            with pytest.raises(PolicyConfigError, match="field 'name' is missing"):
                 load_policy(path)
 
     def test_rule_empty_body_rejected(self):
@@ -103,7 +103,7 @@ class TestFailClosedRejection:
             path = self._write(td, {
                 "gate": [{"name": "g", "match_relation": "exposes", "decision": "MAYBE"}]
             })
-            with pytest.raises(PolicyConfigError, match="decision must be one of"):
+            with pytest.raises(PolicyConfigError, match="field 'decision' must be one of"):
                 load_policy(path)
 
     def test_gate_missing_relation_rejected(self):
@@ -111,7 +111,7 @@ class TestFailClosedRejection:
             path = self._write(td, {
                 "gate": [{"name": "g", "decision": "BLOCK"}]
             })
-            with pytest.raises(PolicyConfigError, match="missing or invalid 'match_relation'"):
+            with pytest.raises(PolicyConfigError, match="field 'match_relation' is missing"):
                 load_policy(path)
 
 

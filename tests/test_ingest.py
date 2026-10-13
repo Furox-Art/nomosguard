@@ -32,19 +32,19 @@ class TestParseToolcallLine:
             parse_toolcall_line("[1, 2, 3]", 1)
 
     def test_missing_agent_rejected(self):
-        with pytest.raises(IngestError, match="missing or non-string 'agent'"):
+        with pytest.raises(IngestError, match="field 'agent' is missing"):
             parse_toolcall_line('{"tool": "t"}', 3)
 
     def test_missing_tool_rejected(self):
-        with pytest.raises(IngestError, match="missing or non-string 'tool'"):
+        with pytest.raises(IngestError, match="field 'tool' is missing"):
             parse_toolcall_line('{"agent": "a"}', 3)
 
     def test_non_string_target_rejected(self):
-        with pytest.raises(IngestError, match="'target' must be a string"):
+        with pytest.raises(IngestError, match="field 'target' must be a string"):
             parse_toolcall_line('{"agent": "a", "tool": "t", "target": 42}', 1)
 
     def test_non_object_args_rejected(self):
-        with pytest.raises(IngestError, match="'args' must be an object"):
+        with pytest.raises(IngestError, match="field 'args' must be an object"):
             parse_toolcall_line('{"agent": "a", "tool": "t", "args": "nope"}', 1)
 
 

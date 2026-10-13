@@ -33,19 +33,19 @@ class TestParseVulnLine:
         assert payload["severity"] == "high"
 
     def test_missing_component_rejected(self):
-        with pytest.raises(IngestError, match="missing or non-string 'component'"):
+        with pytest.raises(IngestError, match="field 'component' is missing"):
             parse_vuln_line('{"cve": "CVE-2026-1"}', 1)
 
     def test_missing_cve_rejected(self):
-        with pytest.raises(IngestError, match="missing or non-string 'cve'"):
+        with pytest.raises(IngestError, match="field 'cve' is missing"):
             parse_vuln_line('{"component": "db"}', 1)
 
     def test_cve_format_rejected(self):
-        with pytest.raises(IngestError, match="must look like CVE-"):
+        with pytest.raises(IngestError, match="must match CVE-YYYY-NNNN"):
             parse_vuln_line('{"component": "db", "cve": "not-a-cve"}', 1)
 
     def test_invalid_severity_rejected(self):
-        with pytest.raises(IngestError, match="'severity' must be one of"):
+        with pytest.raises(IngestError, match="field 'severity' must be one of"):
             parse_vuln_line('{"component": "db", "cve": "CVE-2026-1", "severity": "catastrophic"}', 1)
 
     def test_malformed_json_rejected(self):
@@ -118,21 +118,21 @@ class TestParsePolicyLine:
         assert payload["effect"] == "deny"
 
     def test_missing_effect_rejected(self):
-        with pytest.raises(IngestError, match="'effect' must be one of"):
+        with pytest.raises(IngestError, match="field 'effect' is missing"):
             parse_policy_line('{"subject": "a", "action": "sql", "resource": "db"}', 1)
 
     def test_invalid_effect_rejected(self):
-        with pytest.raises(IngestError, match="'effect' must be one of"):
+        with pytest.raises(IngestError, match="field 'effect' must be one of"):
             parse_policy_line(
                 '{"subject": "a", "action": "sql", "resource": "db", "effect": "maybe"}', 1
             )
 
     def test_missing_subject_rejected(self):
-        with pytest.raises(IngestError, match="missing or non-string 'subject'"):
+        with pytest.raises(IngestError, match="field 'subject' is missing"):
             parse_policy_line('{"action": "sql", "resource": "db", "effect": "allow"}', 1)
 
     def test_missing_resource_rejected(self):
-        with pytest.raises(IngestError, match="missing or non-string 'resource'"):
+        with pytest.raises(IngestError, match="field 'resource' is missing"):
             parse_policy_line('{"subject": "a", "action": "sql", "effect": "allow"}', 1)
 
 

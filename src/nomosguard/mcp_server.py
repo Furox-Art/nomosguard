@@ -26,7 +26,7 @@ from .constants import tool_call_gate_rules, tool_call_rules
 from .gate import Decision, PolicyGate, PolicyRule
 from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
 from .policy_security import containment_policy_rules
-from .rules import Pattern, Rule, RuleEngine
+from .rules import Rule, RuleEngine
 from .rules_security import security_rules
 
 # MCP protocol constants

@@ -26,13 +26,13 @@ with the precise location. Nothing is coerced or defaulted.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 from .constants import tool_call_gate_rules, tool_call_rules
 from .gate import Decision, PolicyRule
 from .rules import Pattern, Rule
+from .schema import RecordValidator, parse_json_record
 
 
 class PolicyConfigError(ValueError):
@@ -53,18 +53,17 @@ def _validate_pattern(triple: Any, where: str) -> Pattern:
 
 def _validate_rule(raw: dict, idx: int) -> Rule:
     where = f"rules[{idx}]"
-    name = raw.get("name")
-    if not isinstance(name, str) or not name.strip():
-        raise PolicyConfigError(f"{where}: missing or invalid 'name'")
+    if not isinstance(raw, dict):
+        raise PolicyConfigError(f"{where}: rule must be a JSON object, got {type(raw).__name__}")
+    v = RecordValidator(raw, where, error=PolicyConfigError)
 
-    body_raw = raw.get("body")
-    if not isinstance(body_raw, list) or not body_raw:
-        raise PolicyConfigError(f"{where}: 'body' must be a non-empty list of patterns")
+    name = v.string("name")
+    body_raw = v.list_of("body", non_empty=True)
+    assert body_raw is not None  # required, so present by construction
+    head_raw = v.list_of("head", non_empty=True)
+    assert head_raw is not None
     body = tuple(_validate_pattern(t, f"{where}.body[{i}]") for i, t in enumerate(body_raw))
 
-    head_raw = raw.get("head")
-    if not isinstance(head_raw, list) or len(head_raw) != 3:
-        raise PolicyConfigError(f"{where}: 'head' must be a [subject, relation, object] triple")
     head = _validate_pattern(head_raw, f"{where}.head")
 
     # every head variable must appear in the body, else the rule never fires
@@ -78,35 +77,30 @@ def _validate_rule(raw: dict, idx: int) -> Rule:
                 "(the rule could never fire)"
             )
 
-    description = raw.get("description", "")
-    if not isinstance(description, str):
-        raise PolicyConfigError(f"{where}: 'description' must be a string")
-    return Rule(name=name, body=body, head=head, description=description)
+    description = v.string("description", required=False, allow_blank=True)
+    return Rule(name=name, body=body, head=head, description=description or "")
 
 
 def _validate_gate_entry(raw: dict, idx: int) -> PolicyRule:
     where = f"gate[{idx}]"
-    name = raw.get("name")
-    if not isinstance(name, str) or not name.strip():
-        raise PolicyConfigError(f"{where}: missing or invalid 'name'")
-    relation = raw.get("match_relation")
-    if not isinstance(relation, str) or not relation.strip():
-        raise PolicyConfigError(f"{where}: missing or invalid 'match_relation'")
-    decision = raw.get("decision")
-    if decision not in VALID_DECISIONS:
-        raise PolicyConfigError(
-            f"{where}: decision must be one of {sorted(VALID_DECISIONS)}, got {decision!r}"
-        )
-    match_object = raw.get("match_object")
-    if match_object is not None and not isinstance(match_object, str):
-        raise PolicyConfigError(f"{where}: 'match_object' must be a string when present")
-    description = raw.get("description", "")
+    if not isinstance(raw, dict):
+        raise PolicyConfigError(f"{where}: gate entry must be a JSON object, got {type(raw).__name__}")
+    v = RecordValidator(raw, where, error=PolicyConfigError)
+
+    name = v.string("name")
+    relation = v.string("match_relation")
+    # Decision values are case-sensitive on purpose: the enum's spelling IS
+    # the contract (PolicyConfigError, not a silent normalisation).
+    decision = v.enum("decision", VALID_DECISIONS, fold=None)
+    assert decision is not None
+    match_object = v.string("match_object", required=False)
+    description = v.string("description", required=False, allow_blank=True)
     return PolicyRule(
         name=name,
         match_relation=relation,
         decision=Decision(decision),
         match_object=match_object,
-        description=description if isinstance(description, str) else "",
+        description=description or "",
     )
 
 
@@ -114,17 +108,17 @@ def load_policy(path: str | Path) -> tuple[list[Rule], list[PolicyRule]]:
     """Load and validate a policy file. Returns (rules, gate_rules).
 
     Raises PolicyConfigError with a precise location on any problem.
+    Messages follow the contract in `nomosguard.schema`, so a policy file
+    rejection reads exactly like a JSONL record rejection.
     """
     path = Path(path)
     if not path.is_file():
         raise PolicyConfigError(f"policy file not found: {path}")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise PolicyConfigError(f"policy file is not valid JSON: {exc}") from exc
-
-    if not isinstance(data, dict):
-        raise PolicyConfigError("policy file must be a JSON object")
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise PolicyConfigError(f"cannot read policy file: {exc}") from exc
+    data = parse_json_record(text, "policy file", error=PolicyConfigError)
 
     rules_raw = data.get("rules", [])
     gate_raw = data.get("gate", [])

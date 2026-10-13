@@ -9,8 +9,6 @@ policy gate names must be a claim kind the shipped extractors can emit.
 
 from __future__ import annotations
 
-import pytest
-
 from nomosguard import constants
 from nomosguard.benchmark.run_suite import (
     default_policy_rules as benchmark_policy_rules,
@@ -141,7 +139,6 @@ class TestClaimKindVocabulary:
         a fail-closed default masquerading as a real chain.
         """
         from nomosguard import facts_security, signature_bridge, temporal_bridge  # noqa: F401
-
         for rule in containment_policy_rules():
             for kind in rule.requires:
                 assert constants.is_known_claim_kind(kind) or (
