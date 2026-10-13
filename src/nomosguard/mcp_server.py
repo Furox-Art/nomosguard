@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from . import facts_security  # noqa: F401  — register security extractors
+from .constants import tool_call_gate_rules, tool_call_rules
 from .gate import Decision, PolicyGate, PolicyRule
 from .ledger import Claim, EvidenceLedger, UnevidencedClaimError
 from .policy_security import containment_policy_rules
@@ -185,69 +186,14 @@ def default_rules() -> list[Rule]:
     The tool-call rules handle AI-agent security (exposure chains);
     the security rules handle network security (attack graphs). Both
     use the same ledger and the same gate — one deterministic core.
+
+    The tool-call half is the canonical set from `nomosguard.constants`,
+    not a second copy of it.
     """
-    return [
-        Rule(
-            name="tool_on_vulnerable_component",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "operates_on", "?component"),
-                Pattern("?component", "has_vulnerability", "?cve"),
-            ),
-            head=Pattern("?agent", "exposes", "?component"),
-            description="An agent operating a tool on a vulnerable component exposes it.",
-        ),
-        Rule(
-            name="policy_denied_action",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "policy_denies", "?action"),
-            ),
-            head=Pattern("?agent", "violates", "policy"),
-            description="An agent calling a tool whose action is policy-denied violates policy.",
-        ),
-        Rule(
-            name="reaches_base",
-            body=(Pattern("?from", "operates_on", "?to"),),
-            head=Pattern("?from", "reaches", "?to"),
-            description="Direct operation implies reachability.",
-        ),
-        Rule(
-            name="reaches_transitive",
-            body=(
-                Pattern("?from", "reaches", "?mid"),
-                Pattern("?mid", "reaches", "?to"),
-            ),
-            head=Pattern("?from", "reaches", "?to"),
-            description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
-        ),
-        Rule(
-            name="transitive_exposure",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "reaches", "?component"),
-                Pattern("?component", "has_vulnerability", "?cve"),
-            ),
-            head=Pattern("?agent", "exposes", "?component"),
-            description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
-        ),
-    ] + security_rules()
+    return tool_call_rules() + security_rules()
 
 
 def default_policy_rules() -> list[PolicyRule]:
     """Tool-call + containment decisions together."""
-    return [
-        PolicyRule(
-            name="block_vulnerable_exposure",
-            match_relation="exposes",
-            decision=Decision.BLOCK,
-            description="Exposure of a vulnerable component is blocked.",
-        ),
-        PolicyRule(
-            name="alert_policy_violation",
-            match_relation="violates",
-            decision=Decision.ALERT,
-            description="Policy violations raise an alert.",
-        ),
-    ] + containment_policy_rules()
+    return tool_call_gate_rules() + containment_policy_rules()
 

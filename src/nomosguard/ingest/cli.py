@@ -15,76 +15,21 @@ import json
 import sys
 from pathlib import Path
 
+from ..constants import tool_call_gate_rules, tool_call_rules
 from ..gate import Decision, PolicyGate, PolicyRule
 from ..ledger import EvidenceLedger, LedgerFileError
-from ..rules import Pattern, Rule, RuleEngine
+from ..rules import Rule, RuleEngine
 from .toolcall_jsonl import IngestError, ingest_toolcall_jsonl
 
 
 def default_rules() -> list[Rule]:
-    return [
-        Rule(
-            name="tool_on_vulnerable_component",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "operates_on", "?component"),
-                Pattern("?component", "has_vulnerability", "?cve"),
-            ),
-            head=Pattern("?agent", "exposes", "?component"),
-            description="An agent operating a tool on a vulnerable component exposes it.",
-            ),
-            Rule(
-                name="reaches_base",
-                body=(Pattern("?from", "operates_on", "?to"),),
-                head=Pattern("?from", "reaches", "?to"),
-                description="Direct operation implies reachability.",
-            ),
-            Rule(
-                name="reaches_transitive",
-                body=(
-                    Pattern("?from", "reaches", "?mid"),
-                    Pattern("?mid", "reaches", "?to"),
-                ),
-                head=Pattern("?from", "reaches", "?to"),
-                description="Transitive reachability: X reaches Z when X reaches Y and Y reaches Z.",
-            ),
-            Rule(
-                name="transitive_exposure",
-                body=(
-                    Pattern("?agent", "calls", "?tool"),
-                    Pattern("?agent", "reaches", "?component"),
-                    Pattern("?component", "has_vulnerability", "?cve"),
-                ),
-                head=Pattern("?agent", "exposes", "?component"),
-                description="An agent that can reach a vulnerable component (directly or through a chain) exposes it.",
-            ),
-        Rule(
-            name="policy_denied_action",
-            body=(
-                Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "policy_denies", "?action"),
-            ),
-            head=Pattern("?agent", "violates", "policy"),
-            description="An agent calling a tool whose action is policy-denied violates policy.",
-        ),
-    ]
+    """The canonical tool-call rule set (nomosguard.constants), not a copy."""
+    return tool_call_rules()
 
 
 def default_policy_rules() -> list[PolicyRule]:
-    return [
-        PolicyRule(
-            name="block_vulnerable_exposure",
-            match_relation="exposes",
-            decision=Decision.BLOCK,
-            description="Exposure of a vulnerable component is blocked.",
-        ),
-        PolicyRule(
-            name="alert_policy_violation",
-            match_relation="violates",
-            decision=Decision.ALERT,
-            description="Policy violations raise an alert.",
-        ),
-    ]
+    """The canonical gate rules for the tool-call vocabulary."""
+    return tool_call_gate_rules()
 
 
 def main(argv: list[str] | None = None) -> int:
