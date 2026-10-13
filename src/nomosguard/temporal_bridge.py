@@ -24,12 +24,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from .constants import (
+    CLAIM_KIND_TEMPORAL_BRUTE_FORCE,
+    CLAIM_KIND_TEMPORAL_EXFIL_BURST,
+    CLAIM_KIND_TEMPORAL_PREFIX,
+    CLAIM_KIND_TEMPORAL_PORT_SCAN,
+)
 from .ledger import Claim
 from .rules import Fact, register_extractor
 from .temporal import TemporalResult, TemporalRule, evaluate_temporal
 
 # claim kinds produced by temporal findings
-CLAIM_KIND_PREFIX = "temporal_"
+CLAIM_KIND_PREFIX = CLAIM_KIND_TEMPORAL_PREFIX
 
 
 def temporal_claims(result: TemporalResult) -> list[Claim]:
@@ -70,30 +76,30 @@ def temporal_claims(result: TemporalResult) -> list[Claim]:
 #     (actor, bruteForceDetected, brute_force)
 # The rule engine then decides what that MEANS given the access graph.
 
-@register_extractor("temporal_brute_force")
+@register_extractor(CLAIM_KIND_TEMPORAL_BRUTE_FORCE)
 def _extract_brute_force(payload: dict[str, Any], evidence: str) -> list[Fact]:
     actor = str(payload.get("subject", ""))
     facts = []
     if actor:
-        facts.append(Fact(actor, "bruteForceDetected", "brute_force", ("temporal_brute_force",)))
+        facts.append(Fact(actor, "bruteForceDetected", "brute_force", (CLAIM_KIND_TEMPORAL_BRUTE_FORCE,)))
     return facts
 
 
-@register_extractor("temporal_port_scan")
+@register_extractor(CLAIM_KIND_TEMPORAL_PORT_SCAN)
 def _extract_port_scan(payload: dict[str, Any], evidence: str) -> list[Fact]:
     actor = str(payload.get("subject", ""))
     facts = []
     if actor:
-        facts.append(Fact(actor, "scanDetected", "port_scan", ("temporal_port_scan",)))
+        facts.append(Fact(actor, "scanDetected", "port_scan", (CLAIM_KIND_TEMPORAL_PORT_SCAN,)))
     return facts
 
 
-@register_extractor("temporal_exfil_burst")
+@register_extractor(CLAIM_KIND_TEMPORAL_EXFIL_BURST)
 def _extract_exfil_burst(payload: dict[str, Any], evidence: str) -> list[Fact]:
     actor = str(payload.get("subject", ""))
     facts = []
     if actor:
-        facts.append(Fact(actor, "exfilSuspected", "exfiltration", ("temporal_exfil_burst",)))
+        facts.append(Fact(actor, "exfilSuspected", "exfiltration", (CLAIM_KIND_TEMPORAL_EXFIL_BURST,)))
     return facts
 
 

@@ -17,6 +17,8 @@ from nomosguard.benchmark.run_suite import (
 from nomosguard.constants import (
     CLAIM_KIND_SIGNATURE_PREFIX,
     CLAIM_KIND_TEMPORAL_PREFIX,
+    canonical_tool_call_gate_rules,
+    canonical_tool_call_rules,
     tool_call_gate_rules,
     tool_call_rules,
 )
@@ -61,28 +63,28 @@ class TestSingleRuleSetDefinition:
         rules, gate = default_policy()
         assert rules is not None and len(rules) == 5
         # identity, not just equality: the SAME Rule instances
-        for got, want in zip(rules, constants._TOOL_CALL_RULES):
+        for got, want in zip(rules, canonical_tool_call_rules()):
             assert got is want
-        for got, want in zip(gate, constants._TOOL_CALL_GATE_RULES):
+        for got, want in zip(gate, canonical_tool_call_gate_rules()):
             assert got is want
 
     def test_mcp_server_uses_the_canonical_objects(self):
         rules = default_rules()
-        assert rules[:5] == list(constants._TOOL_CALL_RULES)
-        for got, want in zip(rules[:5], constants._TOOL_CALL_RULES):
+        assert rules[:5] == list(canonical_tool_call_rules())
+        for got, want in zip(rules[:5], canonical_tool_call_rules()):
             assert got is want
         assert rules[5:] != []  # the security half is appended after
 
     def test_benchmark_uses_the_canonical_objects(self):
-        for got, want in zip(benchmark_rules(), constants._TOOL_CALL_RULES):
+        for got, want in zip(benchmark_rules(), canonical_tool_call_rules()):
             assert got is want
-        for got, want in zip(benchmark_policy_rules(), constants._TOOL_CALL_GATE_RULES):
+        for got, want in zip(benchmark_policy_rules(), canonical_tool_call_gate_rules()):
             assert got is want
 
     def test_cli_uses_the_canonical_objects(self):
-        for got, want in zip(cli_rules(), constants._TOOL_CALL_RULES):
+        for got, want in zip(cli_rules(), canonical_tool_call_rules()):
             assert got is want
-        for got, want in zip(cli_policy_rules(), constants._TOOL_CALL_GATE_RULES):
+        for got, want in zip(cli_policy_rules(), canonical_tool_call_gate_rules()):
             assert got is want
 
     def test_demo_runs_the_full_canonical_rule_set(self):
@@ -103,7 +105,7 @@ class TestSingleRuleSetDefinition:
         mcp_rules = default_rules()
         benchmark = benchmark_rules()
         cli = cli_rules()
-        canonical = list(constants._TOOL_CALL_RULES)
+        canonical = list(canonical_tool_call_rules())
         for consumer in (policy_rules, mcp_rules[:5], benchmark, cli):
             assert _names(consumer) == _names(canonical)
             for got, want in zip(consumer, canonical):

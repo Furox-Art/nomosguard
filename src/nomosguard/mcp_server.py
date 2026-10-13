@@ -23,10 +23,10 @@ from typing import Any
 
 from . import facts_security  # noqa: F401  — register security extractors
 from .constants import tool_call_gate_rules, tool_call_rules
-from .gate import Decision, GateDenied, PolicyGate, PolicyRule, resolve_decision
+from .gate import Decision, GateDenied, PolicyGate, PolicyRule
 from .ledger import Claim, EvidenceLedger, LedgerFileError, UnevidencedClaimError
 from .policy_security import containment_policy_rules
-from .rules import Rule, RuleDefinitionError, RuleEngine
+from .rules import ClaimValueError, Rule, RuleDefinitionError, RuleEngine
 from .rules_security import security_rules
 
 # MCP protocol constants
@@ -161,7 +161,13 @@ class NomosGuardSession:
             gate = PolicyGate(policy_rules=self.policy_rules, fallback=fallback)
         except GateDenied as exc:
             return self._denied(str(exc))
-        engine.add_facts_from_ledger(self.ledger)
+        try:
+            engine.add_facts_from_ledger(self.ledger)
+        except ClaimValueError as exc:
+            # A recorded claim the extractors refuse to interpret (an
+            # unknown policy effect, an unreadable value) is evidence the
+            # session cannot reason over: deny, and name the claim.
+            return self._denied(f"uninterpretable claim: {exc}")
         engine.derive()
         result = gate.evaluate_with_fallback(engine)
         result["denied"] = False
@@ -239,7 +245,17 @@ class NomosGuardSession:
                 "denied": True,
                 "reason": f"malformed rule set: {exc}",
             }
-        engine.add_facts_from_ledger(self.ledger)
+        try:
+            engine.add_facts_from_ledger(self.ledger)
+        except ClaimValueError as exc:
+            return {
+                "derived_facts": [],
+                "rules_fired": {},
+                "trace": [],
+                "ledger_verified": self.ledger.verify()[0],
+                "denied": True,
+                "reason": f"uninterpretable claim: {exc}",
+            }
         summary = engine.derive()
         return {
             "derived_facts": [str(f) for f in engine.facts],
@@ -283,7 +299,21 @@ class NomosGuardSession:
                 "decision": decision["decision"],
                 "denied": True,
             }
-        engine.add_facts_from_ledger(self.ledger)
+        try:
+            engine.add_facts_from_ledger(self.ledger)
+        except ClaimValueError as exc:
+            lines = [
+                f"Ledger: {detail}",
+                "Facts: refused — a claim cannot be interpreted",
+                f"Gate decision: {decision['decision']} ({decision['reason']})",
+            ]
+            return {
+                "summary": "\n".join(lines),
+                "ledger_verified": ok,
+                "decision": decision["decision"],
+                "denied": True,
+                "reason": f"uninterpretable claim: {exc}",
+            }
         summary = engine.derive()
         lines = [
             f"Ledger: {detail}",

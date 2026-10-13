@@ -27,6 +27,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from .constants import (
+    CLAIM_KIND_POLICY_RULE,
+    CLAIM_KIND_TOOL_CALL,
+    CLAIM_KIND_VULNERABILITY,
+    POLICY_EFFECT_ALLOW,
+    VALID_POLICY_EFFECTS,
+)
 from .ledger import EvidenceLedger
 
 
@@ -66,6 +73,17 @@ class Fact:
 
 class RuleDefinitionError(ValueError):
     """Raised when a rule is malformed (e.g. unbound head variable)."""
+
+
+class ClaimValueError(ValueError):
+    """Raised when a claim payload carries a value the extractor cannot read.
+
+    This is the refuse-to-guess error. An extractor that does not
+    recognise a value says so instead of coercing it to the nearest
+    category — a policy_rule claim whose `effect` is missing or misspelled
+    used to become an authoritative DENY, which is exactly the kind of
+    silently changed decision that makes a reasoning core untrustworthy.
+    """
 
 
 @dataclass(frozen=True)
@@ -385,7 +403,7 @@ def _extract_facts(kind: str, payload: dict[str, Any], evidence: str) -> list[Fa
 
 # -- built-in extractors (tool-call evidence, the v1 ingestion path) -----------
 
-@register_extractor("tool_call")
+@register_extractor(CLAIM_KIND_TOOL_CALL)
 def _extract_tool_call(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract facts from an MCP tool-call record.
 
@@ -408,13 +426,13 @@ def _extract_tool_call(payload: dict[str, Any], evidence: str) -> list[Fact]:
     target = str(payload.get("target", ""))
     facts = []
     if agent and tool:
-        facts.append(Fact(agent, "calls", tool, ("tool_call",)))
+        facts.append(Fact(agent, "calls", tool, (CLAIM_KIND_TOOL_CALL,)))
     if agent and target:
-        facts.append(Fact(agent, "operates_on", target, ("tool_call",)))
+        facts.append(Fact(agent, "operates_on", target, (CLAIM_KIND_TOOL_CALL,)))
     return facts
 
 
-@register_extractor("vulnerability")
+@register_extractor(CLAIM_KIND_VULNERABILITY)
 def _extract_vulnerability(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract facts from a CVE/vulnerability record.
 
@@ -425,24 +443,39 @@ def _extract_vulnerability(payload: dict[str, Any], evidence: str) -> list[Fact]
     cve = str(payload.get("cve", ""))
     facts = []
     if component and cve:
-        facts.append(Fact(component, "has_vulnerability", cve, ("vulnerability",)))
+        facts.append(Fact(component, "has_vulnerability", cve, (CLAIM_KIND_VULNERABILITY,)))
     return facts
 
 
-@register_extractor("policy_rule")
+@register_extractor(CLAIM_KIND_POLICY_RULE)
 def _extract_policy_rule(payload: dict[str, Any], evidence: str) -> list[Fact]:
     """Extract facts from a policy rule record.
 
     Payload convention: {"subject": str, "action": str, "resource": str,
     "effect": "allow"|"deny"}
     Produces: (subject, policy_allows, resource) or (subject, policy_denies, resource).
+
+    The `effect` is validated against the vocabulary in
+    `nomosguard.constants`: a missing or unknown effect raises
+    ClaimValueError. It used to fall through to `policy_denies`, which
+    turned a malformed record into an authoritative denial — a number the
+    claim never stated. Now the malformed record is refused, and the
+    caller (the SDK boundary, the ingest adapters) reports the failure
+    instead of inventing a decision.
     """
     subject = str(payload.get("subject", ""))
     action = str(payload.get("action", ""))
     resource = str(payload.get("resource", ""))
-    effect = str(payload.get("effect", ""))
+    effect = payload.get("effect")
+    effect = effect.strip().lower() if isinstance(effect, str) else effect
+    if effect not in VALID_POLICY_EFFECTS:
+        raise ClaimValueError(
+            f"field 'effect' must be one of {list(VALID_POLICY_EFFECTS)}, "
+            f"got {payload.get('effect')!r} (a policy claim without a "
+            "recognised effect is refused, not coerced to deny)"
+        )
     facts = []
     if subject and action and resource:
-        relation = "policy_allows" if effect == "allow" else "policy_denies"
-        facts.append(Fact(subject, relation, f"{action}:{resource}", ("policy_rule",)))
+        relation = "policy_allows" if effect == POLICY_EFFECT_ALLOW else "policy_denies"
+        facts.append(Fact(subject, relation, f"{action}:{resource}", (CLAIM_KIND_POLICY_RULE,)))
     return facts
