@@ -25,6 +25,7 @@ from . import facts_security  # noqa: F401  — register security extractors
 from .constants import tool_call_gate_rules, tool_call_rules
 from .gate import Decision, GateDenied, PolicyGate, PolicyRule
 from .ledger import Claim, EvidenceLedger, LedgerFileError, UnevidencedClaimError
+from .ledger_lock import append_locked
 from .policy_security import containment_policy_rules
 from .rules import ClaimValueError, Rule, RuleDefinitionError, RuleEngine
 from .rules_security import security_rules
@@ -126,15 +127,22 @@ class NomosGuardSession:
         self.rules = list(rules) if rules else []
         self.policy_rules = list(policy_rules) if policy_rules else []
 
-    def _persist(self) -> None:
-        """Flush the ledger to disk if a ledger path is configured.
+    def _append_persisted(self, claim: Claim) -> None:
+        """Append one accepted claim to the on-disk ledger, writer-serialized.
 
-        Every accepted claim is persisted immediately: the audit trail must
-        not wait for a session end. A failed save raises — the MCP layer
-        turns any exception into an isError result (fail closed).
+        This replaces a full-file ``save()`` that rewrote the whole ledger from
+        one session's in-memory copy. Two sessions sharing a path then raced:
+        the second writer's snapshot dropped everything the first writer had
+        appended since it loaded — silent evidence loss, on a product whose
+        promise is a hash-chained audit trail. ``append_locked`` takes the
+        exclusive lock, re-reads the file under it, appends exactly this claim
+        and writes the WAL, so concurrent sessions interleave instead of
+        overwrite. Called per claim (not once per batch) so an ingest that
+        dies halfway leaves what it already accepted on disk.
         """
-        if self.ledger_path is not None:
-            self.ledger.save(self.ledger_path)
+        if self.ledger_path is None:
+            return
+        append_locked(self.ledger_path, claim, wal=True)
 
     # -- the fail-closed gate result ------------------------------------------
 
@@ -202,10 +210,11 @@ class NomosGuardSession:
                 )
                 self.ledger.append(claim)
                 accepted += 1
+                # Persist per claim, not per batch: a malformed entry later in
+                # the list must not discard the ones already accepted.
+                self._append_persisted(claim)
             except UnevidencedClaimError as exc:
                 rejected.append({"index": i, "reason": str(exc)})
-        if accepted:
-            self._persist()
         return {
             "accepted": accepted,
             "rejected": rejected,
@@ -219,7 +228,7 @@ class NomosGuardSession:
             entry = self.ledger.append(claim)
         except UnevidencedClaimError as exc:
             return {"accepted": False, "reason": str(exc)}
-        self._persist()
+        self._append_persisted(claim)
         return {
             "accepted": True,
             "seq": entry.seq,

@@ -5,7 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.7.8 — Second-round audit findings
+
+### Security
+
+- **H-1 (evidence loss under concurrent sessions):** `NomosGuardSession`
+  persisted by rewriting the whole ledger from its own in-memory copy. Two
+  sessions sharing a path raced: the second writer's snapshot dropped every
+  entry the first writer had appended since it loaded — silent evidence loss
+  on a product whose promise is an append-only audit trail. Persistence now
+  goes through `append_locked` (exclusive lock, re-read under the lock, append
+  exactly one claim, WAL write), which also interleaves concurrent sessions.
+  Regression test: `tests/test_mcp_shared_persistence.py`.
+- **M-1 (half-ingested batch):** `evidence_ingest` persisted once per batch, so
+  a rejected claim after accepted ones could discard the accepted ones from
+  disk. Claims are now persisted individually, immediately after acceptance.
+
 ## 0.7.7 — Audit hardening
+
 ### Housekeeping — audit hardening
 
 - Closes the findings of the full-repository audit: patched the concrete
