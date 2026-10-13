@@ -77,7 +77,15 @@ fact.
    narrative disagree, the chain wins.
 4. **Report gaps honestly.** Missing evidence → fail-closed default;
    say so in your report.
-5. **Reproduce before you claim.** Every number or decision must come
+5. **Read the result, not the exception.** `decide()` returns a decision
+   every time: when the gate refuses to decide (unknown decision name,
+   a rule set it cannot run, a claim it cannot read) the result is
+   `{"decision": "BLOCK", "denied": true, "reason": <why>}`. Report it;
+   never retry with a "more permissive" value to force an answer.
+6. **Never invent a value.** A `policy_rule` claim whose `effect` is not
+   `allow`/`deny` is refused (`ClaimValueError`), not coerced to deny.
+   Fix the record, do not rephrase the decision.
+7. **Reproduce before you claim.** Every number or decision must come
    from an actual tool call. Never hand-compute.
 
 ## Limitations (state these when relevant)
@@ -86,3 +94,8 @@ fact.
 - Benchmark corpora are synthetic-but-realistic; no real-world telemetry
 - v1 covers tool-call, vulnerability, policy, host, network, privilege
   evidence classes; real-time enforcement is out of scope
+- A configured ledger path is loaded (chain verified) or the session
+  refuses to start: it is never silently recreated empty. Starting a new
+  ledger is an explicit opt-in (`create_if_missing=True` / `--create-ledger`)
+- A policy file is a pinned bundle: `load_policy(..., expected_digest=...)`
+  refuses one that is not the digest you pinned
