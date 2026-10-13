@@ -37,6 +37,12 @@ class ScenarioResult:
     passed: bool
     fail_closed_ok: bool
     gate_decision: str
+    # Did the gate actually FALL BACK (the fail-closed path) on this
+    # scenario? Derived from the verdict (`policy_rule == "FALLBACK"`),
+    # never assumed. A KPI that says "fail-closed OK" without a fallback
+    # having fired is a KPI reporting success on an evaluation that never
+    # happened.
+    fail_closed_exercised: bool = False
 
 
 def run_scenario(scenario: Scenario) -> ScenarioResult:
@@ -57,14 +63,19 @@ def run_scenario(scenario: Scenario) -> ScenarioResult:
     expected = set(scenario.expected_exposed)
     passed = derived == expected
 
-    # fail-closed correctness: with no derived path the gate must BLOCK
-    fail_closed_ok = True
+    # The verdict itself says whether the fail-closed path ran: the gate
+    # substitutes its fallback decision only when NO policy rule matched.
+    exercised = decision["policy_rule"] == "FALLBACK"
+
+    # fail-closed correctness is derived from the verdict for EVERY
+    # scenario, in both directions:
+    #   - an incomplete-evidence scenario MUST have fallen back to BLOCK
+    #   - a scenario with evidence MUST NOT have fallen back (falling back
+    #     there means the rules silently derived nothing)
     if scenario.incomplete:
-        fail_closed_ok = (
-            derived == set()
-            and decision["decision"] == "BLOCK"
-            and decision["policy_rule"] == "FALLBACK"
-        )
+        fail_closed_ok = exercised and decision["decision"] == "BLOCK"
+    else:
+        fail_closed_ok = not exercised
 
     return ScenarioResult(
         name=scenario.name,
@@ -73,6 +84,7 @@ def run_scenario(scenario: Scenario) -> ScenarioResult:
         passed=passed,
         fail_closed_ok=fail_closed_ok,
         gate_decision=decision["decision"],
+        fail_closed_exercised=exercised,
     )
 
 
@@ -83,6 +95,11 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
     - recall: caught positives / total expected positives
     - false_positive: derived on scenarios expecting nothing
     - fail_closed: incomplete-evidence scenarios that fell back to BLOCK
+
+    `fail_closed_scenarios` reports HOW MANY scenarios exercised the
+    fail-closed path, so the headline KPI cannot claim coverage it does
+    not have: a corpus with zero such scenarios reports
+    `fail_closed_ok: None` ("not exercised"), not OK.
     """
     scenarios = build_all_scenarios()
     results = [run_scenario(s) for s in scenarios]
@@ -94,7 +111,9 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
         1 for r in results if r.expected == set() and r.derived != set()
     )
     incomplete = [r for r in results if any(s.incomplete for s in scenarios if s.name == r.name)]
-    fail_closed_ok = all(r.fail_closed_ok for r in incomplete) if incomplete else True
+    fail_closed_ok = (
+        all(r.fail_closed_ok for r in incomplete) if incomplete else None
+    )
 
     recall = caught / total_expected if total_expected else 1.0
 
@@ -105,7 +124,9 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
         "expected_total": total_expected,
         "derived_total": total_derived,
         "false_positives": false_positives,
+        # None = "not exercised", never a claim of success
         "fail_closed_ok": fail_closed_ok,
+        "fail_closed_scenarios": len(incomplete),
         "all_passed": all(r.passed for r in results),
         "run_at": datetime.now(timezone.utc).isoformat(),
         "results": [
@@ -115,6 +136,7 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
                 "derived": sorted(list(p) for p in r.derived),
                 "passed": r.passed,
                 "fail_closed_ok": r.fail_closed_ok,
+                "fail_closed_exercised": r.fail_closed_exercised,
                 "gate_decision": r.gate_decision,
             }
             for r in results
@@ -131,6 +153,12 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
 
 
 def _render_markdown(summary: dict[str, Any]) -> str:
+    if summary["fail_closed_ok"] is None:
+        fail_closed = "NOT EXERCISED (0 scenarios)"
+    elif summary["fail_closed_ok"]:
+        fail_closed = f"OK ({summary['fail_closed_scenarios']} scenario(s))"
+    else:
+        fail_closed = "FAILED"
     lines = [
         "# NomosGuard benchmark results",
         "",
@@ -141,15 +169,20 @@ def _render_markdown(summary: dict[str, Any]) -> str:
         "",
         f"- recall: {summary['caught']}/{summary['expected_total']} = {summary['recall']:.1%}",
         f"- false positives: {summary['false_positives']}",
-        f"- fail-closed on incomplete evidence: {'OK' if summary['fail_closed_ok'] else 'FAILED'}",
+        f"- fail-closed on incomplete evidence: {fail_closed}",
         "",
         "## Per-scenario",
         "",
-        "| scenario | expected | derived | passed |",
-        "|---|---|---|---|",
+        "| scenario | expected | derived | passed | fail-closed |",
+        "|---|---|---|---|---|",
     ]
     for r in summary["results"]:
+        if r["fail_closed_exercised"]:
+            exercised = "exercised (BLOCK)" if r["gate_decision"] == "BLOCK" else "exercised"
+        else:
+            exercised = "n/a"
         lines.append(
-            f"| {r['name']} | {r['expected']} | {r['derived']} | {'PASS' if r['passed'] else 'FAIL'} |"
+            f"| {r['name']} | {r['expected']} | {r['derived']} | "
+            f"{'PASS' if r['passed'] else 'FAIL'} | {exercised} |"
         )
     return "\n".join(lines) + "\n"
