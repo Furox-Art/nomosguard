@@ -38,8 +38,8 @@
         ],
         [
           "?agent",
-          "policy_denies",
-          "?action"
+          "policy_denies_action",
+          "?tool"
         ]
       ],
       "head": [
