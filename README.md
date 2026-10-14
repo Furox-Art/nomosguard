@@ -41,7 +41,7 @@ and the transcript is tamper-evident.
 
 Early development — see [VISION.md](VISION.md) for the architecture,
 scope, and first-release boundary. The core (evidence ledger, rule
-engine, policy gate) is implemented with 636 passing tests and a
+engine, policy gate) is implemented with 709 tests and a
 reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 
 ### Components
@@ -189,7 +189,7 @@ pip install -e .
 python -m nomosguard.demo    # committed scenario: derivation + BLOCK
 python -m nomosguard.demo_e2e  # one incident through every deterministic layer
                                 # (+ stage 8: each failure mode triggered, not promised)
-pytest tests/                # 481 tests incl. security + adversarial suites
+pytest tests/                # 709 tests incl. security + adversarial suites
 python -m nomosguard.benchmark.run_suite_main          # tool-call corpus (11 scenarios)
 python -m nomosguard.benchmark.security_main           # security corpus (5 scenarios)
 ```

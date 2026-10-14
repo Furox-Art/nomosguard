@@ -94,7 +94,6 @@ _TOOL_CALL_GATE_RULES: tuple[PolicyRule, ...] | None = None
 
 
 def _build_tool_call_rules() -> tuple[Rule, ...]:
-    from .gate import Decision
     from .rules import Pattern, Rule
 
     return (

@@ -78,7 +78,7 @@ class TestTemporalIntoChain:
         ]
         from nomosguard.ledger import Claim
         from nomosguard.temporal import default_temporal_rules
-        ledger, temporal = run_temporal_into_ledger(scan_logs, default_temporal_rules())
+        ledger, _ = run_temporal_into_ledger(scan_logs, default_temporal_rules())
         # add the reachability evidence for the scanner
         ledger.append(Claim(
             kind="network",

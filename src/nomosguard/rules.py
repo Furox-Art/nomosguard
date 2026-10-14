@@ -211,6 +211,10 @@ class RuleEngine:
             rule.validate()  # fail at construction, not silently at derive
         self._facts: dict[tuple[str, str, str], Fact] = {}
         self._derivation_trace: list[dict[str, Any]] = []
+        # claim kinds seen with no registered extractor: they derive
+        # nothing, and silence about that is how a ledger full of
+        # unreadable claims looks exactly like a clean one
+        self._unknown_claim_kinds: dict[str, int] = {}
         # lookup indexes, rebuilt at the start of each fixpoint round
         self._index_ro: dict[tuple[str, str], list[Fact]] = {}
         self._index_sr: dict[tuple[str, str], list[Fact]] = {}
@@ -227,10 +231,23 @@ class RuleEngine:
 
         The extraction is deterministic: for each claim kind, a fixed
         extractor converts the claim payload into zero or more facts.
+
+        Claims whose kind has no registered extractor are counted in
+        `unknown_claim_kinds`: they can never derive anything, and a
+        caller that never sees the count cannot tell "no findings" from
+        "nothing readable".
         """
         for entry in ledger.entries:
-            for fact in _extract_facts(entry.claim.kind, entry.claim.payload, entry.claim.evidence):
+            kind = entry.claim.kind
+            if not has_extractor(kind):
+                self._unknown_claim_kinds[kind] = self._unknown_claim_kinds.get(kind, 0) + 1
+            for fact in _extract_facts(kind, entry.claim.payload, entry.claim.evidence):
                 self.add_fact(fact)
+
+    @property
+    def unknown_claim_kinds(self) -> dict[str, int]:
+        """Claim kinds read from ledgers that no extractor understands."""
+        return dict(sorted(self._unknown_claim_kinds.items()))
 
     @property
     def facts(self) -> tuple[Fact, ...]:
@@ -247,9 +264,19 @@ class RuleEngine:
         """Run forward chaining to fixpoint.
 
         Returns a summary: {new_facts: N, rules_fired: {rule_name: count},
-        trace: [...]}. Deterministic: same ledger -> same result, always.
+        trace: [...], unknown_claim_kinds: {kind: count}}.
+        Deterministic: same ledger -> same result, always.
+
+        The trace records EVERY distinct derivation, not just the first
+        one per fact: a fact supported by two independent evidence chains
+        is a stronger conclusion than the same fact with one (hypothesis
+        tracking counts chains), and the old "only when the head is new"
+        guard silently under-reported exactly those alternatives. The
+        dedupe set keeps each distinct derivation in the trace once even
+        though the fixpoint loop re-enumerates matches in later rounds.
         """
         self._derivation_trace.clear()
+        seen_derivations: set[tuple[str, tuple[str, ...], str]] = set()
         changed = True
         while changed:
             changed = False
@@ -259,17 +286,22 @@ class RuleEngine:
                     subject, relation, obj = rule.head.substitute(match.bindings)
                     sources = tuple(sorted({s for f in match.body_facts for s in f.sources}))
                     head_fact = Fact(subject, relation, obj, sources)
+                    matched_on = tuple(str(f) for f in match.body_facts)
+                    signature = (rule.name, matched_on, str(head_fact))
+                    if signature in seen_derivations:
+                        continue
+                    seen_derivations.add(signature)
                     if head_fact.key not in self._facts:
                         self._facts[head_fact.key] = head_fact
                         changed = True
-                        self._derivation_trace.append(
-                            {
-                                "rule": rule.name,
-                                "matched_on": [str(f) for f in match.body_facts],
-                                "bindings": dict(match.bindings),
-                                "derived": str(head_fact),
-                            }
-                        )
+                    self._derivation_trace.append(
+                        {
+                            "rule": rule.name,
+                            "matched_on": list(matched_on),
+                            "bindings": dict(match.bindings),
+                            "derived": str(head_fact),
+                        }
+                    )
         fired: dict[str, int] = {}
         for step in self._derivation_trace:
             fired[step["rule"]] = fired.get(step["rule"], 0) + 1
@@ -277,6 +309,7 @@ class RuleEngine:
             "new_facts": sum(1 for f in self._facts.values() if f.sources),
             "rules_fired": fired,
             "trace": self._derivation_trace,
+            "unknown_claim_kinds": self.unknown_claim_kinds,
         }
 
     # -- internal matching ----------------------------------------------------
@@ -401,6 +434,32 @@ def _extract_facts(kind: str, payload: dict[str, Any], evidence: str) -> list[Fa
     return extractor(payload, evidence)
 
 
+def has_extractor(kind: str) -> bool:
+    """Whether a fact extractor is registered for this claim kind."""
+    return kind in _EXTRACTORS
+
+
+def _string_field(payload: dict[str, Any], field: str, claim_kind: str) -> str:
+    """Read a string field from a claim payload, refusing non-strings.
+
+    `str(payload.get("agent", ""))` stringified whatever it found: the
+    number 42 became the agent "42", JSON null became the agent "None" —
+    a fact about something nobody asserted. A missing (or null) field
+    keeps the extractor's documented no-fact semantics; a present
+    non-string is refused with the field named. The refusal travels as
+    ClaimValueError: the session boundary converts it to a fail-closed
+    "uninterpretable claim" instead of reasoning over invented values.
+    """
+    value = payload.get(field)
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ClaimValueError(
+            f"{claim_kind}: field {field!r} must be a string, got {value!r}"
+        )
+    return value
+
+
 # -- built-in extractors (tool-call evidence, the v1 ingestion path) -----------
 
 @register_extractor(CLAIM_KIND_TOOL_CALL)
@@ -421,9 +480,9 @@ def _extract_tool_call(payload: dict[str, Any], evidence: str) -> list[Fact]:
     agents. The agent-scoped fact model keeps the evidence honest: an
     agent operates only on the targets it actually called.
     """
-    agent = str(payload.get("agent", ""))
-    tool = str(payload.get("tool", ""))
-    target = str(payload.get("target", ""))
+    agent = _string_field(payload, "agent", CLAIM_KIND_TOOL_CALL)
+    tool = _string_field(payload, "tool", CLAIM_KIND_TOOL_CALL)
+    target = _string_field(payload, "target", CLAIM_KIND_TOOL_CALL)
     facts = []
     if agent and tool:
         facts.append(Fact(agent, "calls", tool, (CLAIM_KIND_TOOL_CALL,)))
@@ -439,8 +498,8 @@ def _extract_vulnerability(payload: dict[str, Any], evidence: str) -> list[Fact]
     Payload convention: {"component": str, "cve": str, "severity": str}
     Produces: (component, has_vulnerability, cve).
     """
-    component = str(payload.get("component", ""))
-    cve = str(payload.get("cve", ""))
+    component = _string_field(payload, "component", CLAIM_KIND_VULNERABILITY)
+    cve = _string_field(payload, "cve", CLAIM_KIND_VULNERABILITY)
     facts = []
     if component and cve:
         facts.append(Fact(component, "has_vulnerability", cve, (CLAIM_KIND_VULNERABILITY,)))
@@ -475,9 +534,9 @@ def _extract_policy_rule(payload: dict[str, Any], evidence: str) -> list[Fact]:
     reading a benign file while holding an unrelated SQL denial was
     reported as violating policy — an alert the evidence never stated.
     """
-    subject = str(payload.get("subject", ""))
-    action = str(payload.get("action", ""))
-    resource = str(payload.get("resource", ""))
+    subject = _string_field(payload, "subject", CLAIM_KIND_POLICY_RULE)
+    action = _string_field(payload, "action", CLAIM_KIND_POLICY_RULE)
+    resource = _string_field(payload, "resource", CLAIM_KIND_POLICY_RULE)
     effect = payload.get("effect")
     effect = effect.strip().lower() if isinstance(effect, str) else effect
     if effect not in VALID_POLICY_EFFECTS:

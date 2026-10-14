@@ -17,6 +17,7 @@ import json
 import sys
 from typing import Any
 
+from .digest_pins import resolve_digest_pin
 from .mcp_server import (
     PROTOCOL_VERSION,
     SERVER_INFO,
@@ -86,7 +87,11 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "fallback": {"type": "string", "enum": ["BLOCK", "ALERT", "ALLOW"]},
+                # The fallback applies when no derived path exists. Only
+                # fail-closed choices are offered: the audited agent must
+                # not be able to lower the floor of its own review by
+                # picking ALLOW as the default.
+                "fallback": {"type": "string", "enum": ["BLOCK", "ALERT"]},
             },
         },
     },
@@ -102,10 +107,22 @@ TOOLS = [
 ]
 
 
+def _error(req_id: Any, code: int, message: str) -> dict[str, Any]:
+    """A JSON-RPC error response (id echoed; None when undeterminable)."""
+    return {"jsonrpc": "2.0", "id": req_id, "error": {"code": code, "message": message}}
+
+
 def _handle(request: dict[str, Any], session: NomosGuardSession) -> dict[str, Any] | None:
     method = request.get("method", "")
     req_id = request.get("id")
     params = request.get("params", {})
+    # A non-object `params` (a list, a string) must be answered, not
+    # crash: `params.get` on a list is an AttributeError that would kill
+    # the serve loop and leave every later request unanswered.
+    if not isinstance(params, dict):
+        if req_id is None:
+            return None  # notifications get no response, valid or not
+        return _error(req_id, -32602, "invalid params: 'params' must be an object")
 
     # Notifications (no id) get no response
     is_notification = req_id is None
@@ -130,6 +147,8 @@ def _handle(request: dict[str, Any], session: NomosGuardSession) -> dict[str, An
     if method == "tools/call":
         name = params.get("name", "")
         args = params.get("arguments", {})
+        if not isinstance(args, dict):
+            return _error(req_id, -32602, "invalid params: 'arguments' must be an object")
         try:
             if name == "evidence_ingest":
                 result = session.evidence_ingest(args.get("claims", []))
@@ -140,16 +159,26 @@ def _handle(request: dict[str, Any], session: NomosGuardSession) -> dict[str, An
             elif name == "derive_paths":
                 result = session.derive_paths()
             elif name == "decide":
-                result = session.decide(args.get("fallback", "BLOCK"))
+                fallback = args.get("fallback", "BLOCK")
+                if fallback not in ("BLOCK", "ALERT"):
+                    # The MCP surface offers only fail-closed fallbacks
+                    # (see the tool schema): a per-call ALLOW default
+                    # would let the audited agent lower the floor of its
+                    # own review. Refused loudly, not coerced to BLOCK —
+                    # a silent coercion would hide the client bug.
+                    return _error(
+                        req_id,
+                        -32602,
+                        "invalid params: 'fallback' must be one of "
+                        "['ALERT', 'BLOCK'] (the MCP surface offers no "
+                        "permissive fallback)",
+                    )
+                result = session.decide(fallback)
             elif name == "explain":
                 result = session.explain()
             else:
-                return {
-                    "jsonrpc": "2.0",
-                    "id": req_id,
-                    "error": {"code": -32601, "message": f"unknown tool: {name}"},
-                }
-        except Exception as exc:  # fail closed on any internal error
+                return _error(req_id, -32601, f"unknown tool: {name}")
+        except Exception as exc:  # noqa: BLE001 - fail closed on any internal error
             return {
                 "jsonrpc": "2.0",
                 "id": req_id,
@@ -172,11 +201,7 @@ def _handle(request: dict[str, Any], session: NomosGuardSession) -> dict[str, An
     # Unknown method
     if is_notification:
         return None
-    return {
-        "jsonrpc": "2.0",
-        "id": req_id,
-        "error": {"code": -32601, "message": f"method not found: {method}"},
-    }
+    return _error(req_id, -32601, f"method not found: {method}")
 
 
 def _utf8_stdout():
@@ -241,8 +266,7 @@ def _out():
 def _stdin_lines():
     """Yield request lines, and end the loop cleanly on a closed pipe."""
     try:
-        for line in sys.stdin:
-            yield line
+        yield from sys.stdin
     except (BrokenPipeError, OSError):
         return
 
@@ -272,7 +296,23 @@ def _parse_and_start(argv: list[str] | None = None) -> NomosGuardSession:
         "exists yet. Without it, a --ledger path that is not there is a "
         "configuration error and the server refuses to start.",
     )
+    parser.add_argument(
+        "--ledger-digest",
+        default=None,
+        help="Pin the ledger by digest (sha256:<hex>, or @PATH to read it "
+        "from a manifest file). A file that is not the pinned one is "
+        "refused; a truncated ledger is recovered only under a pin (the "
+        "remaining bytes must be the reviewed ones) and healed on start.",
+    )
     args = parser.parse_args(argv)
+
+    if args.ledger_digest and not args.ledger:
+        print(
+            "FATAL: --ledger-digest requires --ledger (the in-memory "
+            "session is not a file)",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
 
     try:
         return NomosGuardSession(
@@ -280,6 +320,7 @@ def _parse_and_start(argv: list[str] | None = None) -> NomosGuardSession:
             policy_rules=default_policy_rules(),
             ledger_path=args.ledger,
             create_if_missing=args.create_ledger,
+            ledger_digest=resolve_digest_pin(args.ledger_digest, noun="ledger"),
         )
     except Exception as exc:  # fail closed: never serve an empty ledger
         print(f"FATAL: refusing to start: {exc}", file=sys.stderr)
@@ -295,6 +336,15 @@ def _serve_loop(session: NomosGuardSession) -> None:
         try:
             request = json.loads(line)
         except json.JSONDecodeError:
+            continue
+        if not isinstance(request, dict):
+            # A JSON-RPC message must be an object. A bare array/number/
+            # string would crash `request.get` (a list has no `.get`),
+            # killing the loop mid-session and leaving every later request
+            # unanswered — the exact failure mode this loop must not have.
+            _write_response(
+                _error(None, -32600, "invalid request: JSON-RPC request must be an object")
+            )
             continue
         response = _handle(request, session)
         if response is not None:

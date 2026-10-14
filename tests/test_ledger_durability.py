@@ -6,9 +6,13 @@ What these tests defend against, in order of severity:
    checkpointing the main file must not lose that entry. The WAL exists
    for exactly this, and `test_wal_recovers_entries_the_main_file_never_got`
    is the regression test for the failure mode the WAL was added to fix.
-2. SILENT CORRUPTION. A crash mid-write can tear the final line of the
-   main file. That line is dropped and the drop is REPORTED — never
-   silently, and never treated as tamper evidence (`torn` != `tampered`).
+2. SILENT CORRUPTION — TORN TAILS ARE REFUSED UNPINNED. The main file is
+   only ever rewritten atomically (`_atomic_write_lines`), so a torn final
+   line cannot be produced by a crash of this writer; an unpinned torn
+   load is refused outright. Recovery is an explicit operator act: pin
+   the reviewed bytes (`expected_digest=...`), and the torn tail is then
+   dropped and REPORTED (`LedgerLoadReport`) — never silently, and never
+   treated as tamper evidence (`torn` != `tampered`).
 3. LOST WRITES UNDER CONCURRENCY. Two writers that read-modify-write
    without a lock clobber each other. `test_concurrent_appenders_*` spawn
    real processes, because the bug only manifests with real interleaving.
@@ -37,6 +41,7 @@ from nomosguard.ledger import (
     EvidenceLedger,
     LedgerFileError,
     LedgerLoadReport,
+    ledger_digest,
     wal_path_for,
 )
 from nomosguard.ledger_wal import (
@@ -313,7 +318,8 @@ class TestWalRoundTrip:
 
 
 class TestCrashSafety:
-    """A torn final line in the MAIN file: dropped, counted, chain intact."""
+    """A torn final line in the MAIN file: refused unpinned; under a pin,
+    dropped, counted, chain intact."""
 
     def test_partial_final_line_is_dropped_and_counted(self):
         with tempfile.TemporaryDirectory() as td:
@@ -321,23 +327,38 @@ class TestCrashSafety:
             ledger = _seeded(3)
             ledger.save(path)
 
-            # Crash mid-write: the last entry is cut in half.
+            # The final entry is cut in half.
             text = path.read_text()
             cut = text.rfind("\n")
             path.write_text(text[: cut - 20])
+            pinned = ledger_digest(path)  # the operator pins the reviewed bytes
 
             report = LedgerLoadReport(entries=[], header={})
-            loaded = EvidenceLedger.load(path, report=report)
+            loaded = EvidenceLedger.load(path, report=report, expected_digest=pinned)
             assert report.dropped_tail == 1, "the torn entry must be counted"
             assert report.tail_detail is not None
             assert len(loaded.entries) == 2, "the two complete entries survive"
             ok, detail = loaded.verify()
             assert ok, detail
 
-    def test_torn_tail_hash_mismatch_is_also_dropped(self):
-        """The tail can be *parseable* yet wrong (partial flush of a
-        rewritten record). A hash mismatch on the FINAL line is a torn
-        write, not tamper — dropped and reported."""
+    def test_partial_final_line_unpinned_is_refused(self):
+        """No pin, no recovery: the atomic writer never tears its own
+        output, so an unpinned torn tail is refused, not dropped."""
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "ledger.jsonl"
+            ledger = _seeded(3)
+            ledger.save(path)
+            text = path.read_text()
+            cut = text.rfind("\n")
+            path.write_text(text[: cut - 20])
+
+            with pytest.raises(LedgerFileError, match="UNPINNED"):
+                EvidenceLedger.load(path)
+
+    def test_parseable_final_line_mutation_is_tamper_not_torn(self):
+        """A *parseable yet wrong* final line (partial flush of a rewritten
+        record) disagrees with the chain: hash mismatch, REFUSED — pinning
+        the tampered bytes does not launder it into a torn-tail recovery."""
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "ledger.jsonl"
             ledger = _seeded(3)
@@ -348,7 +369,12 @@ class TestCrashSafety:
             record["claim"]["payload"]["agent"] = "attacker"
             lines[-1] = json.dumps(record, sort_keys=True)
             path.write_text("\n".join(lines) + "\n")
+            pinned = ledger_digest(path)
 
+            with pytest.raises(LedgerFileError, match="hash mismatch"):
+                EvidenceLedger.load(path)
+            with pytest.raises(LedgerFileError, match="hash mismatch"):
+                EvidenceLedger.load(path, expected_digest=pinned)
             # Strict load: tamper anywhere is refused.
             with pytest.raises(LedgerFileError):
                 EvidenceLedger.load(path, allow_torn_tail=False)
@@ -371,16 +397,17 @@ class TestCrashSafety:
                 EvidenceLedger.load(path)
 
     def test_recovered_ledger_is_appendable_and_stays_valid(self):
-        """After a torn-tail recovery, appending must continue the chain —
-        the recovered head hash is the real head."""
+        """After a pinned torn-tail recovery, appending must continue the
+        chain — the recovered head hash is the real head."""
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "ledger.jsonl"
             ledger = _seeded(3)
             ledger.save(path)
             text = path.read_text()
             path.write_text(text[: text.rfind("\n") - 20])  # tear entry 3
+            pinned = ledger_digest(path)
 
-            loaded = EvidenceLedger.load(path)
+            loaded = EvidenceLedger.load(path, expected_digest=pinned)
             new_entry = loaded.append(_claim(99, "after"))
             assert new_entry.seq == 3, "the recovered ledger continues at seq 3"
             assert new_entry.prev_hash == loaded.entries[1].entry_hash
@@ -795,26 +822,30 @@ class TestMultiWriterLocking:
 
 @requires_lock
 class TestNonPosixBehavior:
-    """On a platform without fcntl, the lock must fail loudly, not silently."""
+    """On a platform with no lock backend, the lock must fail loudly, not
+    silently."""
 
-    def test_lock_module_refuses_to_import_without_fcntl(self):
+    def test_lock_module_refuses_to_import_without_a_backend(self):
         """A silent no-op lock is worse than a loud failure. Prove the
-        import path raises NotImplementedError when fcntl is missing."""
+        import path raises NotImplementedError when NEITHER backend is
+        importable — blocking both fcntl and msvcrt, so the scenario is
+        simulated genuinely on every platform (blocking only fcntl would
+        pass on Linux yet import fine on Windows via the msvcrt fallback)."""
         import importlib
 
         saved = sys.modules.pop("nomosguard.ledger_lock", None)
         try:
             real_import = __builtins__["__import__"] if isinstance(__builtins__, dict) else __builtins__.__import__
 
-            def no_fcntl(name, *args, **kwargs):
-                if name == "fcntl":
-                    raise ImportError("No module named 'fcntl'")
+            def no_backend(name, *args, **kwargs):
+                if name in ("fcntl", "msvcrt"):
+                    raise ImportError(f"No module named {name!r}")
                 return real_import(name, *args, **kwargs)
 
             if isinstance(__builtins__, dict):
-                __builtins__["__import__"] = no_fcntl
+                __builtins__["__import__"] = no_backend
             else:
-                __builtins__.__import__ = no_fcntl
+                __builtins__.__import__ = no_backend
             try:
                 with pytest.raises(NotImplementedError, match="fcntl"):
                     importlib.import_module("nomosguard.ledger_lock")

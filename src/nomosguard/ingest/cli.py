@@ -1,11 +1,20 @@
-"""CLI: ingest a tool-call JSONL log, derive paths, decide, explain.
+"""CLI: ingest a JSONL log, derive paths, decide, explain.
 
 Usage:
-    python -m nomosguard.ingest.toolcall_jsonl LOGFILE [--ledger PATH]
+    python -m nomosguard.ingest.cli LOGFILE [--ledger PATH]
+        [--log-kind toolcall|vuln|policy] [--security]
+        [--ledger-digest sha256:<hex>|@MANIFEST]
 
 The log is ingested into a ledger (in-memory unless --ledger is given),
 the rule engine derives attack/access paths, and the fail-closed gate
 produces a decision with its full derivation chain.
+
+--log-kind selects the ingestion adapter (tool-call logs, CVE/vulnerability
+records, or policy-rule records) — the same three adapters the library
+exposes, reachable from the tool. --security selects the built-in security
+rule set (tool-call + attack-graph rules), matching the MCP server
+defaults. --ledger-digest pins the ledger file so a file that is not the
+reviewed one (or a truncated one) is refused.
 """
 
 from __future__ import annotations
@@ -16,6 +25,7 @@ import sys
 from pathlib import Path
 
 from ..constants import tool_call_gate_rules, tool_call_rules
+from ..digest_pins import DigestPinError, resolve_digest_pin
 from ..gate import Decision, PolicyGate, PolicyRule
 from ..ledger import EvidenceLedger, LedgerFileError
 from ..mcp_server import _writable_ledger_target
@@ -37,54 +47,37 @@ def default_policy_rules() -> list[PolicyRule]:
 def _resolve_policy_digest(pin: str | None) -> str | None:
     """Read a policy digest pin: `sha256:<hex>` or `@<manifest file>`.
 
-    The manifest form is one `sha256:<hex>  <filename>` per line (comments
-    allowed), which is what an operator commits next to the policy file and
-    diffs in review — the digests travel with the corpus instead of living
-    in code. `@file` selects the manifest's only entry; `@file:name`
-    selects one by filename when the manifest holds several.
+    Thin wrapper over `nomosguard.digest_pins.resolve_digest_pin` that
+    re-raises as the policy loader's error type.
     """
-    if pin is None:
-        return None
-    if not pin.startswith("@"):
-        return pin
-    manifest_ref = pin[1:]
-    name: str | None = None
-    # A ":" may also be a Windows drive letter (C:\...), so the split is
-    # on the LAST colon, and only counts when what precedes it is a file.
-    if ":" in manifest_ref:
-        head, _, tail = manifest_ref.rpartition(":")
-        if Path(head).is_file():
-            manifest_ref, name = head, tail
-    manifest = Path(manifest_ref)
-    entries: dict[str, str] = {}
-    for line in manifest.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
-            continue
-        parts = stripped.split()
-        digest = parts[0]
-        entry_name = parts[1] if len(parts) > 1 else ""
-        entries[entry_name] = digest
-    if not entries:
-        raise PolicyConfigError(f"policy digest manifest is empty: {manifest}")
-    if name is not None:
-        if name not in entries:
-            raise PolicyConfigError(
-                f"policy digest manifest {manifest} has no entry for {name!r} "
-                f"(has {sorted(entries)})"
-            )
-        return entries[name]
-    if len(entries) > 1:
-        raise PolicyConfigError(
-            f"policy digest manifest {manifest} holds {len(entries)} entries; "
-            f"name one with @{manifest}:<filename>"
-        )
-    return next(iter(entries.values()))
+    try:
+        return resolve_digest_pin(pin, noun="policy")
+    except DigestPinError as exc:
+        raise PolicyConfigError(str(exc)) from exc
+
+
+def _security_rules() -> tuple[list[Rule], list[PolicyRule]]:
+    """The built-in security set: tool-call + attack-graph rules + gate.
+
+    The same composition the MCP server runs (`mcp_server.default_rules`
+    / `default_policy_rules`), so the CLI and the MCP surface decide on
+    one rule set instead of two dialects of it.
+    """
+    from ..mcp_server import default_policy_rules, default_rules
+
+    return default_rules(), default_policy_rules()
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="nomosguard-ingest", description=__doc__)
-    parser.add_argument("logfile", help="JSONL tool-call log to ingest")
+    parser.add_argument("logfile", help="JSONL log to ingest")
+    parser.add_argument(
+        "--log-kind",
+        choices=("toolcall", "vuln", "policy"),
+        default="toolcall",
+        help="Which ingestion adapter to use: tool-call records (default), "
+        "CVE/vulnerability records, or policy-rule records.",
+    )
     parser.add_argument(
         "--ledger",
         default=None,
@@ -98,6 +91,13 @@ def main(argv: list[str] | None = None) -> int:
         "missing file is a configuration error, not an empty ledger.",
     )
     parser.add_argument(
+        "--ledger-digest",
+        default=None,
+        help="Pin the ledger file by digest (sha256:<hex>, or @PATH to read "
+        "it from a manifest file). Load fails closed on a mismatch; an "
+        "unpinned truncated ledger is refused too.",
+    )
+    parser.add_argument(
         "--policy",
         default=None,
         help="Policy config file (JSON). Defaults to the built-in policy.",
@@ -108,12 +108,27 @@ def main(argv: list[str] | None = None) -> int:
         help="Pin the policy file by digest (sha256:<hex>, or @PATH to read "
         "it from a manifest file). Load fails closed on a mismatch.",
     )
+    parser.add_argument(
+        "--security",
+        action="store_true",
+        help="Use the built-in security rule set (tool-call + attack-graph "
+        "rules and containment gate) instead of the tool-call-only default "
+        "— the same composition the MCP server runs. Cannot be combined "
+        "with --policy.",
+    )
     args = parser.parse_args(argv)
 
     from ..policy import PolicyConfigError, default_policy, load_policy
 
     try:
         if args.policy:
+            if args.security:
+                print(
+                    "FATAL: --security selects the built-in security rule "
+                    "set; it cannot be combined with --policy",
+                    file=sys.stderr,
+                )
+                return 2
             expected = _resolve_policy_digest(args.policy_digest)
             rules, gate_rules = load_policy(args.policy, expected_digest=expected)
         else:
@@ -124,9 +139,25 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 2
-            rules, gate_rules = default_policy()
+            if args.security:
+                rules, gate_rules = _security_rules()
+            else:
+                rules, gate_rules = default_policy()
     except PolicyConfigError as exc:
         print(f"FATAL: refusing to run with a broken policy file: {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        ledger_digest = resolve_digest_pin(args.ledger_digest, noun="ledger")
+    except DigestPinError as exc:
+        print(f"FATAL: bad --ledger-digest pin: {exc}", file=sys.stderr)
+        return 2
+    if ledger_digest is not None and not args.ledger:
+        print(
+            "FATAL: --ledger-digest requires --ledger (the in-memory ledger "
+            "is not a file)",
+            file=sys.stderr,
+        )
         return 2
 
     ledger_path = Path(args.ledger) if args.ledger else None
@@ -134,12 +165,19 @@ def main(argv: list[str] | None = None) -> int:
         if ledger_path is None:
             ledger = EvidenceLedger()
         elif ledger_path.is_file():
-            ledger = EvidenceLedger.load(ledger_path)
+            ledger = EvidenceLedger.load(ledger_path, expected_digest=ledger_digest)
         elif args.require_ledger:
             # fail closed: a missing ledger is a broken configuration
             raise LedgerFileError(
                 f"ledger file not found: {ledger_path} "
                 "(drop --require-ledger to create it)"
+            )
+        elif ledger_digest is not None:
+            # a pin names an existing file's bytes; creating a new ledger
+            # under a pin would leave the pin silently unused
+            raise LedgerFileError(
+                f"ledger file not found: {ledger_path} (a digest pin cannot "
+                "be applied to a ledger that is about to be created)"
             )
         else:
             _writable_ledger_target(ledger_path)
@@ -149,7 +187,16 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
-        result = ingest_toolcall_jsonl(ledger, args.logfile)
+        if args.log_kind == "vuln":
+            from .vuln_jsonl import ingest_vuln_jsonl
+
+            result = ingest_vuln_jsonl(ledger, args.logfile)
+        elif args.log_kind == "policy":
+            from .policy_jsonl import ingest_policy_jsonl
+
+            result = ingest_policy_jsonl(ledger, args.logfile)
+        else:
+            result = ingest_toolcall_jsonl(ledger, args.logfile)
     except IngestError as exc:
         print(f"FATAL: {exc}", file=sys.stderr)
         return 2

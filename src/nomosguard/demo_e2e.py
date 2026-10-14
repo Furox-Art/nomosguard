@@ -19,15 +19,18 @@ The printed report is the actual tool output — nothing hand-written.
 from __future__ import annotations
 
 import json
-import sys
 import tempfile
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 
+# Register the security + temporal extractors at import time — without
+# these, the engine has no extractor for `network` / `vuln_severity` /
+# `temporal_*` claim kinds and the attack graph silently lacks the
+# canAccessHost facts the brute-force rule needs.
+from nomosguard import facts_security, temporal_bridge  # noqa: F401
 from nomosguard.containment import render_plan
-from nomosguard.gate import Decision, PolicyGate, PolicyRule
+from nomosguard.gate import Decision, PolicyGate
 from nomosguard.hypothesis import HypothesisTracker
 from nomosguard.ingest.toolcall_jsonl import ingest_toolcall_jsonl
 from nomosguard.ledger import (
@@ -47,12 +50,6 @@ from nomosguard.rules_security import security_rules
 from nomosguard.signatures import Match, match_all
 from nomosguard.signatures_builtin import builtin_signatures
 from nomosguard.temporal import default_temporal_rules
-
-# Register the security + temporal extractors at import time — without
-# these, the engine has no extractor for `network` / `vuln_severity` /
-# `temporal_*` claim kinds and the attack graph silently lacks the
-# canAccessHost facts the brute-force rule needs.
-from nomosguard import facts_security, temporal_bridge  # noqa: F401
 from nomosguard.temporal_bridge import run_temporal_into_ledger
 
 # -- the incident -------------------------------------------------------------
@@ -224,9 +221,7 @@ class FailureModeOutcome:
             return False
         if self.decision is not None and self.decision not in FAIL_CLOSED_DECISIONS:
             return False
-        if self.ledger_entries is not None and not self.ledger_verified:
-            return False
-        return True
+        return self.ledger_entries is None or self.ledger_verified
 
 
 @dataclass(frozen=True)

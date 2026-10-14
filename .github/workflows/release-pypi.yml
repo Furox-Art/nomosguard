@@ -45,10 +45,16 @@ jobs:
       - name: Install built wheel in a clean venv and run the full test suite
         run: |
           python -m venv /tmp/clean
-          /tmp/clean/bin/pip install --quiet --no-deps dist/*.whl pytest
+          # --no-deps applies to the wheel only: it proves nomosguard itself
+          # needs nothing beyond the stdlib. pytest then brings its own deps.
+          /tmp/clean/bin/pip install --quiet --no-deps dist/*.whl
+          /tmp/clean/bin/pip install --quiet pytest
           # zero runtime dependencies: prove the installed package runs on stdlib alone
           /tmp/clean/bin/python -c "import nomosguard; print('import OK', nomosguard.__version__)"
           /tmp/clean/bin/python -m nomosguard.demo > /dev/null && echo "demo OK"
+          # the tests import the INSTALLED wheel (src/ is never on sys.path here),
+          # so the released artifact is what the suite proves
+          /tmp/clean/bin/python -m pytest tests/ -q
       - uses: actions/upload-artifact@v4
         with:
           name: dist

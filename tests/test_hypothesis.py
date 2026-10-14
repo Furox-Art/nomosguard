@@ -113,6 +113,30 @@ class TestHypothesisTracker:
         assert strongest is not None
         assert strongest.chain_count >= 1
 
+    def test_two_independent_chains_are_counted(self):
+        """The SAME derived fact through two different tool calls: two
+        independent derivations. The old trace guard recorded only the
+        first one (the 'head is new' branch), silently under-reporting
+        the support behind a conclusion."""
+        ledger = EvidenceLedger()
+        ledger.append(Claim("tool_call", {"agent": "researcher", "tool": "sql", "target": "orders_db"}, "log1"))
+        ledger.append(Claim("tool_call", {"agent": "researcher", "tool": "backup", "target": "orders_db"}, "log2"))
+        ledger.append(Claim("vulnerability", {"component": "orders_db", "cve": "CVE-1"}, "nvd"))
+        engine = _engine_with_rules()
+        engine.add_facts_from_ledger(ledger)
+        engine.derive()
+
+        tracker = HypothesisTracker.from_engine(engine)
+        exposes = [
+            h for h in tracker.hypotheses
+            if h.fact.relation == "exposes" and h.fact.object == "orders_db"
+        ]
+        assert len(exposes) == 1
+        assert exposes[0].chain_count >= 2, (
+            "the same fact with two independent reasoning chains must count "
+            f"both, got {exposes[0].chain_count}"
+        )
+
     def test_empty_engine_no_hypotheses(self):
         engine = _engine_with_rules()
         tracker = HypothesisTracker.from_engine(engine)

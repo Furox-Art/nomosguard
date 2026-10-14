@@ -41,10 +41,9 @@ severity rating scale:
 
 from __future__ import annotations
 
-import re
-
 import json
 import os
+import re
 import time
 import urllib.error
 import urllib.parse

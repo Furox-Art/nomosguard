@@ -27,12 +27,17 @@ from typing import Any
 from .constants import (
     CLAIM_KIND_TEMPORAL_BRUTE_FORCE,
     CLAIM_KIND_TEMPORAL_EXFIL_BURST,
-    CLAIM_KIND_TEMPORAL_PREFIX,
     CLAIM_KIND_TEMPORAL_PORT_SCAN,
+    CLAIM_KIND_TEMPORAL_PREFIX,
 )
 from .ledger import Claim
-from .rules import Fact, register_extractor
-from .temporal import TemporalResult, TemporalRule, evaluate_temporal
+from .rules import Fact, _string_field, register_extractor
+from .temporal import (
+    TemporalResult,
+    TemporalRule,
+    default_temporal_rules,
+    evaluate_temporal,
+)
 
 # claim kinds produced by temporal findings
 CLAIM_KIND_PREFIX = CLAIM_KIND_TEMPORAL_PREFIX
@@ -41,18 +46,26 @@ CLAIM_KIND_PREFIX = CLAIM_KIND_TEMPORAL_PREFIX
 def temporal_claims(result: TemporalResult) -> list[Claim]:
     """Convert temporal findings into evidenced ledger claims.
 
-    Each claim cites the rule that fired and the grouped events — the
-    evidence field is deterministic and self-describing, so a reviewer
-    can see exactly why the finding exists.
+    Each claim cites the rule that fired, the subject's own event count
+    (from `fired_events`, never a rule-level maximum across other
+    subjects), and the actual event lines that crossed the threshold —
+    raw fragments, not a paraphrase, so the finding is reproducible from
+    the claim's evidence alone.
     """
     claims: list[Claim] = []
     for rule_name, detail in result.report.items():
+        fired_events = detail.get("fired_events", {})
         for subject in detail.get("fired_for", []):
+            ev = fired_events.get(subject, {})
+            count = ev.get("event_count", "?")
+            lines = ev.get("lines", [])
             kind = f"{CLAIM_KIND_PREFIX}{rule_name}"
             evidence = (
                 f"temporal rule {rule_name}: {subject} exceeded "
                 f"{detail.get('threshold', '?')} events in window "
-                f"({detail.get('groups', '?')} group(s) scanned)"
+                f"({detail.get('groups', '?')} group(s) scanned, "
+                f"{count} in the firing window); events: "
+                + " | ".join(lines)
             )
             claims.append(
                 Claim(
@@ -60,7 +73,7 @@ def temporal_claims(result: TemporalResult) -> list[Claim]:
                     payload={
                         "subject": subject,
                         "rule": rule_name,
-                        "event_count": detail.get("event_count"),
+                        "event_count": ev.get("event_count"),
                         "window_s": detail.get("window_s"),
                     },
                     evidence=evidence,
@@ -78,7 +91,7 @@ def temporal_claims(result: TemporalResult) -> list[Claim]:
 
 @register_extractor(CLAIM_KIND_TEMPORAL_BRUTE_FORCE)
 def _extract_brute_force(payload: dict[str, Any], evidence: str) -> list[Fact]:
-    actor = str(payload.get("subject", ""))
+    actor = _string_field(payload, "subject", CLAIM_KIND_TEMPORAL_BRUTE_FORCE)
     facts = []
     if actor:
         facts.append(Fact(actor, "bruteForceDetected", "brute_force", (CLAIM_KIND_TEMPORAL_BRUTE_FORCE,)))
@@ -87,7 +100,7 @@ def _extract_brute_force(payload: dict[str, Any], evidence: str) -> list[Fact]:
 
 @register_extractor(CLAIM_KIND_TEMPORAL_PORT_SCAN)
 def _extract_port_scan(payload: dict[str, Any], evidence: str) -> list[Fact]:
-    actor = str(payload.get("subject", ""))
+    actor = _string_field(payload, "subject", CLAIM_KIND_TEMPORAL_PORT_SCAN)
     facts = []
     if actor:
         facts.append(Fact(actor, "scanDetected", "port_scan", (CLAIM_KIND_TEMPORAL_PORT_SCAN,)))
@@ -96,7 +109,7 @@ def _extract_port_scan(payload: dict[str, Any], evidence: str) -> list[Fact]:
 
 @register_extractor(CLAIM_KIND_TEMPORAL_EXFIL_BURST)
 def _extract_exfil_burst(payload: dict[str, Any], evidence: str) -> list[Fact]:
-    actor = str(payload.get("subject", ""))
+    actor = _string_field(payload, "subject", CLAIM_KIND_TEMPORAL_EXFIL_BURST)
     facts = []
     if actor:
         facts.append(Fact(actor, "exfilSuspected", "exfiltration", (CLAIM_KIND_TEMPORAL_EXFIL_BURST,)))
@@ -111,12 +124,16 @@ def run_temporal_into_ledger(
     """Run temporal rules and append their findings to a ledger.
 
     Returns (ledger, TemporalResult). If `ledger` is None a fresh one
-    is created.
+    is created; if `rules` is None the built-in temporal rules are used
+    (calling this without rules used to crash with a TypeError deep
+    inside `evaluate_temporal`).
     """
     from .ledger import EvidenceLedger
 
     if ledger is None:
         ledger = EvidenceLedger()
+    if rules is None:
+        rules = default_temporal_rules()
     result = evaluate_temporal(lines, rules)
     for claim in temporal_claims(result):
         ledger.append(claim)

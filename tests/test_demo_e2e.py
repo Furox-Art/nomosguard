@@ -35,7 +35,12 @@ from nomosguard.ledger import (
     UnevidencedClaimError,
 )
 from nomosguard.mcp_server import NomosGuardSession
-from nomosguard.policy import PolicyConfigError, default_policy, load_policy, policy_digest
+from nomosguard.policy import (
+    PolicyConfigError,
+    default_policy,
+    load_policy,
+    policy_digest,
+)
 from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
@@ -188,9 +193,9 @@ class TestFailureModeParity:
         from pathlib import Path as _Path
 
         from nomosguard.mcp_server import (
+            _writable_ledger_target,
             default_policy_rules,
             default_rules,
-            _writable_ledger_target,
         )
 
         target = tmp_path / "ledger.jsonl"

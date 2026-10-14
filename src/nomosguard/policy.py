@@ -16,12 +16,17 @@ File format (JSON):
         }
       ],
       "gate": [
-        {"name": "...", "match_relation": "exposes", "decision": "BLOCK"}
+        {"name": "...", "match_relation": "exposes", "decision": "BLOCK",
+         "requires": ["tool_call", "vulnerability"]}
       ]
     }
 
 Loading is fail-closed: any structural problem raises PolicyConfigError
-with the precise location. Nothing is coerced or defaulted.
+with the precise location. Nothing is coerced or defaulted — and nothing
+is silently ignored: an unknown field is refused, because a typo'd key
+(`match_relaton`) would otherwise leave the author believing a constraint
+is in force that the loader never saw. Rule and gate names must be
+unique: two rules under one name silently merge (and can drop) decisions.
 """
 
 from __future__ import annotations
@@ -32,8 +37,10 @@ from pathlib import Path
 from typing import Any
 
 from .constants import (
+    CLAIM_KINDS,
     POLICY_FORMAT,
     POLICY_FORMAT_VERSION,
+    is_known_claim_kind,
     tool_call_gate_rules,
     tool_call_rules,
 )
@@ -63,6 +70,8 @@ def _validate_rule(raw: dict, idx: int) -> Rule:
     if not isinstance(raw, dict):
         raise PolicyConfigError(f"{where}: rule must be a JSON object, got {type(raw).__name__}")
     v = RecordValidator(raw, where, error=PolicyConfigError)
+    # Unknown fields first: a typo'd key must be named, not skipped past.
+    v.unknown_fields({"name", "body", "head", "description"})
 
     name = v.string("name")
     body_raw = v.list_of("body", non_empty=True)
@@ -88,11 +97,22 @@ def _validate_rule(raw: dict, idx: int) -> Rule:
     return Rule(name=name, body=body, head=head, description=description or "")
 
 
+_GATE_FIELDS = {
+    "name",
+    "match_relation",
+    "decision",
+    "match_object",
+    "description",
+    "requires",
+}
+
+
 def _validate_gate_entry(raw: dict, idx: int) -> PolicyRule:
     where = f"gate[{idx}]"
     if not isinstance(raw, dict):
         raise PolicyConfigError(f"{where}: gate entry must be a JSON object, got {type(raw).__name__}")
     v = RecordValidator(raw, where, error=PolicyConfigError)
+    v.unknown_fields(_GATE_FIELDS)
 
     name = v.string("name")
     relation = v.string("match_relation")
@@ -102,13 +122,44 @@ def _validate_gate_entry(raw: dict, idx: int) -> PolicyRule:
     assert decision is not None
     match_object = v.string("match_object", required=False)
     description = v.string("description", required=False, allow_blank=True)
+    requires = _validate_requires(v.list_of("requires", required=False), where)
     return PolicyRule(
         name=name,
         match_relation=relation,
         decision=Decision(decision),
         match_object=match_object,
         description=description or "",
+        requires=requires,
     )
+
+
+def _validate_requires(raw: list[Any] | None, where: str) -> tuple[str, ...]:
+    """Validate the optional `requires` list: claim kinds that must be present.
+
+    A required kind the shipped extractors do not understand can never be
+    present, so the decision it guards would be flagged incomplete forever
+    — a typo'd kind would look like persistently missing evidence instead
+    of the policy bug it is. Unknown kinds are refused here, where the
+    file enters, exactly like an unknown format version.
+    """
+    if raw is None:
+        return ()
+    kinds: list[str] = []
+    for i, kind in enumerate(raw):
+        if not isinstance(kind, str) or not kind.strip():
+            raise PolicyConfigError(
+                f"{where}.requires[{i}]: claim kind must be a non-empty "
+                f"string, got {kind!r}"
+            )
+        kind = kind.strip()
+        if not is_known_claim_kind(kind):
+            raise PolicyConfigError(
+                f"{where}.requires[{i}]: unknown claim kind {kind!r}; the "
+                f"shipped extractors understand {sorted(CLAIM_KINDS)} plus "
+                "temporal_* and signature_* kinds"
+            )
+        kinds.append(kind)
+    return tuple(kinds)
 
 
 def load_policy(
@@ -149,6 +200,9 @@ def load_policy(
             )
 
     data = parse_json_record(text, "policy file", error=PolicyConfigError)
+    RecordValidator(data, "policy file", error=PolicyConfigError).unknown_fields(
+        {"format", "format_version", "rules", "gate"}
+    )
 
     declared_format = data.get("format")
     if declared_format is not None and declared_format != POLICY_FORMAT:
@@ -173,7 +227,24 @@ def load_policy(
 
     rules = [_validate_rule(r, i) for i, r in enumerate(rules_raw)]
     gate = [_validate_gate_entry(g, i) for i, g in enumerate(gate_raw)]
+    _assert_unique_names([r.name for r in rules], "rules")
+    _assert_unique_names([g.name for g in gate], "gate")
     return rules, gate
+
+
+def _assert_unique_names(names: list[str], where: str) -> None:
+    """Refuse duplicate rule names — with the gate, a duplicate name is a
+    decision-dropping bug, not a naming preference: the evaluation buckets
+    facts by rule name, so two rules sharing one name merge their facts
+    and only the last rule's decision survives."""
+    seen: set[str] = set()
+    for name in names:
+        if name in seen:
+            raise PolicyConfigError(
+                f"{where}: duplicate name {name!r} — rule names must be "
+                "unique (a duplicate would silently merge and drop decisions)"
+            )
+        seen.add(name)
 
 
 def policy_digest(path: str | Path) -> str:

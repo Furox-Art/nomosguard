@@ -34,7 +34,8 @@ that the refusal is legible and uniform.
 from __future__ import annotations
 
 import json
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 
 class SchemaError(ValueError):
@@ -73,6 +74,14 @@ def msg_pattern(location: str, field: str, pattern: str, value: Any) -> str:
     return f"{location}: field {field!r} must match {pattern}, got {value!r}"
 
 
+def msg_unknown_field(location: str, field: str, allowed: Iterable[str]) -> str:
+    return (
+        f"{location}: field {field!r} is not allowed "
+        f"(allowed fields: {sorted(allowed)}) — unknown fields are refused, "
+        "not silently ignored"
+    )
+
+
 def msg_not_json(location: str, exc: Exception) -> str:
     return f"{location}: record is not valid JSON: {exc}"
 
@@ -109,7 +118,7 @@ class RecordValidator:
     returns None; a present-but-invalid one always raises.
     """
 
-    __slots__ = ("record", "location", "error")
+    __slots__ = ("error", "location", "record")
 
     def __init__(
         self,
@@ -209,6 +218,19 @@ class RecordValidator:
         if predicate is not None and not predicate(value):
             raise self.error(msg_pattern(self.location, field, pattern, value))
         return value
+
+    def unknown_fields(self, allowed: Iterable[str]) -> None:
+        """Refuse any field outside `allowed`.
+
+        A typo'd key (`match_relaton`) that is silently ignored is a policy
+        written for nothing: the author believes a constraint is in force
+        while the loader never saw it. The refusal names the offending
+        field, so the fix is obvious from the message alone.
+        """
+        allowed = set(allowed)
+        for field in self.record:
+            if field not in allowed:
+                raise self.error(msg_unknown_field(self.location, field, allowed))
 
     # -- containers -----------------------------------------------------------
 

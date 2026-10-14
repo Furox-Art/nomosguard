@@ -28,7 +28,24 @@ from .constants import (
     CLAIM_KIND_VULN_HOST,
     CLAIM_KIND_VULN_SEVERITY,
 )
-from .rules import Fact, register_extractor
+from .rules import ClaimValueError, Fact, _string_field, register_extractor
+
+
+def _int_field(payload: dict[str, Any], field: str, claim_kind: str) -> int | None:
+    """Read an integer field, refusing non-integers (and bools).
+
+    `True` is an int in Python, so a boolean port would stringify to the
+    "port" `True` — a fact about a port nobody stated. Absent (None) keeps
+    the no-fact semantics; a present non-integer is refused by name.
+    """
+    value = payload.get(field)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ClaimValueError(
+            f"{claim_kind}: field {field!r} must be an integer, got {value!r}"
+        )
+    return value
 
 
 @register_extractor(CLAIM_KIND_HOST)
@@ -39,12 +56,24 @@ def _extract_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
       {"hostname": str, "ip": str, "os": str, "services": [str, ...]}
     Produces: (hostname, runsService, service) for each service.
     """
-    hostname = str(payload.get("hostname", ""))
+    hostname = _string_field(payload, "hostname", CLAIM_KIND_HOST)
     services = payload.get("services", [])
+    if services is None:
+        services = []
+    if not isinstance(services, list):
+        raise ClaimValueError(
+            f"{CLAIM_KIND_HOST}: field 'services' must be a list of strings, "
+            f"got {services!r}"
+        )
     facts = []
-    if hostname and isinstance(services, list):
+    if hostname:
         for svc in services:
-            if isinstance(svc, str) and svc.strip():
+            if not isinstance(svc, str):
+                raise ClaimValueError(
+                    f"{CLAIM_KIND_HOST}: field 'services' must contain "
+                    f"strings, got {svc!r}"
+                )
+            if svc.strip():
                 facts.append(Fact(hostname, "runsService", svc.strip(), (CLAIM_KIND_HOST,)))
     return facts
 
@@ -57,12 +86,12 @@ def _extract_network(payload: dict[str, Any], evidence: str) -> list[Fact]:
       {"host": str, "protocol": "tcp|udp", "port": int, "allowed_from": str}
     Produces: (host, netAccess, protocol:port), (allowed_from, canAccessHost, host).
     """
-    host = str(payload.get("host", ""))
-    protocol = str(payload.get("protocol", "")).lower()
-    port = payload.get("port")
-    allowed_from = str(payload.get("allowed_from", ""))
+    host = _string_field(payload, "host", CLAIM_KIND_NETWORK)
+    protocol = _string_field(payload, "protocol", CLAIM_KIND_NETWORK).lower()
+    port = _int_field(payload, "port", CLAIM_KIND_NETWORK)
+    allowed_from = _string_field(payload, "allowed_from", CLAIM_KIND_NETWORK)
     facts = []
-    if host and protocol and isinstance(port, int):
+    if host and protocol and port is not None:
         facts.append(Fact(host, "netAccess", f"{protocol}:{port}", (CLAIM_KIND_NETWORK,)))
         if allowed_from:
             facts.append(Fact(allowed_from, "canAccessHost", host, (CLAIM_KIND_NETWORK,)))
@@ -77,8 +106,8 @@ def _extract_exec_code(payload: dict[str, Any], evidence: str) -> list[Fact]:
       {"host": str, "user": str, "process": str}
     Produces: (host, execCode, user).
     """
-    host = str(payload.get("host", ""))
-    user = str(payload.get("user", ""))
+    host = _string_field(payload, "host", CLAIM_KIND_EXEC_CODE)
+    user = _string_field(payload, "user", CLAIM_KIND_EXEC_CODE)
     facts = []
     if host and user:
         facts.append(Fact(host, "execCode", user, (CLAIM_KIND_EXEC_CODE,)))
@@ -93,8 +122,8 @@ def _extract_privilege(payload: dict[str, Any], evidence: str) -> list[Fact]:
       {"user": str, "privilege": str, "host": str}
     Produces: (user, hasPrivilege, privilege).
     """
-    user = str(payload.get("user", ""))
-    privilege = str(payload.get("privilege", ""))
+    user = _string_field(payload, "user", CLAIM_KIND_PRIVILEGE)
+    privilege = _string_field(payload, "privilege", CLAIM_KIND_PRIVILEGE)
     facts = []
     if user and privilege:
         facts.append(Fact(user, "hasPrivilege", privilege, (CLAIM_KIND_PRIVILEGE,)))
@@ -108,8 +137,8 @@ def _extract_vuln_host(payload: dict[str, Any], evidence: str) -> list[Fact]:
     Payload convention: {"host": str, "cve": str}
     Produces: (host, vulExists, cve) — the MulVAL-style relation.
     """
-    host = str(payload.get("host", ""))
-    cve = str(payload.get("cve", ""))
+    host = _string_field(payload, "host", CLAIM_KIND_VULN_HOST)
+    cve = _string_field(payload, "cve", CLAIM_KIND_VULN_HOST)
     facts = []
     if host and cve:
         facts.append(Fact(host, "vulExists", cve, (CLAIM_KIND_VULN_HOST,)))
@@ -141,8 +170,8 @@ def _extract_vuln_severity(payload: dict[str, Any], evidence: str) -> list[Fact]
     severity field yields no fact — the engine stays silent instead of
     guessing a band.
     """
-    host = str(payload.get("host", ""))
-    severity = str(payload.get("severity", "")).strip().upper()
+    host = _string_field(payload, "host", CLAIM_KIND_VULN_SEVERITY)
+    severity = _string_field(payload, "severity", CLAIM_KIND_VULN_SEVERITY).strip().upper()
     facts = []
     if host and severity and severity != "UNKNOWN":
         facts.append(Fact(host, "vulnSeverity", severity, (CLAIM_KIND_VULN_SEVERITY,)))

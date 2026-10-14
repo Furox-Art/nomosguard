@@ -114,30 +114,42 @@ def evaluate_temporal(
             groups.setdefault(gm.group(1), []).append((ts, ln))
 
         fired: list[str] = []
-        max_in_window = 0
+        # Per-subject window detail. A rule-level "max events in window"
+        # across ALL groups said nothing about the subject that fired —
+        # the count in a claim must be the count the claim is ABOUT, and
+        # the lines are what makes the finding reproducible from evidence.
+        fired_events: dict[str, dict[str, Any]] = {}
         for key, events in groups.items():
             events.sort(key=lambda e: e[0])
             # sliding window: check any window of `threshold` events
             # fitting inside window_s
             hit = False
+            best_count = 0
+            best_lines: list[str] = []
             for i in range(len(events)):
                 window_events = [
                     e for e in events[i:]
                     if e[0] - events[i][0] <= rule.window_s
                 ]
-                max_in_window = max(max_in_window, len(window_events))
+                if len(window_events) > best_count:
+                    best_count = len(window_events)
+                    best_lines = [ln for _, ln in window_events]
                 if len(window_events) >= rule.threshold:
                     hit = True
                     break
             if hit:
                 all_facts.append((key, rule.fact_relation, rule.fact_object))
                 fired.append(key)
+                fired_events[key] = {
+                    "event_count": best_count,
+                    "lines": best_lines,
+                }
         report[rule.name] = {
             "groups": len(groups),
             "fired_for": fired,
             "threshold": rule.threshold,
             "window_s": rule.window_s,
-            "event_count": max_in_window,
+            "fired_events": fired_events,
             "description": rule.description,
         }
 

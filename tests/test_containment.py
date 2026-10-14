@@ -6,6 +6,8 @@ and that is the property under test.
 
 from __future__ import annotations
 
+import pytest
+
 from nomosguard.containment import (
     ContainmentCommand,
     Executor,
@@ -128,3 +130,60 @@ class TestEndToEndPlan:
         assert all("policy_rule" in c for c in plan["commands"])
         # every command is traceable to its chain
         assert all(c["chain"] for c in plan["commands"])
+
+
+class TestSubjectValidation:
+    """The subject is substituted into argv: it must be a plain token."""
+
+    def _result(self, subject):
+        return {
+            "decision": "ISOLATE_HOST",
+            "all_decisions": [{
+                "subject": subject, "decision": "ISOLATE_HOST",
+                "policy_rule": "p", "chain": [],
+            }],
+        }
+
+    def test_subject_looking_like_an_option_is_refused(self):
+        with pytest.raises(ValueError, match="looks like an option"):
+            render_commands(self._result("--flush-all"))
+
+    def test_subject_with_whitespace_is_refused(self):
+        with pytest.raises(ValueError, match="whitespace or control"):
+            render_commands(self._result("web01 -j ACCEPT"))
+
+    def test_subject_with_control_characters_is_refused(self):
+        with pytest.raises(ValueError, match="whitespace or control"):
+            render_commands(self._result("web01\x00"))
+
+    def test_empty_or_non_string_subject_is_refused(self):
+        with pytest.raises(ValueError, match="non-empty string"):
+            render_commands(self._result(""))
+        with pytest.raises(ValueError, match="non-empty string"):
+            render_commands(self._result(42))
+
+    def test_plain_subject_still_renders(self):
+        cmds = render_commands(self._result("web01"))
+        assert "web01" in cmds[0].argv
+
+
+class TestUndoHonoursTheAllowlist:
+    """The reversal of an allowlisted action must itself be allowlisted."""
+
+    def _reversible(self, undo_argv):
+        return ContainmentCommand(
+            argv=("iptables", "-A", "INPUT"), description="d",
+            decision="ISOLATE_HOST", subject="web01", policy_rule="p",
+            chain=(), reversible=True, undo=undo_argv,
+        )
+
+    def test_undo_outside_the_allowlist_is_rejected(self):
+        ex = Executor(allowlist=("iptables",), enabled=True)
+        r = ex.undo(self._reversible(("rm", "-rf", "/")))
+        assert r["executed"] is False
+        assert "allowlist" in r["reason"]
+
+    def test_undo_inside_the_allowlist_runs(self):
+        ex = Executor(allowlist=("echo",), enabled=True)
+        r = ex.undo(self._reversible(("echo", "undo")))
+        assert r["executed"] is True

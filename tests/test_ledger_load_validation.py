@@ -173,8 +173,8 @@ class TestWalValidatesEveryClaim:
     """The same gap on the WAL replay path (ledger_wal.recover)."""
 
     def test_forged_wal_record_with_invalid_claim_is_refused(self):
-        from nomosguard.ledger_wal import WalError
         from nomosguard.ledger import wal_path_for
+        from nomosguard.ledger_wal import WalError
 
         with tempfile.TemporaryDirectory() as td:
             ledger_path = Path(td) / "ledger.jsonl"

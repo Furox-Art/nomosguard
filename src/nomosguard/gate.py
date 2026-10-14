@@ -113,11 +113,29 @@ class PolicyGate:
         # Resolved once, loudly: an unknown fallback is a GateDenied at
         # construction time, not a silently different decision later.
         self.fallback = resolve_decision(fallback, field="fallback")
+        # Duplicate names are refused here too (load_policy validates the
+        # same rule for files): a name-keyed evaluation would let two rules
+        # under one name silently merge their facts, and only the last
+        # rule's decision would survive — a dropped decision, not a style
+        # question.
+        seen: set[str] = set()
+        for rule in self.policy_rules:
+            if rule.name in seen:
+                raise GateDenied(
+                    f"duplicate policy rule name {rule.name!r} — two rules "
+                    "under one name silently drop decisions; rename one"
+                )
+            seen.add(rule.name)
 
     def evaluate(self, engine: RuleEngine) -> list[GateDecision]:
         """Evaluate all derived facts against policy rules.
 
         Deterministic: same engine state -> same decisions, always.
+        EVERY matching rule fires (no first-match shadowing): a broad rule
+        (`match_object=None`) no longer hides a specific rule on the same
+        relation, and `evaluate_with_fallback` merges the results
+        worst-wins, so broad+weak + specific+strong can only strengthen
+        the outcome, never silently weaken it.
         """
         decisions: list[GateDecision] = []
 
@@ -125,21 +143,17 @@ class PolicyGate:
         # every fact that matches — a subject may derive the same relation
         # through several independent chains, and the evidence base is the
         # union of all of them, never just the first one seen.
-        grouped: dict[tuple[str, str], list[Fact]] = {}
-        policy_of: dict[tuple[str, str], PolicyRule] = {}
+        grouped: dict[tuple[int, str], list[Fact]] = {}
         for fact in engine.facts:
-            for policy in self.policy_rules:
+            for idx, policy in enumerate(self.policy_rules):
                 if fact.relation != policy.match_relation:
                     continue
                 if policy.match_object is not None and fact.object != policy.match_object:
                     continue
-                key = (policy.name, fact.subject)
-                grouped.setdefault(key, []).append(fact)
-                policy_of[key] = policy
-                break  # first matching policy rule wins for this fact
+                grouped.setdefault((idx, fact.subject), []).append(fact)
 
-        for (policy_name, subject), facts in sorted(grouped.items()):
-            policy = policy_of[(policy_name, subject)]
+        for (idx, subject), facts in sorted(grouped.items()):
+            policy = self.policy_rules[idx]
             # Union of every source kind backing any fact for this subject
             present: set[str] = set()
             for f in facts:
@@ -153,7 +167,7 @@ class PolicyGate:
                     decision=policy.decision,
                     subject=subject,
                     chain=tuple(chain),
-                    policy_rule=policy_name,
+                    policy_rule=policy.name,
                     derived_from=tuple(sorted(present)),
                     missing_evidence=missing,
                 )

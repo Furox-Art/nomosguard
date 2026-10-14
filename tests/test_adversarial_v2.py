@@ -11,9 +11,9 @@ import multiprocessing
 
 import pytest
 
-from nomosguard.ledger import EvidenceLedger, Claim
-from nomosguard.rules import Rule, Pattern, RuleEngine, RuleDefinitionError
-from nomosguard.gate import PolicyGate, Decision
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.ledger import Claim, EvidenceLedger, LedgerFileError
+from nomosguard.rules import Pattern, Rule, RuleDefinitionError, RuleEngine
 
 
 def _net_claim(host: str, evidence: str = "e") -> Claim:
@@ -27,7 +27,8 @@ class TestWalForgery:
     def test_forged_wal_entry_hash_rejected(self, tmp_path=None):
         import tempfile
         from pathlib import Path as _P
-        from nomosguard.ledger_wal import write_wal, recover, WalError
+
+        from nomosguard.ledger_wal import WalError, recover, write_wal
         with tempfile.TemporaryDirectory() as td:
             path = _P(td) / "l.jsonl"
             led = EvidenceLedger()
@@ -47,7 +48,8 @@ class TestWalForgery:
     def test_wal_replay_returns_correct_pending(self, tmp_path=None):
         import tempfile
         from pathlib import Path as _P
-        from nomosguard.ledger_wal import write_wal, recover
+
+        from nomosguard.ledger_wal import recover, write_wal
         with tempfile.TemporaryDirectory() as td:
             path = _P(td) / "l.jsonl"
             led = EvidenceLedger()
@@ -76,27 +78,26 @@ class TestLedgerFileForgery:
                     "claim": {"kind": "network", "payload": {}, "evidence": "z"},
                     "entry_hash": "0" * 64, "prev_hash": "0" * 64,
                 }) + "\n")
-            # a sequence gap / broken chain must be caught on load or verify
-            with pytest.raises(Exception):
-                loaded = EvidenceLedger.load(path)
-                ok, _ = loaded.verify()
-                assert not ok
+            # a sequence gap / broken chain must be caught on load
+            with pytest.raises(LedgerFileError):
+                EvidenceLedger.load(path)
 
 
 class TestLockExclusion:
     def test_second_lock_blocked_while_first_held(self, tmp_path=None):
         import tempfile
         from pathlib import Path as _P
+
         from nomosguard.ledger_lock import LedgerLock, LedgerLockError
         with tempfile.TemporaryDirectory() as td:
             path = _P(td) / "l.jsonl"
-            with LedgerLock(path):
-                with pytest.raises(LedgerLockError):
-                    LedgerLock(path, timeout=0.3).acquire()
+            with LedgerLock(path), pytest.raises(LedgerLockError):
+                LedgerLock(path, timeout=0.3).acquire()
 
     def test_lock_reacquirable_after_release(self, tmp_path=None):
         import tempfile
         from pathlib import Path as _P
+
         from nomosguard.ledger_lock import LedgerLock
         with tempfile.TemporaryDirectory() as td:
             path = _P(td) / "l.jsonl"
