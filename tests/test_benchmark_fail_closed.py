@@ -39,7 +39,7 @@ def _corpus_without_failure_path() -> list[Scenario]:
     ]
 
 
-def _run_with(scenarios: list[Scenario]) -> dict:
+def _run_with(scenarios: list[Scenario], output_dir=None) -> dict:
     """Run the suite against a substituted corpus (module patched)."""
     import importlib
 
@@ -47,7 +47,7 @@ def _run_with(scenarios: list[Scenario]) -> dict:
     original = rs.build_all_scenarios
     try:
         rs.build_all_scenarios = lambda: scenarios
-        return rs.run_suite()
+        return rs.run_suite(output_dir=output_dir)
     finally:
         rs.build_all_scenarios = original
 
@@ -176,3 +176,106 @@ class TestSuiteReportsWhatItProved:
         assert summary["fail_closed_ok"] is True
         for r in summary["results"]:
             assert "fail_closed_exercised" in r
+
+
+class TestHeadlineShapes:
+    """The headline KPI has exactly three recorded shapes, and each one is
+    derived from the verdicts — OK only after a pass, NOT EXERCISED when
+    nothing was measured, FAILED when an evaluation failed. The markdown
+    file and the JSON summary must agree in all three."""
+
+    def _corpora(self):
+        """(label, scenarios) for the three headline shapes."""
+        from dataclasses import replace
+
+        positive = next(
+            s for s in build_all_scenarios() if s.name == "positive_vulnerable_exposure"
+        )
+        return [
+            ("shipped", build_all_scenarios()),
+            ("never_exercises", _corpus_without_failure_path()),
+            # the fail-closed path runs but a positive scenario was decided
+            # by it — a FAILED evaluation, not a pass
+            ("fail_closed_evaluation_fails", [replace(positive, claims=positive.claims[:1])]),
+        ]
+
+    @pytest.mark.parametrize("label", ["shipped", "never_exercises", "fail_closed_evaluation_fails"])
+    def test_headline_shape_is_verdict_derived(self, label, tmp_path):
+        import json
+        import re
+
+        corpora = dict(self._corpora())
+        summary = _run_with(corpora[label], output_dir=tmp_path)
+        text = (tmp_path / "RESULTS.md").read_text(encoding="utf-8")
+        headline = text.split("## Per-scenario")[0]
+        on_disk = json.loads((tmp_path / "results.json").read_text(encoding="utf-8"))
+
+        exercised = summary["fail_closed_exercised"]
+        judged = [r for r in summary["results"] if r["fail_closed_ok"] is not None]
+        if exercised == 0:
+            assert summary["fail_closed_ok"] is None
+            assert "NOT EXERCISED" in headline
+            assert "FAILED" not in headline
+            assert not re.search(r"fail-closed on incomplete evidence: OK", headline)
+        elif all(r["fail_closed_ok"] for r in judged):
+            assert summary["fail_closed_ok"] is True
+            assert "fail-closed on incomplete evidence: OK" in headline
+            assert "NOT EXERCISED" not in headline
+        else:
+            assert summary["fail_closed_ok"] is False
+            assert "fail-closed on incomplete evidence: FAILED" in headline
+            assert "NOT EXERCISED" not in headline
+            assert not re.search(r"incomplete evidence: OK", headline)
+        # the file on disk carries exactly the in-memory values
+        assert on_disk["fail_closed_ok"] == summary["fail_closed_ok"]
+        assert on_disk["fail_closed_exercised"] == summary["fail_closed_exercised"]
+
+    def test_every_recorded_shape_is_verdict_derived(self, tmp_path):
+        """Per-record: the recorded KPI recomputes from the record's own
+        (expected, exercised, decision) — in the file, not just in memory.
+
+        The shapes: True after a pass, False after a FAIL evaluation,
+        None when nothing was measured. None of them can be a defaulted
+        True: a record whose evaluation never happened must not report OK.
+        """
+        import json
+
+        run_suite(output_dir=tmp_path)
+        records = json.loads(
+            (tmp_path / "results.json").read_text(encoding="utf-8")
+        )["results"]
+        shapes = set()
+        for r in records:
+            expected = bool(r["expected"])
+            exercised = r["fail_closed_exercised"]
+            if expected:
+                derived = not exercised
+            elif exercised:
+                derived = r["gate_decision"] == "BLOCK"
+            else:
+                derived = None
+            assert r["fail_closed_ok"] == derived, (
+                f"{r['name']}: recorded KPI is not derived from the verdict"
+            )
+            shapes.add(r["fail_closed_ok"])
+            # never OK on an evaluation that did not happen
+            if not exercised and not expected:
+                assert r["fail_closed_ok"] is None, r["name"]
+        # the shipped corpus records all three shapes
+        assert shapes == {True, None}, shapes
+
+    def test_a_failed_evaluation_is_never_recorded_as_ok(self, tmp_path):
+        """The contaminant this guards against: an evaluation that FAILED
+        (a positive scenario decided by the fallback) must surface as
+        False in the per-record KPI and in the headline — never OK."""
+        from dataclasses import replace
+
+        positive = next(
+            s for s in build_all_scenarios() if s.name == "positive_vulnerable_exposure"
+        )
+        summary = _run_with([replace(positive, claims=positive.claims[:1])])
+        record = summary["results"][0]
+        assert record["fail_closed_exercised"] is True
+        assert record["gate_decision"] == "BLOCK"
+        assert record["fail_closed_ok"] is False
+        assert summary["fail_closed_ok"] is False

@@ -453,7 +453,9 @@ def _extract_policy_rule(payload: dict[str, Any], evidence: str) -> list[Fact]:
 
     Payload convention: {"subject": str, "action": str, "resource": str,
     "effect": "allow"|"deny"}
-    Produces: (subject, policy_allows, resource) or (subject, policy_denies, resource).
+    Produces:
+      (subject, policy_allows, action:resource)  or  (subject, policy_denies, action:resource)
+      (subject, policy_allows_action, action)     or  (subject, policy_denies_action, action)
 
     The `effect` is validated against the vocabulary in
     `nomosguard.constants`: a missing or unknown effect raises
@@ -462,6 +464,16 @@ def _extract_policy_rule(payload: dict[str, Any], evidence: str) -> list[Fact]:
     claim never stated. Now the malformed record is refused, and the
     caller (the SDK boundary, the ingest adapters) reports the failure
     instead of inventing a decision.
+
+    Why the action-scoped twin fact: the rule engine unifies whole
+    strings, so the composite `action:resource` object cannot be compared
+    against a bare tool name. A rule that must check whether the CALLED
+    TOOL is the DENIED ACTION needs the action on its own — matching the
+    two body positions with one variable is what makes
+    `constants.policy_denied_action` sound. Without it the rule fired
+    for ANY tool call plus ANY denial by the same subject: an agent
+    reading a benign file while holding an unrelated SQL denial was
+    reported as violating policy — an alert the evidence never stated.
     """
     subject = str(payload.get("subject", ""))
     action = str(payload.get("action", ""))
@@ -474,8 +486,14 @@ def _extract_policy_rule(payload: dict[str, Any], evidence: str) -> list[Fact]:
             f"got {payload.get('effect')!r} (a policy claim without a "
             "recognised effect is refused, not coerced to deny)"
         )
+    relation = "policy_allows" if effect == POLICY_EFFECT_ALLOW else "policy_denies"
+    action_relation = (
+        "policy_allows_action" if effect == POLICY_EFFECT_ALLOW
+        else "policy_denies_action"
+    )
     facts = []
     if subject and action and resource:
-        relation = "policy_allows" if effect == POLICY_EFFECT_ALLOW else "policy_denies"
         facts.append(Fact(subject, relation, f"{action}:{resource}", (CLAIM_KIND_POLICY_RULE,)))
+    if subject and action:
+        facts.append(Fact(subject, action_relation, action, (CLAIM_KIND_POLICY_RULE,)))
     return facts

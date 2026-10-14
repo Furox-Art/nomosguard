@@ -5,6 +5,75 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.7.9 — Third-round audit hardening
+
+### Security
+
+- **A-1 (tamper matrix):** every tamper kind now has one home —
+  `tests/test_tamper_matrix.py` — consolidating the scattered hash-chain,
+  load-validation and WAL probes (31 ledger-file kinds, 7 WAL kinds, the
+  append_locked path). Each kind asserts the loader/recovery fails CLOSED
+  with a typed error AND that a session never starts over a tampered file
+  (no partial PASS). Findings found on the way, all fixed:
+  - **A-2 (forge-auth gap):** the chain proves records agree with EACH
+    OTHER, so a full, internally consistent REWRITE of the ledger file
+    loaded and verified. The ledger now takes an out-of-band pin exactly
+    like the policy bundle: `ledger_digest()`,
+    `EvidenceLedger.load(..., expected_digest=...)`,
+    `NomosGuardSession(..., ledger_digest=...)`. Unpinned, the boundary is
+    pinned by a test and documented in the README; pinned, the rewrite is
+    refused with `LedgerFileError`.
+  - **A-3 (WAL untyped crash):** a WAL record missing its `timestamp`
+    escaped `recover()` as a raw `KeyError` instead of the typed
+    `WalError` — a crash callers cannot catch. Now refused with
+    `WalError` naming the line.
+- **B-1 (rule soundness):** `policy_denied_action` bound the called tool
+  and the denied action to two DIFFERENT variables, so ANY tool call plus
+  ANY denial by the same subject derived `violates policy` — an ALERT the
+  evidence never stated. The extractor now also emits an action-scoped
+  fact (`policy_denies_action`, alongside the existing composite
+  `policy_denies`) and the rule binds the two positions with one
+  variable: it fires only when the called tool IS the denied action.
+- **E-1 (telemetry honesty):** the suite-level fail-closed KPI aggregated
+  the per-scenario values even when the gate never fell back, reporting
+  `fail_closed_ok: true` for a corpus that measured nothing — while the
+  markdown headline said NOT EXERCISED. The JSON and the markdown now
+  agree: None (= NOT EXERCISED) whenever nothing exercised the path.
+
+### Added
+
+- **Reproducible evidence export** (`nomosguard.evidence_export`): the
+  attestation bundle is byte-identical for the same ledger, digests the
+  chain-relevant content only (same evidence -> same digest in any
+  process), isolates the wall-clock timestamps in one declared metadata
+  block with a pinned `iso-8601-utc` format, and re-verifies from
+  scratch with the typed `ExportError` on any deviation.
+  `NomosGuardSession.export_ledger()` now also returns the bundle.
+- **D (demo fail-closed parity):** the demo's failure modes are one data
+  registry (`demo_e2e.failure_mode_scenarios`), 13 modes covering every
+  README table row (the audit found the docs outrunning the demo: 7
+  scenarios against a longer documented list). The README's fail-closed
+  table and the registry are pinned to each other in both directions by
+  `tests/test_demo_e2e.py`.
+- **B (rule coverage):** `tests/test_rule_firing_coverage.py` — every
+  rule in `tool_call_rules` and `tool_call_gate_rules` has a minimal-input
+  case pinning the derived fact, the gate decision and the reason string,
+  plus the no-dead-rules meta test (both directions).
+- **E (KPI shapes):** `tests/test_benchmark_fail_closed.py` grew the
+  per-record and headline shape tests (OK after PASS, NOT EXERCISED when
+  nothing was measured, FAILED — never OK — on a failed evaluation),
+  checked against both the in-memory summary and the files on disk.
+- A torn ledger tail dropped by crash recovery is now visible to the
+  session (`session.load_report`) instead of being a silent difference
+  between the file and the in-memory ledger.
+
+### Tests
+
+636 pass (was 485). New: 83 tamper-matrix, 35 rule-coverage, 21
+evidence-export, plus the demo and benchmark additions. The three
+Windows-only failures in `tests/test_containment.py` /
+`tests/test_ledger_durability.py` are unchanged.
+
 ## 0.7.8 — Second-round audit findings
 
 ### Security

@@ -108,11 +108,17 @@ def _build_tool_call_rules() -> tuple[Rule, ...]:
             head=Pattern("?agent", "exposes", "?component"),
             description="An agent operating a tool on a vulnerable component exposes it.",
         ),
+        # The called tool and the denied action are bound by the SAME
+        # variable (?tool): the rule fires only when the tool the agent
+        # actually called IS the denied action. With two variables it
+        # fired on any tool call plus any denial by the same subject —
+        # an alert the evidence never stated (see rules._extract_policy_rule
+        # for the action-scoped fact that makes this unification possible).
         Rule(
             name="policy_denied_action",
             body=(
                 Pattern("?agent", "calls", "?tool"),
-                Pattern("?agent", "policy_denies", "?action"),
+                Pattern("?agent", "policy_denies_action", "?tool"),
             ),
             head=Pattern("?agent", "violates", "policy"),
             description="An agent calling a tool whose action is policy-denied violates policy.",

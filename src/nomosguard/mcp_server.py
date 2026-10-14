@@ -23,8 +23,15 @@ from typing import Any
 
 from . import facts_security  # noqa: F401  — register security extractors
 from .constants import tool_call_gate_rules, tool_call_rules
+from .evidence_export import export_bundle
 from .gate import Decision, GateDenied, PolicyGate, PolicyRule
-from .ledger import Claim, EvidenceLedger, LedgerFileError, UnevidencedClaimError
+from .ledger import (
+    Claim,
+    EvidenceLedger,
+    LedgerFileError,
+    LedgerLoadReport,
+    UnevidencedClaimError,
+)
 from .ledger_lock import append_locked
 from .policy_security import containment_policy_rules
 from .rules import ClaimValueError, Rule, RuleDefinitionError, RuleEngine
@@ -104,15 +111,28 @@ class NomosGuardSession:
         ledger_path: str | Path | None = None,
         *,
         create_if_missing: bool = False,
+        ledger_digest: str | None = None,
     ) -> None:
         self.ledger_path = Path(ledger_path) if ledger_path else None
+        #: The pin this session was started with, when one was given.
+        self.ledger_digest = ledger_digest
+        #: What the load path saw on the way in (None when no file was
+        #: loaded). A torn-tail recovery drops the final record; the
+        #: session keeps the report so the drop is visible to the caller
+        #: instead of being a silent difference between the file and the
+        #: in-memory ledger.
+        self.load_report: LedgerLoadReport | None = None
         if self.ledger_path is None:
             self.ledger = EvidenceLedger()
         elif self.ledger_path.is_file():
             # An explicitly configured ledger path is LOADED: a corrupt or
             # unreadable file raises LedgerFileError here, loudly, instead
             # of silently starting an empty (and therefore lying) ledger.
-            self.ledger = EvidenceLedger.load(self.ledger_path)
+            report = LedgerLoadReport(entries=[], header={})
+            self.ledger = EvidenceLedger.load(
+                self.ledger_path, report=report, expected_digest=ledger_digest
+            )
+            self.load_report = report
         elif create_if_missing:
             _writable_ledger_target(self.ledger_path)
             self.ledger = EvidenceLedger()
@@ -343,12 +363,25 @@ class NomosGuardSession:
         }
 
     def export_ledger(self) -> dict[str, Any]:
-        """Export the full ledger for audit/archive."""
+        """Export the full ledger for audit/archive.
+
+        Two shapes, on purpose:
+
+        - `entries` — the raw per-entry dicts (the historical shape).
+        - `bundle` + `bundle_digest` — the attestation bundle
+          (`nomosguard.evidence_export`): reproducible bytes, timestamps
+          isolated in a declared metadata block, and a digest over the
+          chain-relevant content, so a reviewer can re-verify the export
+          from scratch in a fresh process.
+        """
         ok, detail = self.ledger.verify()
+        bundle = export_bundle(self.ledger)
         return {
             "verified": ok,
             "detail": detail,
             "entries": self.ledger.export(),
+            "bundle": bundle,
+            "bundle_digest": bundle["digest"],
         }
 
 

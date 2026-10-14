@@ -247,7 +247,10 @@ def recover(ledger_path: str | Path) -> WalRecovery:
         record = _parse_wal_line(raw, lineno, torn_allowed=is_last)
         if record is None:
             # Torn final line: dropped, never replayed. Its hash cannot be
-            # verified, and everything after it is lost with it.
+            # verified, and everything after it is lost with it. (A torn
+            # line anywhere but the end raises WalError in
+            # `_parse_wal_line`: a WAL is append-only, so a mid-file hole
+            # is tamper, not a crash.)
             result.dropped += 1
             result.truncated_after = prev_seq
             torn_detail = (
@@ -307,9 +310,19 @@ def recover(ledger_path: str | Path) -> WalRecovery:
                 "does not verify against its own content"
             )
 
+        # The timestamp is not hashed (see ledger._entry_hash), so the WAL
+        # must still refuse a record without one: replaying an entry with
+        # no timestamp would launder a forged record into the chain with a
+        # typed crash (KeyError) instead of a typed refusal (WalError).
+        timestamp = record.get("timestamp")
+        if not isinstance(timestamp, str) or not timestamp:
+            raise WalError(
+                f"WAL line {lineno} (seq {seq}): missing timestamp"
+            )
+
         entry = LedgerEntry(
             seq=seq,
-            timestamp=record["timestamp"],
+            timestamp=timestamp,
             claim=claim,
             entry_hash=recomputed,
             prev_hash=record["prev_hash"],

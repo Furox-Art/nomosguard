@@ -2,7 +2,9 @@
 
 `failure_modes()` is the demo's failure-path stage: the narrative used to
 claim every failure mode fails closed while exercising only the happy
-path, so this suite pins each failure mode's outcome as well.
+path, so this suite pins each failure mode's outcome as well. The modes
+are one registry (`failure_mode_scenarios`), so the demo, this suite and
+the README's fail-closed table cannot drift apart.
 """
 
 from __future__ import annotations
@@ -11,7 +13,7 @@ import json
 
 import pytest
 
-from nomosguard import (  # noqa: F401  � register the security extractors
+from nomosguard import (  # noqa: F401  — register the security extractors
     facts_security,
     signature_bridge,
     temporal_bridge,
@@ -21,6 +23,7 @@ from nomosguard.demo_e2e import (
     NETWORK_CLAIMS,
     RAW_LOGS,
     VULN_CLAIMS,
+    failure_mode_scenarios,
     failure_modes,
     main,
 )
@@ -48,7 +51,11 @@ class TestFailureModesFailClosed:
     def test_stage_reports_success_for_every_mode(self, capsys):
         assert failure_modes() == 0
         out = capsys.readouterr().out
-        assert "7 failure modes exercised, all fail closed" in out
+        expected = (
+            f"{len(failure_mode_scenarios())} failure modes exercised, "
+            "all fail closed"
+        )
+        assert expected in out
         assert "[FAIL" not in out
 
     def test_unevidenced_claim_refused_at_the_ledger(self):
@@ -124,6 +131,165 @@ class TestFailureModesFailClosed:
         out = capsys.readouterr().out
         assert "STAGE 8" in out
         assert "all fail closed" in out
+
+
+class TestFailureModeParity:
+    """The demo claim, the README table, and the gate agree.
+
+    The README says "every failure mode fails closed". This suite holds
+    that claim to the registry: every mode is triggered, the gate returns
+    BLOCK (never PASS/ALLOW), the ledger still records what came before,
+    and every README row names a scenario the demo actually runs.
+    """
+
+    def test_every_scenario_fails_closed(self):
+        for scenario in failure_mode_scenarios():
+            outcome = scenario.run()
+            assert outcome.fails_closed(), f"{scenario.name}: {outcome.detail}"
+
+    def test_no_failure_mode_produces_a_pass_or_allow(self):
+        """A failure mode never yields ALLOW/ALERT/PASS: silence from the
+        chain is a denial, not a shrug."""
+        for scenario in failure_mode_scenarios():
+            outcome = scenario.run()
+            assert outcome.decision in (None, "BLOCK"), (
+                f"{scenario.name} produced {outcome.decision}"
+            )
+
+    def test_the_ledger_survives_every_refusal(self):
+        """The recorded evidence still verifies after each refusal: a
+        fail-closed outcome never quietly discards what came before."""
+        for scenario in failure_mode_scenarios():
+            outcome = scenario.run()
+            if outcome.ledger_entries is not None:
+                assert outcome.ledger_verified is True, scenario.name
+
+    def test_the_registry_covers_both_gate_refusals_and_startup_refusals(self):
+        names = {s.name for s in failure_mode_scenarios()}
+        # startup refusals: no decision is ever produced
+        assert "missing ledger path" in names
+        assert "ledger path is a directory" in names
+        assert "ledger parent is not a directory" in names
+        assert "tampered WAL" in names
+        assert "ledger digest pin" in names
+        # gate refusals: BLOCK at the SDK boundary
+        assert "unknown fallback decision" in names
+        assert "uninterpretable claim" in names
+        assert "malformed rule set" in names
+        assert "gate with no derived path" in names
+
+    def test_unwritable_ledger_directory_refused(self, tmp_path, monkeypatch):
+        """The README's 'unwritable' path, exercised hermetically.
+
+        The startup probe writes a test file into the ledger directory;
+        a directory that refuses it is a broken configuration, refused
+        with LedgerFileError instead of failing at the first save.
+        """
+        from pathlib import Path as _Path
+
+        from nomosguard.mcp_server import (
+            default_policy_rules,
+            default_rules,
+            _writable_ledger_target,
+        )
+
+        target = tmp_path / "ledger.jsonl"
+        real_open = _Path.open
+
+        def _read_only_dir_open(self, *args, **kwargs):
+            if self.name.endswith(".write-test"):
+                raise PermissionError("simulated read-only directory")
+            return real_open(self, *args, **kwargs)
+
+        monkeypatch.setattr(_Path, "open", _read_only_dir_open)
+        with pytest.raises(LedgerFileError, match="not writable"):
+            _writable_ledger_target(target)
+        with pytest.raises(LedgerFileError, match="not writable"):
+            NomosGuardSession(
+                rules=default_rules(),
+                policy_rules=default_policy_rules(),
+                ledger_path=target,
+                create_if_missing=True,
+            )
+
+
+#: Every README fail-closed table row, mapped to the demo scenario(s) that
+#: exercise it. A row added to the README without a mapping here fails the
+#: suite — the docs and the demo cannot drift apart again.
+README_FAIL_CLOSED_ROWS = {
+    "claim without evidence": {"unevidenced claim"},
+    "claim with empty evidence / non-dict payload / empty kind in a **saved file**": {
+        "tampered ledger file"
+    },
+    "same tampering in the WAL": {"tampered WAL"},
+    "corrupted / tampered ledger file": {"tampered ledger file"},
+    "ledger path that is missing / a directory / unwritable": {
+        "missing ledger path",
+        "ledger path is a directory",
+        "ledger parent is not a directory",
+    },
+    "gate with nothing derived": {"gate with no derived path"},
+    "unknown fallback decision": {"unknown fallback decision"},
+    "malformed rule set / claim the extractors cannot read": {
+        "malformed rule set",
+        "uninterpretable claim",
+    },
+    "policy file that is not the one you pinned": {"policy bundle digest pin"},
+    "ledger file that is not the one you pinned": {"ledger digest pin"},
+    "malformed log line / policy record": {"malformed log line"},
+}
+
+
+def _readme_failure_rows() -> list[str]:
+    """The first column of the README's fail-closed table, verbatim."""
+    from pathlib import Path
+
+    readme = Path(__file__).resolve().parents[1] / "README.md"
+    text = readme.read_text(encoding="utf-8")
+    after = text.split("## Fail-closed paths")[1]
+    # stop at the next heading of ANY level (## or ###)
+    ends = [after.find("\n## "), after.find("\n### ")]
+    ends = [e for e in ends if e != -1]
+    section = after[: min(ends)] if ends else after
+    rows: list[str] = []
+    for line in section.splitlines():
+        line = line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 3 or cells[0] == "failure mode":
+            continue
+        if set(cells[0]) <= set("-: "):
+            continue  # the markdown separator row
+        rows.append(cells[0])
+    return rows
+
+
+class TestReadmeParity:
+    """The README's fail-closed table is pinned to the demo registry."""
+
+    def test_every_readme_row_names_a_scenario_that_runs(self):
+        scenario_names = {s.name for s in failure_mode_scenarios()}
+        rows = _readme_failure_rows()
+        assert len(rows) >= 10, f"expected the full fail-closed table, got {rows}"
+        for row in rows:
+            assert row in README_FAIL_CLOSED_ROWS, (
+                f"README row {row!r} has no demo scenario mapping — either "
+                "exercise it in demo_e2e.failure_mode_scenarios or drop the row"
+            )
+            mapped = README_FAIL_CLOSED_ROWS[row]
+            assert mapped <= scenario_names, (
+                f"{row} maps to scenarios that do not exist: {mapped - scenario_names}"
+            )
+
+    def test_every_scenario_is_documented_in_the_readme(self):
+        documented: set[str] = set()
+        for names in README_FAIL_CLOSED_ROWS.values():
+            documented |= names
+        for scenario in failure_mode_scenarios():
+            assert scenario.name in documented, (
+                f"{scenario.name!r} runs in the demo but no README row names it"
+            )
 
 
 def _run_chain() -> dict:

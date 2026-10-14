@@ -1,6 +1,6 @@
 # NomosGuard benchmark results
 
-Run at: 2026-10-13T01:47:35.873631+00:00
+Run at: 2026-10-14T02:58:15.887193+00:00
 Scenarios: 11
 
 ## Metrics (measured, not asserted)

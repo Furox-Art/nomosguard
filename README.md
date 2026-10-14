@@ -41,7 +41,7 @@ and the transcript is tamper-evident.
 
 Early development — see [VISION.md](VISION.md) for the architecture,
 scope, and first-release boundary. The core (evidence ledger, rule
-engine, policy gate) is implemented with 481 passing tests and a
+engine, policy gate) is implemented with 636 passing tests and a
 reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 
 ### Components
@@ -66,6 +66,7 @@ reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 | `nomosguard.vuln_db` | Real CVE data from the NVD (cached with 7-day TTL; CVSS severity) |
 | `nomosguard.service_cve_map` | Offline service/port -> candidate CVE ids |
 | `nomosguard.ledger_wal` | Write-ahead log: crash recovery, checkpointing |
+| `nomosguard.evidence_export` | Reproducible attestation bundle: byte-identical exports, digest-pinned, re-verifiable from scratch |
 | `nomosguard.ledger_lock` | Multi-writer locking (`append_locked`; fcntl/msvcrt) |
 | `nomosguard.log_normalize` | Deterministic adapters: syslog / CEF / JSON / GELF / XML / key=value / pipe -> canonical shape |
 | `nomosguard.constants` | Single definition of the rule sets and the claim-kind vocabulary (one definition, imported everywhere) |
@@ -134,20 +135,32 @@ The claim is deliberately narrow. The table below names each failure path,
 the test that triggers it, and the behaviour that proves it — not a
 promise. `python -m nomosguard.demo_e2e` runs the same list as stage 8 of
 its narrative and prints the outcome of each mode, and returns non-zero if
-any of them stops failing closed.
+any of them stops failing closed. (`tests/test_demo_e2e.py` pins this table
+to the demo's scenario registry in both directions: a row without a
+scenario, or a scenario without a row, fails the suite.)
 
 | failure mode | refuses how | proven by |
 |---|---|---|
-| claim without evidence | `UnevidencedClaimError` at `append` | `tests/test_core.py` |
-| claim with empty evidence / non-dict payload / empty kind in a **saved file** | `LedgerFileError` at load, even with a re-hashed, self-consistent chain | `tests/test_ledger_load_validation.py` |
-| same tampering in the WAL | `WalError`, the forged record is not replayed | `tests/test_ledger_load_validation.py` |
-| corrupted / tampered ledger file | `LedgerFileError` at load | `tests/test_core.py`, `tests/test_ledger_durability.py` |
-| ledger path that is missing / a directory / unwritable | `LedgerFileError` at startup (never a silent empty ledger) | `tests/test_mcp.py`, `tests/test_mcp_stdio_boundary.py` |
-| gate with nothing derived | BLOCK (fail-closed default, reason says so) | `tests/test_core.py` |
-| unknown fallback decision | typed `GateDenied` from the gate, converted to a fail-closed result at the SDK boundary | `tests/test_mcp.py` |
-| malformed rule set / claim the extractors cannot read | fail-closed result naming the problem (never a crash) | `tests/test_mcp.py`, `tests/test_no_silent_coercion.py` |
-| policy file that is not the one you pinned | `PolicyConfigError` on digest mismatch or unknown format version | `tests/test_policy.py` |
-| malformed log line / policy record | `IngestError` with the field, the reason, and the value | `tests/test_schema_messages.py` |
+| claim without evidence | `UnevidencedClaimError` at `append` | `tests/test_core.py`, demo stage 8 |
+| claim with empty evidence / non-dict payload / empty kind in a **saved file** | `LedgerFileError` at load, even with a re-hashed, self-consistent chain | `tests/test_ledger_load_validation.py`, `tests/test_tamper_matrix.py` |
+| same tampering in the WAL | `WalError`, the forged record is not replayed | `tests/test_ledger_load_validation.py`, `tests/test_tamper_matrix.py` |
+| corrupted / tampered ledger file | `LedgerFileError` at load | `tests/test_core.py`, `tests/test_ledger_durability.py`, `tests/test_tamper_matrix.py` |
+| ledger file that is not the one you pinned | `LedgerFileError` on digest mismatch — the one tamper an internal chain cannot see (a consistent full rewrite) | `tests/test_tamper_matrix.py`, demo stage 8 |
+| ledger path that is missing / a directory / unwritable | `LedgerFileError` at startup (never a silent empty ledger) | `tests/test_mcp.py`, `tests/test_mcp_stdio_boundary.py`, `tests/test_demo_e2e.py` |
+| gate with nothing derived | BLOCK (fail-closed default, reason says so) | `tests/test_core.py`, demo stage 8 |
+| unknown fallback decision | typed `GateDenied` from the gate, converted to a fail-closed result at the SDK boundary | `tests/test_mcp.py`, demo stage 8 |
+| malformed rule set / claim the extractors cannot read | fail-closed result naming the problem (never a crash) | `tests/test_mcp.py`, `tests/test_no_silent_coercion.py`, demo stage 8 |
+| policy file that is not the one you pinned | `PolicyConfigError` on digest mismatch or unknown format version | `tests/test_policy.py`, demo stage 8 |
+| malformed log line / policy record | `IngestError` with the field, the reason, and the value | `tests/test_schema_messages.py`, demo stage 8 |
+
+The one boundary, stated plainly: the hash chain proves the records agree
+with EACH OTHER. A full rewrite that re-hashes every record, every link and
+the header consistently is indistinguishable from the original without an
+anchor held outside the file — so the ledger takes one, the same way the
+policy bundle does (`ledger_digest` / `load(..., expected_digest=...)` /
+`NomosGuardSession(..., ledger_digest=...)`). Everything else — a mutated
+field, a reorder, a truncation, a duplicate, a forged hash, an emptied
+mid-block line — breaks the chain or the claim validation and is refused.
 
 Not proven here: correctness on real-world logs, behaviour under a
 concurrent multi-writer crash, or any judgement that needs a model. Those
@@ -193,6 +206,24 @@ python -m nomosguard.mcp_stdio --ledger ./new.jsonl --create-ledger   # explicit
 python -m nomosguard.ingest.cli log.jsonl --ledger ./ledger.jsonl --require-ledger
 ```
 
+The chain proves the records agree with each other. To also prove the
+FILE is the one you reviewed, pin its bytes the same way a policy bundle
+is pinned:
+
+```python
+from nomosguard.ledger import EvidenceLedger, ledger_digest
+
+pin = ledger_digest("ledger.jsonl")          # "sha256:..." — commit this
+EvidenceLedger.load("ledger.jsonl", expected_digest=pin)
+# or at the SDK boundary: NomosGuardSession(..., ledger_path=..., ledger_digest=pin)
+```
+
+A mismatch raises `LedgerFileError` — a consistent full rewrite of the
+ledger is the one tamper the chain alone cannot see, and the pin is what
+closes it. A torn final line (a crash mid-write) is recovered and
+REPORTED (`LedgerLoadReport`, surfaced as `session.load_report`), never
+silently dropped.
+
 ### A policy file is a pinned bundle
 
 `load_policy` verifies what it is given before it uses it:
@@ -232,6 +263,27 @@ malformed record must not be able to manufacture an authoritative
 denial. The gate's refusals are typed (`GateDenied`) and the SDK boundary
 converts them into fail-closed results, so an agent that only knows how
 to read a decision cannot be crashed by one.
+
+### The evidence export is reproducible and re-verifiable from scratch
+
+`session.export_ledger()` returns an attestation bundle
+(`nomosguard.evidence_export`): the same ledger always exports
+byte-identical bytes, and the digest covers only chain-relevant content,
+so the same EVIDENCE yields the same digest in any process, at any time.
+The wall-clock timestamps — deliberately excluded from the entry hash, so
+the chain stays reproducible — are isolated in one declared metadata
+block in one pinned format (`iso-8601-utc`) and validated on
+verification. A fresh process re-verifies the bundle with nothing but the
+file: chain links, every entry hash, claim validity, timestamp coverage,
+and the digest:
+
+```python
+from nomosguard.evidence_export import export_bundle, read_export_bundle, verify_export_bundle
+
+bundle = export_bundle(ledger)          # reproducible, timestamp-isolated
+read_export_bundle("bundle.json")       # typed ExportError on any deviation
+verify_export_bundle(bundle)            # recomputes everything, raises on any mismatch
+```
 
 ### Use it from an MCP client
 
