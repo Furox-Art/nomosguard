@@ -12,6 +12,8 @@ from __future__ import annotations
 from nomosguard import constants
 from nomosguard.benchmark.run_suite import (
     default_policy_rules as benchmark_policy_rules,
+)
+from nomosguard.benchmark.run_suite import (
     default_rules as benchmark_rules,
 )
 from nomosguard.constants import (
@@ -25,6 +27,8 @@ from nomosguard.constants import (
 from nomosguard.demo import run as demo_run
 from nomosguard.ingest.cli import (
     default_policy_rules as cli_policy_rules,
+)
+from nomosguard.ingest.cli import (
     default_rules as cli_rules,
 )
 from nomosguard.ledger import Claim, EvidenceLedger

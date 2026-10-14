@@ -103,3 +103,69 @@ class TestCustomRules:
         r = evaluate_temporal(lines, [rule])
         assert len(r.facts) == 1
         assert r.facts[0][0] == "10.0.0.9"
+
+
+class TestFiringWindowEvidence:
+    """The finding must cite the events that produced it, per subject."""
+
+    def test_fired_events_are_recorded_per_subject(self):
+        lines = [
+            # 203.0.113.77 crosses the threshold (6 events in 120 s)
+            "[08:14:01] auth: src=203.0.113.77:1 failed password",
+            "[08:14:05] auth: src=203.0.113.77:1 failed password",
+            "[08:14:09] auth: src=203.0.113.77:1 failed password",
+            "[08:14:13] auth: src=203.0.113.77:1 failed password",
+            "[08:14:17] auth: src=203.0.113.77:1 failed password",
+            "[08:14:21] auth: src=203.0.113.77:1 failed password",
+            # 198.51.100.9 has only 2 — below threshold
+            "[08:14:02] auth: src=198.51.100.9:1 failed password",
+            "[08:14:06] auth: src=198.51.100.9:1 failed password",
+        ]
+        r = evaluate_temporal(lines, default_temporal_rules())
+        detail = r.report["brute_force"]
+        assert detail["fired_for"] == ["203.0.113.77"]
+        events = detail["fired_events"]["203.0.113.77"]
+        assert events["event_count"] == 6
+        assert len(events["lines"]) == 6
+        assert all("203.0.113.77" in ln for ln in events["lines"])
+
+    def test_per_subject_count_is_not_a_global_max(self):
+        """Two firing subjects: each count is its own, not the global max."""
+        lines = []
+        # subject A: 5 events within 4 seconds (exactly at threshold)
+        for second in range(1, 6):
+            lines.append(f"[08:00:0{second}] auth: src=10.0.0.1:1 failed password")
+        # subject B: 9 events within 8 seconds
+        for second in range(1, 10):
+            lines.append(f"[08:10:0{second}] auth: src=10.0.0.2:1 failed password")
+        r = evaluate_temporal(lines, default_temporal_rules())
+        fired = r.report["brute_force"]["fired_events"]
+        assert fired["10.0.0.1"]["event_count"] == 5
+        assert fired["10.0.0.2"]["event_count"] == 9
+
+
+class TestTemporalIntoTheLedger:
+    """The bridge: findings become evidenced claims a reviewer can audit."""
+
+    def test_default_rules_are_used_when_none_are_given(self):
+        from nomosguard.temporal_bridge import run_temporal_into_ledger
+
+        ledger, result = run_temporal_into_ledger(BRUTE_LINES)  # rules omitted
+        assert result.report["brute_force"]["fired_for"] == ["203.0.113.77"]
+        assert len(ledger.entries) == 1
+
+    def test_evidence_cites_the_firing_events(self):
+        from nomosguard.temporal_bridge import run_temporal_into_ledger
+
+        ledger, _ = run_temporal_into_ledger(BRUTE_LINES)
+        evidence = ledger.entries[0].claim.evidence
+        assert "temporal rule brute_force" in evidence
+        assert "6 in the firing window" in evidence
+        # the cited lines are THE events, not a pointer to them
+        assert "08:14:01" in evidence and "08:14:21" in evidence
+
+    def test_payload_carries_the_per_subject_count(self):
+        from nomosguard.temporal_bridge import run_temporal_into_ledger
+
+        ledger, _ = run_temporal_into_ledger(BRUTE_LINES)
+        assert ledger.entries[0].claim.payload["event_count"] == 6

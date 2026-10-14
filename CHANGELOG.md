@@ -5,6 +5,80 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — Fourth-round review hardening
+
+### Security
+
+- **MCP stdio boundary:** a non-object JSON line (number, string, array)
+  crashed the message loop; non-object `params` / `arguments` and an
+  unknown `decide` fallback escaped the typed refusals. The boundary
+  now answers `-32600` / `-32602` and the loop survives; `decide`
+  accepts only the fail-closed fallbacks (`BLOCK` / `ALERT`) — `ALLOW`
+  is refused, matching the tool schema.
+- **Policy config:** duplicate rule names are refused (typed
+  `PolicyConfigError` at load, `GateDenied` programmatically); unknown
+  fields are refused at the top level, per rule and per gate; the
+  `requires` field is implemented and validated against the known claim
+  kinds (it was silently ignored before).
+- **Gate shadowing:** a broad rule could shadow a specific one (first
+  match won). Every matching rule now fires and the merge stays
+  worst-wins, so a specific BLOCK is never hidden by a broad ALERT.
+- **Persistence divergence:** `evidence_ingest` / `assert_claim`
+  persisted after the in-memory append, so a disk failure (lock
+  timeout, WAL refusal) left memory ahead of the file. Now
+  persist-first: a claim the disk refused is reported rejected and
+  memory never advances; non-dict claims and payloads are typed
+  refusals instead of `TypeError` crashes mid-batch.
+- **Torn tail:** the library never writes the main ledger
+  non-atomically, so a torn tail cannot come from this code's own
+  crash — an UNPINNED load now refuses it instead of silently dropping
+  the line. Recovery requires the out-of-band digest pin, and a pinned
+  session heals the file under the lock so later unpinned readers see a
+  clean chain.
+- **Silent coercion:** extractors stringified payload fields
+  (`agent: 42` became the kind `"42"`; `port: true` became port 1; a
+  list payload crashed a batch). String fields now refuse non-strings
+  with `ClaimValueError`, ports must be integers (bool refused),
+  service lists are validated item-by-item, and unknown claim kinds are
+  counted and surfaced in `derive()` / `derive_paths()`.
+- **Containment:** subjects are validated (option-lookalike,
+  whitespace, control characters refused) and `Executor.undo` honours
+  the allowlist instead of executing whatever the recorded undo command
+  says.
+- **CLI/MCP parity:** the ingest CLI reaches the same surfaces —
+  `--log-kind` (toolcall/vuln/policy), `--security` (the MCP rule set),
+  `--ledger-digest` (fail-closed pin). Temporal ingestion with the
+  rules omitted now uses the default temporal rule set instead of
+  deriving nothing, and temporal evidence cites the exact per-subject
+  firing window it configured.
+- **Hypothesis chain counting:** independent evidence chains for the
+  same fact are counted separately again (the trace guard collapsed
+  them to 1), and each distinct derivation is traced exactly once.
+- **Docs:** README test counts and the SKILL.md version now match
+  reality (709 tests, 0.7.9).
+
+### Tests
+
+709 tests (was 636). New this round: pinned golden hash vectors
+(`tests/test_hash_vector.py` — entry/file digests that must keep
+loading), MCP stdio boundary refusals, startup digest-pin matrix
+(missing/created/torn/wrong), policy duplicate-name and unknown-field
+refusal, gate no-shadowing, containment subject validation, undo
+allowlist, temporal firing-window evidence, unknown-kind reporting,
+chain-count regression, and per-rule gate firing. One vacuous test was
+repaired: `test_malformed_rule_set_denies_instead_of_raising` asserted
+`pytest.raises(Exception)` around an undefined name — it passed on its
+own `NameError`, now it asserts the typed `RuleDefinitionError`.
+
+### CI
+
+- New lint job (`ruff==0.17.0` — pinned so the default rule set cannot
+  drift) and a coverage floor (`--cov-fail-under=85`; measured 91).
+- New `windows-latest` job — exercises the `msvcrt` lock path.
+- The release workflow now runs the full test suite against the
+  installed wheel in a clean venv, and no longer passes `--no-deps` to
+  pytest (which had silently made that impossible before).
+
 ## 0.7.9 — Third-round audit hardening
 
 ### Security

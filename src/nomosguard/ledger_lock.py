@@ -167,7 +167,7 @@ class LedgerLock:
             self._fh.close()
             self._fh = None
 
-    def __enter__(self) -> LedgerLock:
+    def __enter__(self) -> LedgerLock:  # noqa: PYI034 - typing.Self needs 3.11; package supports 3.10
         return self.acquire()
 
     def __exit__(self, exc_type, exc, tb) -> None:

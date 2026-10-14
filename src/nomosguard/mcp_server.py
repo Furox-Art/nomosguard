@@ -21,7 +21,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from . import facts_security  # noqa: F401  — register security extractors
+from . import (
+    __version__,
+    facts_security,  # noqa: F401  — register security extractors
+)
 from .constants import tool_call_gate_rules, tool_call_rules
 from .evidence_export import export_bundle
 from .gate import Decision, GateDenied, PolicyGate, PolicyRule
@@ -32,7 +35,8 @@ from .ledger import (
     LedgerLoadReport,
     UnevidencedClaimError,
 )
-from .ledger_lock import append_locked
+from .ledger_lock import append_locked, ledger_lock
+from .ledger_wal import WalError
 from .policy_security import containment_policy_rules
 from .rules import ClaimValueError, Rule, RuleDefinitionError, RuleEngine
 from .rules_security import security_rules
@@ -43,7 +47,9 @@ PROTOCOL_VERSION = "2025-06-18"
 
 SERVER_INFO = {
     "name": "nomosguard",
-    "version": "0.1.0",
+    # The package version, not a hand-typed one: a server that reports a
+    # version it does not have makes every bug report ambiguous.
+    "version": __version__,
     "description": (
         "Deterministic security reasoning core exposed as MCP tools. "
         "LLMs may produce evidence and explain decisions; the ledger, "
@@ -129,11 +135,32 @@ class NomosGuardSession:
             # unreadable file raises LedgerFileError here, loudly, instead
             # of silently starting an empty (and therefore lying) ledger.
             report = LedgerLoadReport(entries=[], header={})
-            self.ledger = EvidenceLedger.load(
-                self.ledger_path, report=report, expected_digest=ledger_digest
-            )
+            if ledger_digest is not None:
+                # The pin names an exact revision. The load runs under the
+                # writer lock (and so does the heal below), so a concurrent
+                # writer cannot slip between verify and rewrite.
+                with ledger_lock(self.ledger_path):
+                    self.ledger = EvidenceLedger.load(
+                        self.ledger_path, report=report, expected_digest=ledger_digest
+                    )
+                    if report.dropped_tail:
+                        # A pinned torn tail is an operator-acknowledged
+                        # recovery (the remaining bytes are the pinned,
+                        # reviewed ones). Persist the healed remainder
+                        # immediately: the on-disk file then carries only
+                        # complete entries, and every later unpinned read
+                        # (the append path) sees a clean chain.
+                        self.ledger.save(self.ledger_path)
+            else:
+                self.ledger = EvidenceLedger.load(self.ledger_path, report=report)
             self.load_report = report
         elif create_if_missing:
+            if ledger_digest is not None:
+                raise LedgerFileError(
+                    f"ledger path configured but not found: {self.ledger_path} "
+                    "(a digest pin describes an existing file and cannot be "
+                    "applied to a ledger that is about to be created)"
+                )
             _writable_ledger_target(self.ledger_path)
             self.ledger = EvidenceLedger()
         else:
@@ -217,24 +244,68 @@ class NomosGuardSession:
 
     # -- tool implementations -------------------------------------------------
 
+    @staticmethod
+    def _validated_claim(raw: Any) -> Claim:
+        """Build a Claim from untrusted input, with typed refusals only.
+
+        No stringification: `str(raw.get("kind", ""))` silently turned the
+        number 42 into the kind "42" and a list payload crashed the batch
+        with a TypeError — both are refusals now, carried by the same
+        `UnevidencedClaimError` the ledger uses for invalid claims.
+        """
+        if not isinstance(raw, dict):
+            raise UnevidencedClaimError(
+                f"claim must be an object, got {type(raw).__name__}"
+            )
+        claim = Claim(
+            kind=raw.get("kind", ""),
+            payload=raw.get("payload", {}),
+            evidence=raw.get("evidence", ""),
+        )
+        claim.validate()
+        return claim
+
     def evidence_ingest(self, claims: list[dict[str, Any]]) -> dict[str, Any]:
-        """Ingest multiple claims at once. Returns accepted/rejected counts."""
+        """Ingest multiple claims at once. Returns accepted/rejected counts.
+
+        Persist-first ordering: a claim reaches the disk (under the writer
+        lock) before it enters the in-memory ledger. The reverse order let
+        a persistence failure (lock timeout, disk error, WAL refusal)
+        leave memory ahead of the file — the session believing evidence
+        that is not on disk. A claim the disk refused is reported as
+        rejected; memory and file stay in step.
+        """
         accepted = 0
         rejected: list[dict[str, Any]] = []
+        if not isinstance(claims, list):
+            return {
+                "accepted": 0,
+                "rejected": [
+                    {
+                        "index": None,
+                        "reason": "claims must be a list of claim objects, "
+                        f"got {type(claims).__name__}",
+                    }
+                ],
+                "ledger_size": len(self.ledger.entries),
+            }
         for i, raw in enumerate(claims):
             try:
-                claim = Claim(
-                    kind=str(raw.get("kind", "")),
-                    payload=dict(raw.get("payload", {})),
-                    evidence=str(raw.get("evidence", "")),
-                )
-                self.ledger.append(claim)
-                accepted += 1
+                claim = self._validated_claim(raw)
                 # Persist per claim, not per batch: a malformed entry later in
                 # the list must not discard the ones already accepted.
                 self._append_persisted(claim)
+                self.ledger.append(claim)
+                accepted += 1
             except UnevidencedClaimError as exc:
                 rejected.append({"index": i, "reason": str(exc)})
+            except (LedgerFileError, WalError, OSError) as exc:
+                # LedgerLockError is an OSError; LedgerFileError/WalError
+                # are persistence refusals. The claim is NOT on disk — so
+                # it is not accepted, and memory does not advance.
+                rejected.append(
+                    {"index": i, "reason": f"ledger persistence failed: {exc}"}
+                )
         return {
             "accepted": accepted,
             "rejected": rejected,
@@ -242,13 +313,22 @@ class NomosGuardSession:
         }
 
     def assert_claim(self, kind: str, payload: dict[str, Any], evidence: str) -> dict[str, Any]:
-        """Assert a single claim. Rejected (fail-closed) without evidence."""
-        claim = Claim(kind=kind, payload=payload, evidence=evidence)
+        """Assert a single claim. Rejected (fail-closed) without evidence.
+
+        The same persist-first contract as `evidence_ingest`: the disk
+        write happens before the in-memory append, and a persistence
+        failure is a rejection, never a memory-only acceptance.
+        """
         try:
+            claim = self._validated_claim(
+                {"kind": kind, "payload": payload, "evidence": evidence}
+            )
+            self._append_persisted(claim)
             entry = self.ledger.append(claim)
         except UnevidencedClaimError as exc:
             return {"accepted": False, "reason": str(exc)}
-        self._append_persisted(claim)
+        except (LedgerFileError, WalError, OSError) as exc:
+            return {"accepted": False, "reason": f"ledger persistence failed: {exc}"}
         return {
             "accepted": True,
             "seq": entry.seq,
@@ -270,6 +350,7 @@ class NomosGuardSession:
                 "derived_facts": [],
                 "rules_fired": {},
                 "trace": [],
+                "unknown_claim_kinds": {},
                 "ledger_verified": self.ledger.verify()[0],
                 "denied": True,
                 "reason": f"malformed rule set: {exc}",
@@ -281,6 +362,7 @@ class NomosGuardSession:
                 "derived_facts": [],
                 "rules_fired": {},
                 "trace": [],
+                "unknown_claim_kinds": {},
                 "ledger_verified": self.ledger.verify()[0],
                 "denied": True,
                 "reason": f"uninterpretable claim: {exc}",
@@ -290,6 +372,7 @@ class NomosGuardSession:
             "derived_facts": [str(f) for f in engine.facts],
             "rules_fired": summary["rules_fired"],
             "trace": summary["trace"],
+            "unknown_claim_kinds": summary["unknown_claim_kinds"],
             "ledger_verified": self.ledger.verify()[0],
             "denied": False,
         }

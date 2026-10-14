@@ -129,6 +129,7 @@ class TestVerifiableFromScratch:
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         assert proc.returncode == 0, proc.stderr
         detail, digest = proc.stdout.strip().splitlines()
@@ -200,7 +201,7 @@ class TestExportFailsClosed:
         def mutate(b):
             b["metadata"]["entry_count"] = 99
 
-        bundle, path = self._tampered(tmp_path, mutate)
+        _bundle, path = self._tampered(tmp_path, mutate)
         with pytest.raises(ExportError, match="entry_count"):
             read_export_bundle(path)
 
@@ -269,6 +270,7 @@ class TestExportFailsClosed:
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         assert proc.returncode != 0
         assert "ExportError" in proc.stderr

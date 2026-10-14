@@ -676,6 +676,7 @@ class TestCachePathSafety:
 
     def test_traversal_id_cannot_escape(self):
         import tempfile
+
         from nomosguard.vuln_db import CachedNVDClient
         with tempfile.TemporaryDirectory() as td:
             client = CachedNVDClient(cache_dir=td, offline=True, cache={})
@@ -688,6 +689,7 @@ class TestCachePathSafety:
 
     def test_write_with_traversal_id_stays_in_cache(self):
         import tempfile
+
         from nomosguard.vuln_db import CachedNVDClient
         with tempfile.TemporaryDirectory() as td:
             client = CachedNVDClient(cache_dir=td, offline=True, cache={})
@@ -700,6 +702,7 @@ class TestCachePathSafety:
 
     def test_normal_id_unaffected(self):
         import tempfile
+
         from nomosguard.vuln_db import CachedNVDClient
         with tempfile.TemporaryDirectory() as td:
             client = CachedNVDClient(cache_dir=td, offline=True, cache={})

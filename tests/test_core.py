@@ -77,7 +77,8 @@ class TestRuleEngine:
     def test_deterministic(self):
         a = self._engine()
         b = self._engine()
-        sa, sb = a.derive(), b.derive()
+        a.derive()
+        b.derive()
         assert [str(f) for f in a.facts] == [str(f) for f in b.facts]
 
     def test_no_rule_no_derivation(self):

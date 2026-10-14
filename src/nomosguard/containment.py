@@ -94,6 +94,33 @@ class ContainmentCommand:
         }
 
 
+def _validated_subject(subject: Any) -> str:
+    """Refuse a decision subject that is not a plain single token.
+
+    The subject is substituted into argv templates. Whitespace or control
+    characters would smuggle invisible structure into an argument, and a
+    leading "-" makes the argument indistinguishable from an option of
+    the receiving tool — neither is a value the evidence ever named, so
+    the plan is refused instead of rendered.
+    """
+    if not isinstance(subject, str) or not subject:
+        raise ValueError(
+            f"containment subject must be a non-empty string, got {subject!r}"
+        )
+    if subject.startswith("-"):
+        raise ValueError(
+            f"containment subject {subject!r} starts with '-' — a subject "
+            "that looks like an option is refused"
+        )
+    bad = [ch for ch in subject if ch.isspace() or ord(ch) < 32 or ord(ch) == 127]
+    if bad:
+        raise ValueError(
+            f"containment subject {subject!r} contains whitespace or control "
+            f"characters {bad!r} — refused"
+        )
+    return subject
+
+
 def render_commands(gate_result: dict[str, Any]) -> list[ContainmentCommand]:
     """Translate a gate result into a list of containment commands.
 
@@ -108,7 +135,7 @@ def render_commands(gate_result: dict[str, Any]) -> list[ContainmentCommand]:
             continue  # decisions without a template are reported, not acted on
         templates = TEMPLATES.get(decision, [])
         for t in templates:
-            subject = d["subject"]
+            subject = _validated_subject(d.get("subject", ""))
             argv = [a.format(subject=subject) for a in t["argv"]]
             undo = ([u.format(subject=subject) for u in t["undo"]]
                     if t.get("undo") else None)
@@ -144,8 +171,10 @@ class Executor:
     """Runs containment commands with an allowlist.
 
     Disabled by default. When enabled, only commands whose argv[0] is in
-    `allowlist` run; everything else is rejected and logged. This is the
-    last line of defence between a decision and a real system change.
+    `allowlist` run; everything else is rejected and logged. The undo
+    path enforces the same allowlist: the reversal of an allowlisted
+    action must itself be allowlisted. This is the last line of defence
+    between a decision and a real system change.
     """
 
     def __init__(self, allowlist: tuple[str, ...] = (), enabled: bool = False) -> None:
@@ -177,6 +206,9 @@ class Executor:
             return {"executed": False, "reason": "not reversible"}
         if not self.enabled:
             return {"executed": False, "reason": "executor disabled (dry-run)"}
+        if command.undo[0] not in self.allowlist:
+            return {"executed": False,
+                    "reason": f"{command.undo[0]} not in allowlist {sorted(self.allowlist)}"}
         try:
             proc = subprocess.run(
                 list(command.undo), capture_output=True, text=True, timeout=30,

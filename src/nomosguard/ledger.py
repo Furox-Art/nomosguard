@@ -152,10 +152,11 @@ def _atomic_write_lines(path: Path, lines: list[str]) -> None:
       4. os.replace(tmp, path) — atomic on POSIX and Windows
 
     A crash at any point leaves either the old file intact or the new
-    file complete: the reader never observes a half-written ledger. A
-    torn *final line* (a crash mid-write, or an interrupted append) is
-    handled at load time — see `iter_ledger_records`, which drops a
-    truncated tail and reports how many bytes/records it discarded.
+    file complete: the reader never observes a half-written ledger. That
+    is also why a torn final line on this file is NOT a crash artifact:
+    load treats it as an externally truncated file and recovers it only
+    under a digest pin — see `iter_ledger_records` and
+    `EvidenceLedger.load`.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -191,11 +192,15 @@ def _atomic_write_lines(path: Path, lines: list[str]) -> None:
 class LedgerLoadReport:
     """What `iter_ledger_records` saw on the way in.
 
-    `entries` are the records that verified. `dropped_tail` counts
-    records thrown away because the file ended mid-write: a JSON decode
-    failure or a hash/link mismatch on the final line. A torn tail is
-    expected after a crash and is *not* tamper evidence; a mismatch
-    anywhere else raises immediately. `tail_detail` explains the drop.
+    `entries` are the records that verified. `dropped_tail` counts the
+    record thrown away because the file ended mid-write: a JSON decode
+    failure or a non-object on the FINAL line. A hash or link mismatch
+    anywhere — including the final line — raises immediately: a parseable
+    line that does not verify is tamper, never a crash. And a torn tail
+    is recovered only under a digest pin (see `EvidenceLedger.load`):
+    the main file is only ever rewritten atomically, so a torn final line
+    was not produced by this writer, and an unpinned load refuses to
+    guess. `tail_detail` explains the drop.
     """
 
     entries: list[LedgerEntry]
@@ -401,6 +406,7 @@ class EvidenceLedger:
         - the file is missing, unreadable, or not valid JSONL
         - the header is missing or has an unknown format version
         - the file's bytes are not the pinned ones (`expected_digest`)
+        - the final line is torn and no digest pin was given
         - an entry is not valid JSON, or its claim is malformed
         - an entry's claim is INVALID: empty kind, non-dict payload, or
           empty evidence — the same rules `append` enforces, checked here
@@ -410,12 +416,19 @@ class EvidenceLedger:
         - an entry_hash does not recompute from its content (tamper)
         - the entry count or head_hash in the header does not match
 
-        `allow_torn_tail` (default True) is the crash-recovery escape
-        hatch: if the FINAL line of the file is truncated — a crash
-        mid-write, or an append that never finished — it is dropped and
-        the count is recorded on the `report` object instead of raising.
-        A torn tail is indistinguishable from a crash and is not treated
-        as tamper evidence; anything wrong anywhere else raises.
+        `allow_torn_tail` (default True) admits the crash-recovery path for
+        the FINAL line of the file: if it is truncated — not valid JSON, or
+        not a JSON object — it is dropped and the count is recorded on the
+        `report` object. But a drop is only performed under a digest pin
+        (`expected_digest`): this library only ever rewrites the main file
+        atomically, so a torn final line was NOT produced by a crash of
+        this writer — it is an externally truncated file, and silently
+        dropping the tail would accept a tail-deleted ledger as the chain
+        you reviewed. Pinned recovery is an explicit operator act: the pin
+        must cover the truncated bytes as they are. Without a pin the load
+        refuses; `allow_torn_tail=False` refuses torn tails even with a
+        pin. A hash/link mismatch anywhere (the final line included)
+        always raises — that is tamper, not a crash.
 
         `expected_digest` (`sha256:<hex>`, see `ledger_digest`) pins the
         file: the chain is verified against itself, the pin against what
@@ -473,7 +486,8 @@ class EvidenceLedger:
                     if not allow_torn_tail:
                         raise LedgerFileError(
                             f"{path}: {item['error']} (truncated final entry; "
-                            "pass allow_torn_tail=True to drop it and recover)"
+                            "pass allow_torn_tail=True together with a digest "
+                            "pin to drop it and recover)"
                         )
                     dropped_tail += 1
                     tail_detail = item["error"]
@@ -557,6 +571,23 @@ class EvidenceLedger:
                 expected_prev = recomputed
 
             if dropped_tail:
+                if expected_digest is None:
+                    # No pin, no recovery. The main file is only ever
+                    # rewritten atomically (_atomic_write_lines), so a torn
+                    # final line cannot come from a crash of this writer —
+                    # an attacker who deletes trailing entries and leaves a
+                    # half-JSON last line would otherwise get the file
+                    # accepted, unpinned, with the tail silently gone.
+                    raise LedgerFileError(
+                        f"{path}: {tail_detail} — a torn final entry on an "
+                        "UNPINNED ledger is refused: this file is only "
+                        "rewritten atomically, so a torn tail was not "
+                        "produced by a crash of this writer, and dropping "
+                        "it would accept a possibly tail-deleted file. To "
+                        "recover, pin the reviewed bytes as they are "
+                        "(expected_digest=<sha256:...>); to refuse torn "
+                        "tails outright, pass allow_torn_tail=False."
+                    )
                 # A torn tail means the header's count was written for a
                 # chain we no longer fully have. Re-derive the header so
                 # the recovered ledger is internally consistent, and keep

@@ -32,7 +32,7 @@ def _run_once() -> dict:
     for kind, payload, evidence in SCENARIO:
         ledger.append(Claim(kind=kind, payload=payload, evidence=evidence))
 
-    ok, detail = ledger.verify()
+    ok, _ = ledger.verify()
 
     engine = RuleEngine(rules=security_rules())
     engine.add_facts_from_ledger(ledger)

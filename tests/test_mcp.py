@@ -93,6 +93,76 @@ class TestSessionTools:
         assert len(export["entries"]) == 1
 
 
+class TestIngestBoundaryRefusals:
+    """Malformed batch items are refused per-item, not crash the call."""
+
+    def _session(self) -> NomosGuardSession:
+        return NomosGuardSession(rules=default_rules(), policy_rules=default_policy_rules())
+
+    def test_claims_must_be_a_list(self):
+        s = self._session()
+        result = s.evidence_ingest("not-a-list")
+        assert result["accepted"] == 0
+        assert result["rejected"] == [
+            {"index": None, "reason": "claims must be a list of claim objects, got str"}
+        ]
+
+    def test_non_object_item_is_rejected_by_index(self):
+        s = self._session()
+        result = s.evidence_ingest([42, {"kind": "tool_call",
+                                         "payload": {"agent": "a", "tool": "t"},
+                                         "evidence": "log"}])
+        assert result["accepted"] == 1
+        assert result["rejected"][0]["index"] == 0
+        assert "claim must be an object" in result["rejected"][0]["reason"]
+
+    def test_non_object_payload_is_a_rejection_not_a_typeerror(self):
+        s = self._session()
+        result = s.evidence_ingest([
+            {"kind": "tool_call", "payload": "nope", "evidence": "log"},
+        ])
+        assert result["accepted"] == 0
+        assert result["rejected"][0]["index"] == 0
+        assert "payload" in result["rejected"][0]["reason"]
+
+    def test_no_stringification_of_claim_fields(self):
+        """kind=42 used to become the claim kind "42" (a ledger of noise);
+        the boundary now refuses the type instead."""
+        s = self._session()
+        result = s.evidence_ingest([
+            {"kind": 42, "payload": {"agent": "a", "tool": "t"}, "evidence": "log"},
+        ])
+        assert result["accepted"] == 0
+        assert result["rejected"][0]["reason"]
+
+    def test_assert_claim_non_object_payload_is_refused_not_a_crash(self):
+        s = self._session()
+        result = s.assert_claim("tool_call", "nope", "log line")
+        assert result["accepted"] is False
+        assert "payload" in result["reason"]
+
+    def test_persistence_failure_never_diverges_memory_from_disk(self, monkeypatch):
+        """Persist-first: if the write fails, the in-memory ledger must not
+        hold the claim the disk rejected — otherwise the session's decisions
+        would rest on an entry no reviewer can find."""
+        s = self._session()
+        calls = {"n": 0}
+
+        def failing_persist(claim):  # the disk path refuses
+            calls["n"] += 1
+            raise LedgerFileError("disk full (simulated)")
+
+        monkeypatch.setattr(s, "_append_persisted", failing_persist)
+        result = s.evidence_ingest([
+            {"kind": "tool_call", "payload": {"agent": "a", "tool": "t"},
+             "evidence": "log line"},
+        ])
+        assert calls["n"] == 1
+        assert result["accepted"] == 0
+        assert "ledger persistence failed" in result["rejected"][0]["reason"]
+        assert len(s.ledger.entries) == 0, "memory must not hold what the disk refused"
+
+
 class TestToolSchemas:
     def test_five_tools_exposed(self):
         names = {t["name"] for t in TOOLS}
@@ -383,8 +453,7 @@ class TestGateDeniedBoundary:
         assert result["denied"] is False
 
     def test_malformed_rule_set_denies_instead_of_raising(self):
-        from nomosguard.gate import Decision
-        from nomosguard.rules import Pattern, Rule
+        from nomosguard.rules import Pattern, Rule, RuleDefinitionError, RuleEngine
 
         bad = Rule(
             name="never_fires",
@@ -393,7 +462,7 @@ class TestGateDeniedBoundary:
             head=Pattern("?x", "exposes", "?y"),
         )
         session = NomosGuardSession(rules=[bad], policy_rules=default_policy_rules())
-        with pytest.raises(Exception):
+        with pytest.raises(RuleDefinitionError):
             RuleEngine(rules=[bad])
         result = session.decide()
         assert result["decision"] == "BLOCK"

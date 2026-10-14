@@ -11,11 +11,9 @@ import random
 import string
 import time
 
-import pytest
-
-from nomosguard.ledger import EvidenceLedger, Claim
-from nomosguard.rules import RuleEngine, Rule, Pattern, Fact
-from nomosguard.gate import PolicyGate, Decision
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.rules import Fact, Pattern, Rule, RuleEngine
 
 
 class TestSignatureFuzz:
@@ -36,7 +34,7 @@ class TestSignatureFuzz:
 
 class TestTemporalFuzz:
     def test_500_random_events_no_hang(self):
-        from nomosguard.temporal import evaluate_temporal, default_temporal_rules
+        from nomosguard.temporal import default_temporal_rules, evaluate_temporal
         rng = random.Random(1337)
         keywords = ["failed password", "SYN scan", "dbytes=9999999", "normal"]
         lines = [
@@ -120,10 +118,10 @@ class TestRuleClosure:
 
 class TestEmptyInputs:
     def test_all_layers_handle_empty(self):
+        from nomosguard.log_normalize import normalize_logs
         from nomosguard.signatures import match_all
         from nomosguard.signatures_builtin import builtin_signatures
-        from nomosguard.temporal import evaluate_temporal, default_temporal_rules
-        from nomosguard.log_normalize import normalize_logs
+        from nomosguard.temporal import default_temporal_rules, evaluate_temporal
         assert match_all([], builtin_signatures()) == []
         assert normalize_logs([]) == []
         evaluate_temporal([], default_temporal_rules())  # no crash

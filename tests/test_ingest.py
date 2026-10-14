@@ -182,3 +182,132 @@ class TestIngestEndToEnd:
             assert len(derived) == 1
             assert derived[0].subject == "researcher"
             assert derived[0].object == "orders_db"
+
+
+class TestCliLogKinds:
+    """The CLI drives every adapter and the same rule set the MCP runs."""
+
+    def _log(self, td, content: str, name: str = "log.jsonl") -> Path:
+        path = Path(td) / name
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def test_default_log_kind_is_toolcall(self, capsys):
+        """A tool-call line ingests cleanly; the vuln/policy adapters would
+        have rejected it (no component/subject field)."""
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(td, '{"agent": "a", "tool": "t", "target": "db"}\n')
+            assert main([str(log)]) == 0
+            out = capsys.readouterr().out
+            assert '"accepted": 1' in out
+            assert '"rejected": []' in out
+
+    def test_vuln_log_kind_uses_the_vuln_adapter(self, capsys):
+        """A CVE line ingests under --log-kind vuln; the tool-call adapter
+        would have rejected it (no agent field)."""
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(
+                td, '{"component": "db", "cve": "CVE-2026-1", "severity": "high"}\n',
+                name="cves.jsonl",
+            )
+            assert main([str(log), "--log-kind", "vuln"]) == 0
+            out = capsys.readouterr().out
+            assert '"accepted": 1' in out
+            assert '"rejected": []' in out
+
+    def test_policy_log_kind_uses_the_policy_adapter(self, capsys):
+        """A policy line ingests under --log-kind policy; the other two
+        adapters would have rejected it."""
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(
+                td, '{"subject": "a", "action": "sql", "resource": "db", "effect": "deny"}\n',
+                name="policies.jsonl",
+            )
+            assert main([str(log), "--log-kind", "policy"]) == 0
+            out = capsys.readouterr().out
+            assert '"accepted": 1' in out
+            assert '"rejected": []' in out
+
+    def test_security_flag_uses_the_mcp_rule_set(self):
+        """--security must mean the same composition the MCP server runs,
+        not a third dialect of the rule set."""
+        from nomosguard.ingest.cli import _security_rules
+        from nomosguard.mcp_server import default_policy_rules, default_rules
+        from nomosguard.policy import default_policy
+
+        rules, gate = _security_rules()
+        assert [r.name for r in rules] == [r.name for r in default_rules()]
+        assert [g.name for g in gate] == [g.name for g in default_policy_rules()]
+        tool_rules, _ = default_policy()
+        assert len(rules) > len(tool_rules), "the security set adds attack-graph rules"
+
+    def test_security_flag_runs_end_to_end(self, capsys):
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(td, '{"agent": "a", "tool": "t", "target": "db"}\n')
+            assert main([str(log), "--security"]) == 0
+            assert "=== Decision ===" in capsys.readouterr().out
+
+    def test_security_with_policy_is_refused(self, capsys):
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(td, '{"agent": "a", "tool": "t"}\n')
+            policy = self._log(td, '{"rules": [], "gate": []}', name="policy.json")
+            assert main([str(log), "--security", "--policy", str(policy)]) == 2
+            assert "cannot be combined" in capsys.readouterr().err
+
+    def test_ledger_digest_pins_the_file(self, capsys):
+        from nomosguard.ingest.cli import main
+        from nomosguard.ledger import ledger_digest
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(td, '{"agent": "a", "tool": "t", "target": "db"}\n')
+            ledger_path = Path(td) / "ledger.jsonl"
+            assert main([str(log), "--ledger", str(ledger_path)]) == 0
+            capsys.readouterr()
+            # re-running with the pinned digest succeeds (same file, same bytes)
+            assert main([
+                str(log), "--ledger", str(ledger_path),
+                "--ledger-digest", ledger_digest(ledger_path),
+            ]) == 0
+
+    def test_wrong_ledger_digest_refuses(self, capsys):
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(td, '{"agent": "a", "tool": "t", "target": "db"}\n')
+            ledger_path = Path(td) / "ledger.jsonl"
+            assert main([str(log), "--ledger", str(ledger_path)]) == 0
+            capsys.readouterr()
+            assert main([
+                str(log), "--ledger", str(ledger_path),
+                "--ledger-digest", "sha256:" + "0" * 64,
+            ]) == 2
+            assert "digest mismatch" in capsys.readouterr().err
+
+    def test_ledger_digest_without_ledger_refuses(self, capsys):
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(td, '{"agent": "a", "tool": "t"}\n')
+            assert main([str(log), "--ledger-digest", "sha256:" + "0" * 64]) == 2
+            assert "--ledger-digest requires --ledger" in capsys.readouterr().err
+
+    def test_ledger_digest_on_a_new_file_refuses(self, capsys):
+        from nomosguard.ingest.cli import main
+
+        with tempfile.TemporaryDirectory() as td:
+            log = self._log(td, '{"agent": "a", "tool": "t"}\n')
+            assert main([
+                str(log), "--ledger", str(Path(td) / "none.jsonl"),
+                "--ledger-digest", "sha256:" + "0" * 64,
+            ]) == 2
+            assert "about to be created" in capsys.readouterr().err

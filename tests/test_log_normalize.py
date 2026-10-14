@@ -125,7 +125,7 @@ class TestEndToEndWithTemporal:
 
 # -- additional formats (v2) ---------------------------------------------------
 
-from nomosguard.log_normalize import normalize_xml, normalize_gelf, normalize_pipe
+from nomosguard.log_normalize import normalize_gelf, normalize_pipe, normalize_xml
 
 
 class TestXml:

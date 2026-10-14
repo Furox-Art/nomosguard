@@ -11,13 +11,12 @@ import time
 
 import pytest
 
-from nomosguard.ledger import EvidenceLedger, Claim
+from nomosguard import facts_security  # noqa: F401
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.ledger import Claim, EvidenceLedger, UnevidencedClaimError
+from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
-from nomosguard.gate import PolicyGate, Decision
-from nomosguard.policy_security import containment_policy_rules
-
-from nomosguard import facts_security  # noqa: F401
 
 
 class TestTamperEvasion:
@@ -70,7 +69,7 @@ class TestDeterminismUnderAdversary:
 
 class TestRedos:
     def test_temporal_no_catastrophic_backtracking(self):
-        from nomosguard.temporal import evaluate_temporal, default_temporal_rules
+        from nomosguard.temporal import default_temporal_rules, evaluate_temporal
         evil = "src=" + "a" * 5000 + " " + "failed password " * 200
         t0 = time.perf_counter()
         evaluate_temporal([evil], default_temporal_rules())
@@ -97,7 +96,7 @@ class TestPayloadInjection:
 
     def test_empty_evidence_rejected(self):
         led = EvidenceLedger()
-        with pytest.raises(Exception):
+        with pytest.raises(UnevidencedClaimError):
             led.append(Claim(kind="network",
                              payload={"host": "a", "port": 22,
                                       "allowed_from": "x", "protocol": "tcp"},

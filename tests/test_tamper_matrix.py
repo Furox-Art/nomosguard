@@ -18,9 +18,13 @@ and they are pinned here as findings with their fix, not hidden:
   `load(expected_digest=...)` / `NomosGuardSession(ledger_digest=...)`.
   Both variants are tested: accepted unpinned (the documented boundary),
   refused pinned (the fix).
-- a torn FINAL line: a crash mid-write. Recovered by design, but the
-  drop must be REPORTED (`LedgerLoadReport`, surfaced as
-  `session.load_report`) and a strict load must still refuse.
+- a torn FINAL line on an UNPINNED ledger: the main file is only ever
+  rewritten atomically, so a torn tail was NOT produced by a crash of
+  this writer — an unpinned torn load is refused outright. Recovery is
+  an explicit operator act: pin the reviewed bytes
+  (`load(expected_digest=...)`), the drop must be REPORTED
+  (`LedgerLoadReport`, surfaced as `session.load_report`), and a strict
+  load must still refuse.
 
 Everything else in the matrix must raise the typed error named by its
 case, before AND after any future change.
@@ -30,9 +34,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 import pytest
 
@@ -50,7 +54,6 @@ from nomosguard.mcp_server import (
     default_policy_rules,
     default_rules,
 )
-
 
 # -- helpers -------------------------------------------------------------------
 
@@ -441,7 +444,7 @@ class TestTamperBoundaries:
 
     def _rewritten(self, tmp_path) -> tuple[Path, str]:
         path = tmp_path / "ledger.jsonl"
-        ledger = _build(path)
+        _build(path)
         pinned = ledger_digest(path)
         records = _read(path)
         for record in records[1:]:
@@ -512,7 +515,8 @@ class TestTamperBoundaries:
 
 
 class TestTornTailIsRecoveredAndReported:
-    """A torn FINAL line is a crash, not tamper — but never a silent drop."""
+    """A torn FINAL line is refused unpinned; under an explicit digest pin
+    it is dropped, reported, and healed — never silently."""
 
     def _torn(self, tmp_path) -> Path:
         path = tmp_path / "ledger.jsonl"
@@ -521,12 +525,18 @@ class TestTornTailIsRecoveredAndReported:
         path.write_text(text[: len(text) - 12], encoding="utf-8")  # cut mid-line
         return path
 
-    def test_default_load_recovers_and_reports_the_drop(self, tmp_path):
+    def test_unpinned_torn_tail_is_refused(self, tmp_path):
+        path = self._torn(tmp_path)
+        with pytest.raises(LedgerFileError, match="UNPINNED"):
+            EvidenceLedger.load(path)
+
+    def test_pinned_load_recovers_and_reports_the_drop(self, tmp_path):
         from nomosguard.ledger import LedgerLoadReport
 
         path = self._torn(tmp_path)
+        pinned = ledger_digest(path)  # the operator pins the reviewed bytes
         report = LedgerLoadReport(entries=[], header={})
-        loaded = EvidenceLedger.load(path, report=report)
+        loaded = EvidenceLedger.load(path, report=report, expected_digest=pinned)
         assert len(loaded.entries) == 2
         assert report.dropped_tail == 1
         assert report.tail_detail
@@ -539,10 +549,12 @@ class TestTornTailIsRecoveredAndReported:
     def test_session_surfaces_the_recovery_instead_of_hiding_it(self, tmp_path):
         """No silent degradation: the drop is visible on the session."""
         path = self._torn(tmp_path)
+        pinned = ledger_digest(path)
         session = NomosGuardSession(
             rules=default_rules(),
             policy_rules=default_policy_rules(),
             ledger_path=path,
+            ledger_digest=pinned,
         )
         assert session.load_report is not None
         assert session.load_report.dropped_tail == 1
@@ -550,9 +562,24 @@ class TestTornTailIsRecoveredAndReported:
         decision = session.decide()
         assert decision["decision"] == "BLOCK"
 
+    def test_session_heals_the_file_after_pinned_recovery(self, tmp_path):
+        """The pinned recovery heals the file on disk (under the lock), so a
+        later unpinned reader sees a clean chain — not a poisoned one."""
+        path = self._torn(tmp_path)
+        pinned = ledger_digest(path)
+        NomosGuardSession(
+            rules=default_rules(),
+            policy_rules=default_policy_rules(),
+            ledger_path=path,
+            ledger_digest=pinned,
+        )
+        reloaded = EvidenceLedger.load(path)  # now clean: no refusal
+        assert len(reloaded.entries) == 2
+
     def test_append_after_recovery_continues_a_valid_chain(self, tmp_path):
         path = self._torn(tmp_path)
-        loaded = EvidenceLedger.load(path)
+        pinned = ledger_digest(path)
+        loaded = EvidenceLedger.load(path, expected_digest=pinned)
         entry = loaded.append(Claim("tool_call", {"agent": "z", "tool": "t"}, "line"))
         assert entry.seq == 3
         ok, _ = loaded.verify()

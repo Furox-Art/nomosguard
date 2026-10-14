@@ -256,11 +256,10 @@ def _parse_version(version: str | None) -> tuple[int, ...] | None:
         if not match:
             break
         parts.append(int(match.group(1)))
-        if match.group(2):
-            # Only a trailing letter (1.0.1g) carries ordering weight; an
-            # embedded one (1.0a.2) is a rebuild label we ignore.
-            if index == len(chunks) - 1:
-                trailing_letter = ord(match.group(2)) - ord("a") + 1
+        # Only a trailing letter (1.0.1g) carries ordering weight; an
+        # embedded one (1.0a.2) is a rebuild label we ignore.
+        if match.group(2) and index == len(chunks) - 1:
+            trailing_letter = ord(match.group(2)) - ord("a") + 1
     if not parts:
         return None
     # Pad to three components so (9,6) and (9,6,1) compare sensibly, then

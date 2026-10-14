@@ -16,8 +16,7 @@ import pytest
 
 from nomosguard.constants import VALID_POLICY_EFFECTS
 from nomosguard.ledger import Claim, EvidenceLedger
-from nomosguard.rules import ClaimValueError, RuleEngine
-from nomosguard.rules import _extract_policy_rule
+from nomosguard.rules import ClaimValueError, RuleEngine, _extract_policy_rule
 
 
 class TestExtractorRefusesToGuess:
@@ -106,10 +105,10 @@ class TestIngestAdapterRefusesFirst:
     """The ingest path rejects the same malformed record before the ledger."""
 
     def test_ingest_refuses_a_policy_line_without_effect(self):
-        from nomosguard.ingest import IngestError, ingest_policy_jsonl
-
         import tempfile
         from pathlib import Path
+
+        from nomosguard.ingest import ingest_policy_jsonl
 
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "policies.jsonl"
@@ -153,3 +152,87 @@ class TestSdkBoundaryConvertsTheRefusal:
         assert derived["denied"] is True
         assert derived["derived_facts"] == []
         assert session.explain()["denied"] is True
+
+
+class TestStringFieldsAreNotStringified:
+    """`str(payload.get(...))` invented values: 42 became the agent "42"."""
+
+    def test_tool_call_agent_number_is_refused(self):
+        from nomosguard.rules import _extract_tool_call
+
+        with pytest.raises(ClaimValueError, match="field 'agent' must be a string, got 42"):
+            _extract_tool_call({"agent": 42, "tool": "t", "target": "db"}, "log")
+
+    def test_tool_call_null_field_keeps_no_fact_semantics(self):
+        from nomosguard.rules import _extract_tool_call
+
+        # absent/null stays the documented "no fact" case (no invented "None")
+        assert _extract_tool_call({"agent": None, "tool": "t"}, "log") == []
+
+    def test_network_port_boolean_is_refused(self):
+        """True is an int in Python: port=True used to become "tcp:True"."""
+        import nomosguard.facts_security  # noqa: F401 — registers extractors
+        from nomosguard.rules import _extract_facts
+
+        with pytest.raises(ClaimValueError, match="field 'port' must be an integer, got True"):
+            _extract_facts("network", {"host": "h", "protocol": "tcp", "port": True}, "fw")
+
+    def test_network_port_string_is_refused(self):
+        import nomosguard.facts_security  # noqa: F401
+        from nomosguard.rules import _extract_facts
+
+        with pytest.raises(ClaimValueError, match="field 'port' must be an integer, got '443'"):
+            _extract_facts("network", {"host": "h", "protocol": "tcp", "port": "443"}, "fw")
+
+    def test_vuln_severity_number_is_refused(self):
+        import nomosguard.facts_security  # noqa: F401
+        from nomosguard.rules import _extract_facts
+
+        with pytest.raises(ClaimValueError, match="field 'severity' must be a string, got 9"):
+            _extract_facts("vuln_severity",
+                           {"host": "h", "severity": 9}, "nvd")
+
+    def test_host_services_items_must_be_strings(self):
+        import nomosguard.facts_security  # noqa: F401
+        from nomosguard.rules import _extract_facts
+
+        with pytest.raises(ClaimValueError, match="'services' must contain strings"):
+            _extract_facts("host", {"hostname": "h", "services": ["ssh", 42]}, "inv")
+
+
+class TestUnknownClaimKindsAreReported:
+    """A claim kind with no extractor derived nothing — silently. Now counted."""
+
+    def _engine_with(self, kind: str):
+        ledger = EvidenceLedger()
+        ledger.append(Claim(kind, {"x": 1}, "raw record"))
+        ledger.append(
+            Claim("tool_call", {"agent": "a", "tool": "t", "target": "db"}, "log")
+        )
+        engine = RuleEngine(rules=[])
+        engine.add_facts_from_ledger(ledger)
+        return engine
+
+    def test_engine_counts_claims_no_extractor_understands(self):
+        engine = self._engine_with("mystery_record")
+        assert engine.unknown_claim_kinds == {"mystery_record": 1}
+        summary = engine.derive()
+        assert summary["unknown_claim_kinds"] == {"mystery_record": 1}
+
+    def test_known_kinds_are_not_counted(self):
+        engine = self._engine_with("tool_call")
+        assert engine.unknown_claim_kinds == {}
+
+    def test_session_derive_paths_surfaces_the_counts(self):
+        from nomosguard.mcp_server import (
+            NomosGuardSession,
+            default_policy_rules,
+            default_rules,
+        )
+
+        session = NomosGuardSession(
+            rules=default_rules(), policy_rules=default_policy_rules()
+        )
+        session.assert_claim("mystery_record", {"x": 1}, "raw record")
+        derived = session.derive_paths()
+        assert derived["unknown_claim_kinds"] == {"mystery_record": 1}

@@ -52,7 +52,7 @@ import re
 from typing import Any
 
 from .ledger import Claim
-from .rules import Fact, register_extractor
+from .rules import Fact, _string_field, register_extractor
 from .signatures import Match, Signature, match_all
 from .signatures_builtin import builtin_signatures
 
@@ -173,14 +173,15 @@ def _extract_signature_claim(
     behavioural fact it describes. Only the critical-level extra fact
     depends on `level`, and a missing level simply means "not critical".
     """
-    subject = str(payload.get("subject", "")).strip()
+    subject = _string_field(payload, "subject", "signature").strip()
     if not subject:
         return []
-    signature_id = str(payload.get("signature_id", "")).strip()
+    signature_id = _string_field(payload, "signature_id", "signature").strip()
     if not signature_id:
         return []
-    level = str(payload.get("level", "")).strip().lower()
-    title = str(payload.get("title", "")).strip() or signature_id
+    kind = claim_kind(signature_id)
+    level = _string_field(payload, "level", kind).strip().lower()
+    title = _string_field(payload, "title", kind).strip() or signature_id
 
     facts = [
         Fact(
