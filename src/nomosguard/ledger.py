@@ -15,6 +15,7 @@ Design rules (enforced here, not by convention):
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import tempfile
@@ -56,6 +57,42 @@ def wal_path_for(ledger_path: str | Path) -> Path:
     associable with its ledger. `ledger.jsonl` -> `ledger.jsonl.wal`.
     """
     return Path(str(ledger_path) + ".wal")
+
+
+def ledger_digest(path: str | Path) -> str:
+    """The digest pin for a ledger file: `sha256:<hex>` of its bytes.
+
+    Same discipline as `policy.policy_digest`: commit the pin next to the
+    ledger and pass it back to `EvidenceLedger.load(..., expected_digest=)`
+    or `NomosGuardSession(..., ledger_digest=)`. A ledger that is not the
+    one you pinned is refused instead of applied.
+
+    Why a pin at all: the hash chain proves the records agree with EACH
+    OTHER. It cannot see the one tamper that keeps every internal
+    invariant intact — a full rewrite that re-hashes every record, the
+    links and the header consistently. Only a digest held outside the
+    file proves the file is the one you reviewed, which is why this
+    exists alongside the chain instead of replacing it.
+
+    CRLF bytes are normalised to LF before hashing, so a pin computed on
+    one platform holds on every other (a Windows checkout must not
+    recompute a different digest for a byte-identical ledger).
+    """
+    path = Path(path)
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise LedgerFileError(f"cannot read ledger file: {exc}") from exc
+    return "sha256:" + hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+
+
+def _digest_pin_matches(actual: str, expected: Any) -> bool:
+    """Compare digest pins without short-circuiting (constant-time-ish)."""
+    if not isinstance(expected, str) or not expected.startswith("sha256:"):
+        raise LedgerFileError(
+            f"expected digest must look like sha256:<hex>, got {expected!r}"
+        )
+    return hmac.compare_digest(actual, expected)
 
 
 @dataclass(frozen=True)
@@ -356,12 +393,14 @@ class EvidenceLedger:
         *,
         allow_torn_tail: bool = True,
         report: LedgerLoadReport | None = None,
+        expected_digest: str | None = None,
     ) -> EvidenceLedger:
         """Load a ledger from disk, verifying the full chain.
 
         Refuses (raises LedgerFileError) when:
         - the file is missing, unreadable, or not valid JSONL
         - the header is missing or has an unknown format version
+        - the file's bytes are not the pinned ones (`expected_digest`)
         - an entry is not valid JSON, or its claim is malformed
         - an entry's claim is INVALID: empty kind, non-dict payload, or
           empty evidence — the same rules `append` enforces, checked here
@@ -378,12 +417,26 @@ class EvidenceLedger:
         A torn tail is indistinguishable from a crash and is not treated
         as tamper evidence; anything wrong anywhere else raises.
 
+        `expected_digest` (`sha256:<hex>`, see `ledger_digest`) pins the
+        file: the chain is verified against itself, the pin against what
+        you reviewed. A full, internally consistent REWRITE of the file
+        passes every chain check — the pin is what catches it.
+
         On success the ledger is open for appending: new entries continue
         from the loaded head hash.
         """
         path = Path(path)
         if not path.is_file():
             raise LedgerFileError(f"ledger file not found: {path}")
+
+        if expected_digest is not None:
+            actual = ledger_digest(path)
+            if not _digest_pin_matches(actual, expected_digest):
+                raise LedgerFileError(
+                    f"ledger digest mismatch: {path} is {actual}, "
+                    f"expected {expected_digest} — refusing to run against "
+                    "a ledger that is not the one you pinned"
+                )
 
         try:
             fh = path.open("r", encoding="utf-8")
