@@ -126,8 +126,15 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
     ]
     exercised = [r for r in results if r.fail_closed_exercised]
     judged = [r for r in results if r.fail_closed_ok is not None]
+    # The headline KPI measures the fail-closed PATH. When the gate never
+    # fell back on any scenario, nothing about that path was measured —
+    # the per-scenario True values that remain are "a rule decided it",
+    # which is not a fail-closed measurement, and aggregating them into
+    # an OK would be the 0.7.7 defaulted-success bug in a new coat (the
+    # markdown headline has keyed on `exercised` since 0.7.7; the JSON
+    # summary now agrees with it: None means NOT EXERCISED, never OK).
     fail_closed_ok = (
-        all(r.fail_closed_ok for r in judged) if judged else None
+        all(r.fail_closed_ok for r in judged) if exercised else None
     )
 
     recall = caught / total_expected if total_expected else 1.0

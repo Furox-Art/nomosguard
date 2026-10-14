@@ -9,7 +9,7 @@
   "fail_closed_scenarios": 1,
   "fail_closed_exercised": 3,
   "all_passed": true,
-  "run_at": "2026-10-13T01:47:35.873631+00:00",
+  "run_at": "2026-10-14T02:58:15.887193+00:00",
   "results": [
     {
       "name": "positive_vulnerable_exposure",
