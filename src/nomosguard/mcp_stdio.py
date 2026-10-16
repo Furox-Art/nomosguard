@@ -264,10 +264,26 @@ def _out():
     return _OUT
 
 
+# Bound the input line before JSON decoding. A malicious MCP peer cannot
+# force Python's text iterator to buffer an unbounded request frame.
+MAX_MCP_FRAME_CHARS = 1024 * 1024
+
+
 def _stdin_lines():
-    """Yield request lines, and end the loop cleanly on a closed pipe."""
+    """Yield bounded (line, oversized) frames and drain oversized input."""
     try:
-        yield from sys.stdin
+        while True:
+            line = sys.stdin.readline(MAX_MCP_FRAME_CHARS + 1)
+            if not line:
+                return
+            if len(line) > MAX_MCP_FRAME_CHARS:
+                # Drain one oversized frame *in bounded chunks*, preserving
+                # the boundary of the next valid JSON-RPC request.
+                while line and not line.endswith("\n"):
+                    line = sys.stdin.readline(MAX_MCP_FRAME_CHARS + 1)
+                yield "", True
+            else:
+                yield line, False
     except (BrokenPipeError, OSError):
         return
 
@@ -330,7 +346,10 @@ def _parse_and_start(argv: list[str] | None = None) -> NomosGuardSession:
 
 def _serve_loop(session: NomosGuardSession) -> None:
     """Read requests until stdin ends, one complete response per request."""
-    for line in _stdin_lines():
+    for line, oversized in _stdin_lines():
+        if oversized:
+            _write_response(_error(None, -32600, "MCP message too large"))
+            continue
         line = line.strip()
         if not line:
             continue

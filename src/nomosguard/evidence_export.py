@@ -78,6 +78,10 @@ DIGEST_ALGORITHM = "sha256"
 #: (unhashed) timestamps, so the same evidence pins the same digest.
 DIGEST_SCOPE = "canonical-json-entries"
 
+# A supplied export must not exhaust process memory before verification.
+# Large exports can be split into smaller independently verifiable bundles.
+MAX_EXPORT_BUNDLE_BYTES = 64 * 1024 * 1024
+
 _ENTRY_FIELDS = ("seq", "claim", "entry_hash", "prev_hash")
 
 
@@ -167,9 +171,14 @@ def read_export_bundle(path: str | Path) -> dict[str, Any]:
     """
     path = Path(path)
     try:
-        raw = path.read_bytes()
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_EXPORT_BUNDLE_BYTES + 1)
     except OSError as exc:
         raise ExportError(f"cannot read export bundle: {exc}") from exc
+    if len(raw) > MAX_EXPORT_BUNDLE_BYTES:
+        raise ExportError(
+            f"{path}: export bundle exceeds {MAX_EXPORT_BUNDLE_BYTES} byte limit"
+        )
     try:
         bundle = _strict_loads(raw.decode("utf-8"))
     except (UnicodeError, ValueError) as exc:
