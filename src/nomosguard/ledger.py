@@ -95,6 +95,24 @@ def _digest_pin_matches(actual: str, expected: Any) -> bool:
     return hmac.compare_digest(actual, expected)
 
 
+def _require_string_json_keys(value: Any) -> None:
+    """Reject Python mapping keys that JSON would coerce into ambiguous names.
+
+    JSON permits only string object keys. In particular, `{1: x, "1": y}`
+    serializes with duplicate keys and can crash canonical sorting or change
+    meaning after loading. Traverse tuple values too, since Python's JSON
+    encoder accepts tuples as arrays.
+    """
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if not isinstance(key, str):
+                raise ValueError("JSON object keys must be strings")
+            _require_string_json_keys(child)
+    elif isinstance(value, (list, tuple)):
+        for child in value:
+            _require_string_json_keys(child)
+
+
 @dataclass(frozen=True)
 class Claim:
     """A structured, machine-checkable assertion about the security state.
@@ -116,7 +134,8 @@ class Claim:
             raise UnevidencedClaimError("claim.payload must be a dict")
         try:
             json.dumps(self.payload, allow_nan=False)
-        except (TypeError, ValueError, OverflowError) as exc:
+            _require_string_json_keys(self.payload)
+        except (TypeError, ValueError, OverflowError, RecursionError) as exc:
             raise UnevidencedClaimError("claim.payload must be finite JSON data") from exc
         if not isinstance(self.evidence, str) or not self.evidence.strip():
             raise UnevidencedClaimError(

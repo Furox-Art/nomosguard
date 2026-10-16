@@ -25,3 +25,23 @@ def test_nested_finite_json_is_accepted() -> None:
     ledger = EvidenceLedger()
     ledger.append(Claim("event", {"nested": {"scores": [0.0, 1.0]}}, "source line"))
     assert ledger.verify()[0] is True
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {1: "numeric"},
+        {1: "numeric", "1": "colliding"},
+        {"nested": [{"value": {"inner": {False: "boolean"}}}]},
+        {"tuple_values": ({None: "null"},)},
+    ],
+)
+def test_non_string_object_keys_fail_closed(payload: dict) -> None:
+    with pytest.raises(UnevidencedClaimError, match="finite JSON"):
+        EvidenceLedger().append(Claim("event", payload, "source line"))
+
+
+def test_nested_string_keys_remain_deterministic() -> None:
+    ledger = EvidenceLedger()
+    ledger.append(Claim("event", {"nested": [{"1": 1, "false": False}]}, "source line"))
+    assert ledger.verify()[0] is True
