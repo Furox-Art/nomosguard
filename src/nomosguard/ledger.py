@@ -107,10 +107,13 @@ def _require_string_json_keys(value: Any) -> None:
         for key, child in value.items():
             if not isinstance(key, str):
                 raise TypeError("JSON object keys must be strings")
+            key.encode("utf-8")
             _require_string_json_keys(child)
     elif isinstance(value, (list, tuple)):
         for child in value:
             _require_string_json_keys(child)
+    elif isinstance(value, str):
+        value.encode("utf-8")
 
 
 @dataclass(frozen=True)
@@ -130,18 +133,26 @@ class Claim:
     def validate(self) -> None:
         if not isinstance(self.kind, str) or not self.kind.strip():
             raise UnevidencedClaimError("claim.kind must be a non-empty string")
+        try:
+            self.kind.encode("utf-8")
+        except UnicodeError as exc:
+            raise UnevidencedClaimError("claim.kind must be valid UTF-8 text") from exc
         if not isinstance(self.payload, dict):
             raise UnevidencedClaimError("claim.payload must be a dict")
         try:
             json.dumps(self.payload, allow_nan=False)
             _require_string_json_keys(self.payload)
-        except (TypeError, ValueError, OverflowError, RecursionError) as exc:
+        except (TypeError, ValueError, OverflowError, RecursionError, UnicodeError) as exc:
             raise UnevidencedClaimError("claim.payload must be finite JSON data") from exc
         if not isinstance(self.evidence, str) or not self.evidence.strip():
             raise UnevidencedClaimError(
                 "claim.evidence must be a non-empty string: "
                 "an LLM assertion without a cited evidence fragment is rejected"
             )
+        try:
+            self.evidence.encode("utf-8")
+        except UnicodeError as exc:
+            raise UnevidencedClaimError("claim.evidence must be valid UTF-8 text") from exc
 
 
 @dataclass(frozen=True)
