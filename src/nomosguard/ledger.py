@@ -106,7 +106,7 @@ def _require_string_json_keys(value: Any) -> None:
     if isinstance(value, dict):
         for key, child in value.items():
             if not isinstance(key, str):
-                raise ValueError("JSON object keys must be strings")
+                raise TypeError("JSON object keys must be strings")
             _require_string_json_keys(child)
     elif isinstance(value, (list, tuple)):
         for child in value:
