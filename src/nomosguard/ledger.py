@@ -110,10 +110,14 @@ class Claim:
     evidence: str
 
     def validate(self) -> None:
-        if not isinstance(self.kind, str) or not self.kind:
+        if not isinstance(self.kind, str) or not self.kind.strip():
             raise UnevidencedClaimError("claim.kind must be a non-empty string")
         if not isinstance(self.payload, dict):
             raise UnevidencedClaimError("claim.payload must be a dict")
+        try:
+            json.dumps(self.payload, allow_nan=False)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise UnevidencedClaimError("claim.payload must be finite JSON data") from exc
         if not isinstance(self.evidence, str) or not self.evidence.strip():
             raise UnevidencedClaimError(
                 "claim.evidence must be a non-empty string: "
