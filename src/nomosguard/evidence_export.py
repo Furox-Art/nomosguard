@@ -48,7 +48,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-from .ledger import Claim, EvidenceLedger, LedgerEntry, UnevidencedClaimError
+from .ledger import (
+    Claim,
+    EvidenceLedger,
+    LedgerEntry,
+    UnevidencedClaimError,
+    _strict_loads,
+)
 
 EXPORT_FORMAT = "nomosguard-evidence-export"
 EXPORT_FORMAT_VERSION = 1
@@ -165,8 +171,8 @@ def read_export_bundle(path: str | Path) -> dict[str, Any]:
     except OSError as exc:
         raise ExportError(f"cannot read export bundle: {exc}") from exc
     try:
-        bundle = json.loads(raw.decode("utf-8"))
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        bundle = _strict_loads(raw.decode("utf-8"))
+    except (UnicodeError, ValueError) as exc:
         raise ExportError(f"{path}: not a valid JSON export bundle: {exc}") from exc
     _validate_structure(bundle, where=str(path))
     return bundle

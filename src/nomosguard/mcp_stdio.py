@@ -18,6 +18,7 @@ import sys
 from typing import Any
 
 from .digest_pins import resolve_digest_pin
+from .ledger import _strict_loads
 from .mcp_server import (
     PROTOCOL_VERSION,
     SERVER_INFO,
@@ -334,8 +335,14 @@ def _serve_loop(session: NomosGuardSession) -> None:
         if not line:
             continue
         try:
-            request = json.loads(line)
+            request = _strict_loads(line)
         except json.JSONDecodeError:
+            continue
+        except (ValueError, UnicodeError):
+            # Invalid numeric constants, duplicate keys, and malformed
+            # Unicode must not silently change a security tool invocation.
+            # Do not echo the ambiguous request ID back to the client.
+            _write_response(_error(None, -32700, "invalid JSON request content"))
             continue
         if not isinstance(request, dict):
             # A JSON-RPC message must be an object. A bare array/number/
