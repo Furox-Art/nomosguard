@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import math
 import os
 import tempfile
 from collections.abc import Iterator
@@ -43,6 +44,40 @@ class LedgerFileError(ValueError):
 def _canonical(obj: Any) -> str:
     """Deterministic serialization: sorted keys, no incidental whitespace."""
     return json.dumps(obj, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+
+
+def _unique_json_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject parser-dependent JSON duplicates in persisted evidence records."""
+    value: dict[str, Any] = {}
+    for key, child in pairs:
+        if key in value:
+            raise ValueError("duplicate JSON object key")
+        value[key] = child
+    return value
+
+
+def _finite_json_float(source: str) -> float:
+    value = float(source)
+    if not math.isfinite(value):
+        raise ValueError("non-finite JSON number")
+    return value
+
+
+def _invalid_json_constant(value: str) -> None:
+    raise ValueError(f"non-standard JSON constant: {value}")
+
+
+def _strict_loads(source: str) -> Any:
+    value = json.loads(
+        source,
+        object_pairs_hook=_unique_json_fields,
+        parse_float=_finite_json_float,
+        parse_constant=_invalid_json_constant,
+    )
+    # A JSON escape can decode into an invalid Unicode surrogate. Reject
+    # before a later canonical hash unexpectedly raises UnicodeEncodeError.
+    json.dumps(value, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    return value
 
 
 def _sha256_hex(data: str) -> str:
@@ -288,7 +323,7 @@ def _parse_line(
 ) -> dict[str, Any]:
     body = text.rstrip("\n").rstrip("\r")
     try:
-        record = json.loads(body)
+        record = _strict_loads(body)
     except json.JSONDecodeError as exc:
         if torn_allowed:
             return {
@@ -299,6 +334,12 @@ def _parse_line(
             }
         raise LedgerFileError(
             f"{path}: line {lineno} is not valid JSON: {exc}"
+        ) from exc
+    except (ValueError, UnicodeError) as exc:
+        # A complete but ambiguous object is tampering, not a torn write.
+        # This holds even for the final record under an explicit digest pin.
+        raise LedgerFileError(
+            f"{path}: line {lineno} has invalid JSON content: {exc}"
         ) from exc
     if not isinstance(record, dict):
         msg = f"{path}: line {lineno} is not a JSON object"
@@ -497,8 +538,8 @@ class EvidenceLedger:
             if not header_line.strip():
                 raise LedgerFileError("ledger file is empty")
             try:
-                header = json.loads(header_line)
-            except json.JSONDecodeError as exc:
+                header = _strict_loads(header_line)
+            except (ValueError, UnicodeError) as exc:
                 raise LedgerFileError(f"ledger header is not valid JSON: {exc}") from exc
             if not isinstance(header, dict):
                 raise LedgerFileError("ledger header is not a JSON object")

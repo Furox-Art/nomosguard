@@ -53,6 +53,7 @@ from .ledger import (
     EvidenceLedger,
     LedgerEntry,
     UnevidencedClaimError,
+    _strict_loads,
     wal_path_for,
 )
 
@@ -130,11 +131,13 @@ def write_wal(
         for line in wal_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 try:
-                    rec = json.loads(line)
+                    rec = _strict_loads(line)
                     if isinstance(rec.get("seq"), int):
                         wal_seqs.add(rec["seq"])
                 except json.JSONDecodeError:
                     break  # torn tail: stop scanning
+                except (ValueError, UnicodeError) as exc:
+                    raise WalError(f"ambiguous or invalid WAL record: {exc}") from exc
 
     written = 0
     for entry in entries:
@@ -156,7 +159,7 @@ def _parse_wal_line(
     if not body.strip():
         return None
     try:
-        record = json.loads(body)
+        record = _strict_loads(body)
     except json.JSONDecodeError:
         if torn_allowed:
             return None
@@ -164,6 +167,8 @@ def _parse_wal_line(
             f"WAL line {lineno} is not valid JSON (torn write in the "
             "middle of the WAL is not recoverable)"
         ) from None
+    except (ValueError, UnicodeError) as exc:
+        raise WalError(f"WAL line {lineno} has ambiguous or invalid JSON: {exc}") from exc
     if not isinstance(record, dict):
         raise WalError(f"WAL line {lineno} is not a JSON object")
     return record
