@@ -94,3 +94,23 @@ def test_recorded_fixture_contract_is_root_relative() -> None:
     records = vuln_db.load_fixture_cache(fixture)
     assert isinstance(records, dict) and records
     assert all(key == key.upper() for key in records)
+
+
+def test_online_search_empty_valid_response_does_not_fabricate_cve(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = vuln_db.CachedNVDClient(cache_dir=tmp_path, offline=False)
+    monkeypatch.setattr(client, "_request", lambda params: {"vulnerabilities": []})
+    assert client.search_by_keyword("openssh") == []
+
+
+def test_nonexistent_named_manifest_does_not_fall_back_to_unsafe_pin(
+    tmp_path: Path,
+) -> None:
+    from nomosguard.digest_pins import resolve_digest_pin
+
+    # Colon suffix selects an entry only if the preceding file exists.
+    # An absent file must not silently resolve to a usable digest.
+    with pytest.raises(FileNotFoundError):
+        resolve_digest_pin(f"@{tmp_path / 'missing.manifest'}:entry")
