@@ -52,8 +52,8 @@ jobs:
           /tmp/clean-env/bin/python -m nomosguard.demo | python -m json.tool > /dev/null
           echo "zero-dependency demo OK"
 
-      - name: Run tests with coverage floor 85 (measured 91)
-        run: pytest tests/ -v -rs --cov=nomosguard --cov-branch --cov-report=term --cov-fail-under=85
+      - name: Run tests with 100% statement + branch coverage (zero skips)
+        run: pytest tests/ -v -rs --cov=nomosguard --cov-branch --cov-report=term --cov-fail-under=100
 
       - name: Run demo (smoke)
         run: python -m nomosguard.demo
