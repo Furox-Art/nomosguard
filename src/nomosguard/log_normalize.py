@@ -20,6 +20,7 @@ with the keywords the built-in extractors/temporal rules understand:
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 
@@ -56,9 +57,13 @@ class NormalizedLine:
     def render(self) -> str:
         parts = [f"[{self.time}]", f"{self.category}:"]
         if self.src_ip:
-            parts.append(f"src={self.src_ip}" + (f":{self.src_port}" if self.src_port else ""))
+            parts.append(
+                f"src={self.src_ip}" + (f":{self.src_port}" if self.src_port else "")
+            )
         if self.dst_ip:
-            parts.append(f"dst={self.dst_ip}" + (f":{self.dst_port}" if self.dst_port else ""))
+            parts.append(
+                f"dst={self.dst_ip}" + (f":{self.dst_port}" if self.dst_port else "")
+            )
         parts.extend(self.keywords)
         if self.dbytes:
             parts.append(f"dbytes={self.dbytes}")
@@ -77,6 +82,10 @@ def _canonical_time(text: str) -> str:
         return m.group(1)
     # ISO: 2026-10-09T08:14:02
     m = _re.search(r"\d{4}-\d{2}-\d{2}[T ](\d{2}:\d{2}:\d{2})", text)
+    if m:
+        return m.group(1)
+    # CEF/logfmt often carry time=HH:MM:SS rather than bare clock text.
+    m = _re.search(r"\b(?:time|timestamp)=(\d{2}:\d{2}:\d{2})(?:\s|$)", text)
     if m:
         return m.group(1)
     # syslog: 'Oct  9 08:14:01'
@@ -109,6 +118,38 @@ def _keywords(text: str) -> tuple[str, ...]:
 
 # -- format parsers --------------------------------------------------------------
 
+
+def _unique_pairs(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """A parser-dependent duplicate JSON key cannot count as reliable evidence."""
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate log JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _finite_json_number(value: str) -> float:
+    """JSON float overflow must never silently become infinity."""
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("non-finite log JSON number")
+    return number
+
+
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"nonstandard JSON numeric constant: {value}")
+
+
+def _load_strict_json(line: str) -> object:
+    return json.loads(
+        line,
+        object_pairs_hook=_unique_pairs,
+        parse_float=_finite_json_number,
+        parse_constant=_reject_json_constant,
+    )
+
+
 _IP = r"(?:\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})"
 
 
@@ -135,9 +176,14 @@ def normalize_syslog(line: str) -> NormalizedLine | None:
     if m4:
         dbytes = m4.group(1)
     return NormalizedLine(
-        time=_canonical_time(m.group("time")), category=m.group("proc"),
-        src_ip=src, src_port=sport, dst_ip=dst, dst_port=dport,
-        dbytes=dbytes, keywords=_keywords(msg),
+        time=_canonical_time(m.group("time")),
+        category=m.group("proc"),
+        src_ip=src,
+        src_port=sport,
+        dst_ip=dst,
+        dst_port=dport,
+        dbytes=dbytes,
+        keywords=_keywords(msg),
     )
 
 
@@ -161,9 +207,14 @@ def normalize_cef(line: str) -> NormalizedLine | None:
     if m:
         dbytes = m.group(1)
     return NormalizedLine(
-        time=_pick_time(ext), category=name or "cef",
-        src_ip=src, src_port=sport, dst_ip=dst, dst_port=dport,
-        dbytes=dbytes, keywords=_keywords(ext + " " + name),
+        time=_pick_time(ext),
+        category=name or "cef",
+        src_ip=src,
+        src_port=sport,
+        dst_ip=dst,
+        dst_port=dport,
+        dbytes=dbytes,
+        keywords=_keywords(ext + " " + name),
     )
 
 
@@ -173,8 +224,8 @@ def normalize_json(line: str) -> NormalizedLine | None:
     if not line.startswith("{"):
         return None
     try:
-        rec = json.loads(line)
-    except json.JSONDecodeError:
+        rec = _load_strict_json(line)
+    except (json.JSONDecodeError, ValueError):
         return None
     if not isinstance(rec, dict):
         return None
@@ -182,11 +233,17 @@ def normalize_json(line: str) -> NormalizedLine | None:
     cat = str(rec.get("event") or rec.get("category") or rec.get("type") or "json")
     src = str(rec.get("src_ip") or rec.get("source_ip") or rec.get("client_ip") or "")
     dst = str(rec.get("dst_ip") or rec.get("dest_ip") or rec.get("server_ip") or "")
-    dbytes = str(rec.get("bytes_out") or rec.get("dbytes") or rec.get("out_bytes") or "")
+    dbytes = str(
+        rec.get("bytes_out") or rec.get("dbytes") or rec.get("out_bytes") or ""
+    )
     msg = " ".join(str(v) for v in rec.values() if isinstance(v, str))
     return NormalizedLine(
-        time=ts or _pick_time(line), category=cat,
-        src_ip=src, dst_ip=dst, dbytes=dbytes, keywords=_keywords(msg),
+        time=ts or _pick_time(line),
+        category=cat,
+        src_ip=src,
+        dst_ip=dst,
+        dbytes=dbytes,
+        keywords=_keywords(msg),
     )
 
 
@@ -207,13 +264,19 @@ def normalize_kv(line: str) -> NormalizedLine | None:
         dport = kvs.get("dport", "")
     cat = kvs.get("action", kvs.get("category", kvs.get("event", "kv")))
     return NormalizedLine(
-        time=kvs.get("time", _pick_time(line)), category=cat,
-        src_ip=src, src_port=sport, dst_ip=dst, dst_port=dport,
-        dbytes=kvs.get("dbytes", ""), keywords=_keywords(line),
+        time=kvs.get("time", _pick_time(line)),
+        category=cat,
+        src_ip=src,
+        src_port=sport,
+        dst_ip=dst,
+        dst_port=dport,
+        dbytes=kvs.get("dbytes", ""),
+        keywords=_keywords(line),
     )
 
 
 # -- additional formats (v2) ---------------------------------------------------
+
 
 def normalize_xml(line: str) -> NormalizedLine | None:
     """A single XML log record (e.g. `<Event><TimeStamp>...`).
@@ -241,8 +304,12 @@ def normalize_xml(line: str) -> NormalizedLine | None:
     dbytes = _field("BytesSent", "bytes_out", "dbytes")
     text = re.sub(r"<[^>]+>", " ", line)
     return NormalizedLine(
-        time=_canonical_time(ts), category=cat,
-        src_ip=src, dst_ip=dst, dbytes=dbytes, keywords=_keywords(text),
+        time=_canonical_time(ts),
+        category=cat,
+        src_ip=src,
+        dst_ip=dst,
+        dbytes=dbytes,
+        keywords=_keywords(text),
     )
 
 
@@ -252,8 +319,8 @@ def normalize_gelf(line: str) -> NormalizedLine | None:
     if not stripped.startswith("{"):
         return None
     try:
-        rec = json.loads(stripped)
-    except json.JSONDecodeError:
+        rec = _load_strict_json(stripped)
+    except (json.JSONDecodeError, ValueError):
         return None
     if not isinstance(rec, dict) or "version" not in rec or "host" not in rec:
         return None  # JSON but not GELF
@@ -261,6 +328,7 @@ def normalize_gelf(line: str) -> NormalizedLine | None:
     if ts and ts.replace(".", "").isdigit():
         # GELF timestamps are Unix epoch (float seconds)
         import datetime
+
         try:
             ts = datetime.datetime.fromtimestamp(
                 float(ts), tz=datetime.timezone.utc
@@ -276,7 +344,10 @@ def normalize_gelf(line: str) -> NormalizedLine | None:
     return NormalizedLine(
         time=ts if re.match(r"^\d{2}:\d{2}:\d{2}$", ts) else _canonical_time(ts),
         category=cat,
-        src_ip=src, dst_ip=dst, dbytes=dbytes, keywords=_keywords(msg),
+        src_ip=src,
+        dst_ip=dst,
+        dbytes=dbytes,
+        keywords=_keywords(msg),
     )
 
 
@@ -296,22 +367,33 @@ def normalize_pipe(line: str) -> NormalizedLine | None:
     ts = fields.get("time") or fields.get("timestamp") or fields.get("date")
     if not ts:
         return None
-    cat = fields.get("action") or fields.get("event") or fields.get("category") or "pipe"
-    src = fields.get("sourceaddress") or fields.get("srcip") or fields.get("sourceip") or ""
+    cat = (
+        fields.get("action") or fields.get("event") or fields.get("category") or "pipe"
+    )
+    src = (
+        fields.get("sourceaddress")
+        or fields.get("srcip")
+        or fields.get("sourceip")
+        or ""
+    )
     dst = fields.get("destaddress") or fields.get("dstip") or fields.get("destip") or ""
     dbytes = fields.get("bytessent") or fields.get("dbytes") or ""
     kw = _keywords(line)
     if fields.get("action", "").upper() in ("SCAN", "PROBE", "DENY"):
         kw = kw + ("action=SCAN",) if "action=SCAN" not in kw else kw
     return NormalizedLine(
-        time=_canonical_time(ts), category=cat,
-        src_ip=src, dst_ip=dst, dbytes=dbytes, keywords=kw,
+        time=_canonical_time(ts),
+        category=cat,
+        src_ip=src,
+        dst_ip=dst,
+        dbytes=dbytes,
+        keywords=kw,
     )
 
 
 # Extended parser chain. Order matters: more specific formats first.
 PARSERS = (
-    normalize_gelf,      # GELF before JSON: it IS json, with an envelope
+    normalize_gelf,  # GELF before JSON: it IS json, with an envelope
     normalize_json,
     normalize_cef,
     normalize_xml,
