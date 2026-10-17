@@ -64,8 +64,7 @@ def temporal_claims(result: TemporalResult) -> list[Claim]:
                 f"temporal rule {rule_name}: {subject} exceeded "
                 f"{detail.get('threshold', '?')} events in window "
                 f"({detail.get('groups', '?')} group(s) scanned, "
-                f"{count} in the firing window); events: "
-                + " | ".join(lines)
+                f"{count} in the firing window); events: " + " | ".join(lines)
             )
             claims.append(
                 Claim(
@@ -89,12 +88,20 @@ def temporal_claims(result: TemporalResult) -> list[Claim]:
 #     (actor, bruteForceDetected, brute_force)
 # The rule engine then decides what that MEANS given the access graph.
 
+
 @register_extractor(CLAIM_KIND_TEMPORAL_BRUTE_FORCE)
 def _extract_brute_force(payload: dict[str, Any], evidence: str) -> list[Fact]:
     actor = _string_field(payload, "subject", CLAIM_KIND_TEMPORAL_BRUTE_FORCE)
     facts = []
-    if actor:
-        facts.append(Fact(actor, "bruteForceDetected", "brute_force", (CLAIM_KIND_TEMPORAL_BRUTE_FORCE,)))
+    if actor and actor.strip():
+        facts.append(
+            Fact(
+                actor,
+                "bruteForceDetected",
+                "brute_force",
+                (CLAIM_KIND_TEMPORAL_BRUTE_FORCE,),
+            )
+        )
     return facts
 
 
@@ -102,8 +109,10 @@ def _extract_brute_force(payload: dict[str, Any], evidence: str) -> list[Fact]:
 def _extract_port_scan(payload: dict[str, Any], evidence: str) -> list[Fact]:
     actor = _string_field(payload, "subject", CLAIM_KIND_TEMPORAL_PORT_SCAN)
     facts = []
-    if actor:
-        facts.append(Fact(actor, "scanDetected", "port_scan", (CLAIM_KIND_TEMPORAL_PORT_SCAN,)))
+    if actor and actor.strip():
+        facts.append(
+            Fact(actor, "scanDetected", "port_scan", (CLAIM_KIND_TEMPORAL_PORT_SCAN,))
+        )
     return facts
 
 
@@ -111,8 +120,15 @@ def _extract_port_scan(payload: dict[str, Any], evidence: str) -> list[Fact]:
 def _extract_exfil_burst(payload: dict[str, Any], evidence: str) -> list[Fact]:
     actor = _string_field(payload, "subject", CLAIM_KIND_TEMPORAL_EXFIL_BURST)
     facts = []
-    if actor:
-        facts.append(Fact(actor, "exfilSuspected", "exfiltration", (CLAIM_KIND_TEMPORAL_EXFIL_BURST,)))
+    if actor and actor.strip():
+        facts.append(
+            Fact(
+                actor,
+                "exfilSuspected",
+                "exfiltration",
+                (CLAIM_KIND_TEMPORAL_EXFIL_BURST,),
+            )
+        )
     return facts
 
 
