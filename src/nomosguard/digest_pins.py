@@ -33,6 +33,8 @@ def resolve_digest_pin(pin: str | None, *, noun: str = "policy") -> str | None:
     if pin is None:
         return None
     if not pin.startswith("@"):
+        if re.fullmatch(r"sha256:[0-9a-fA-F]{64}", pin) is None:
+            raise DigestPinError(f"{noun} digest pin must be sha256:<64 hexadecimal digits>")
         return pin
     manifest_ref = pin[1:]
     name: str | None = None

@@ -84,6 +84,7 @@ def test_security_suite_empty_or_wrong_reference_is_explicit_failure(
         assert result["exec_code_recall"] == "n/a"
         assert result["grants_recall"] == "n/a"
         assert result["scenarios"] == 0
+        assert result["all_passed"] is False  # empty corpus cannot pass vacuously
     else:
         original = security_run_suite.run_security_scenario
 

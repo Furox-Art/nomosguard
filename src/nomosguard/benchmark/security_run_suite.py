@@ -69,7 +69,9 @@ def run_security_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
         if r["exec_code_expected"] == set() and r["exec_code_derived"] != set()
     )
 
-    all_passed = all(
+    # Vacuous truth is not benchmark success: a missing security corpus
+    # must not be promoted to a passing benchmark.
+    all_passed = bool(results) and all(
         r["exec_code_derived"] == r["exec_code_expected"]
         and r["can_access_derived"] == r["can_access_expected"]
         and r["grants_derived"] == r["grants_expected"]
