@@ -441,4 +441,6 @@ def load_fixture_cache(fixture_path: str | Path) -> dict[str, dict[str, Any]]:
 
 def fixture_cache_dir() -> Path:
     """Path of the recorded NVD fixtures shipped with the test suite."""
-    return Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "nvd"
+    # In the source tree the package lives at repo/src/nomosguard,
+    # while recorded NVD fixtures live at repo/tests/fixtures/nvd.
+    return Path(__file__).resolve().parents[2] / "tests" / "fixtures" / "nvd"
