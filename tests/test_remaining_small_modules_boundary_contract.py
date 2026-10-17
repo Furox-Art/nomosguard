@@ -59,7 +59,13 @@ def test_manifest_empty_and_named_entry_fail_closed(tmp_path: Path) -> None:
 
 
 def test_manifest_name_with_colon_uses_last_separator(tmp_path: Path) -> None:
-    manifest = tmp_path / "name:with:colon.txt"
+    import os
+
+    # NTFS forbids colons in filenames, while Windows absolute paths already
+    # include the drive-letter colon that exercises the last-separator rule.
+    # POSIX has no drive letter: put extra colons in the filename instead.
+    filename = "name.txt" if os.name == "nt" else "name:with:colon.txt"
+    manifest = tmp_path / filename
     digest = "sha256:" + "d" * 64
     manifest.write_text(f"{digest} source.json\n")
     assert resolve_digest_pin(f"@{manifest}:source.json") == digest
