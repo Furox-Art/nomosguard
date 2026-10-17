@@ -122,10 +122,9 @@ class TestConcurrentWriters:
     def test_four_procs_x_eight_entries_one_chain(self, tmp_path=None):
         import tempfile
         from pathlib import Path as _P
-        try:
-            import fcntl  # noqa: F401
-        except ImportError:
-            pytest.skip("POSIX locking only")
+        # LedgerLock implements both fcntl (POSIX) and msvcrt (Windows).
+        # Exercise real four-process contention on each platform rather
+        # than silently skipping the Windows backend.
         with tempfile.TemporaryDirectory() as td:
             path = str(_P(td) / "c.jsonl")
             ctx = multiprocessing.get_context("spawn")

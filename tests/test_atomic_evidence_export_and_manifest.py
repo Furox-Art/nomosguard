@@ -87,12 +87,16 @@ def test_failed_atomic_replace_preserves_existing_export(
     assert not list(tmp_path.glob(".bundle.json.*.tmp"))
 
 
-@pytest.mark.skipif(os.name == "nt", reason="symlink privileges differ on Windows")
-def test_export_destination_symlink_cannot_overwrite_unrelated_file(tmp_path: Path) -> None:
+def test_export_destination_alias_cannot_overwrite_unrelated_file(tmp_path: Path) -> None:
     outside = tmp_path / "original"
     outside.write_bytes(b"not the output")
     destination = tmp_path / "bundle.json"
-    destination.symlink_to(outside)
+    if os.name == "nt":
+        # Windows CI lacks symlink privilege. NTFS hard links are a genuine
+        # existing-file alias and still exercise safe atomic replacement.
+        os.link(outside, destination)
+    else:
+        destination.symlink_to(outside)
     bundle = _bundle()
     write_export_bundle(destination, bundle)
     assert outside.read_bytes() == b"not the output"
