@@ -754,22 +754,19 @@ class TestAppendLockedFailsClosed:
         assert path.read_bytes() == before
 
     def test_append_locked_over_a_forged_wal_never_launders_it(self, tmp_path):
-        """A forged WAL record is not replayed, and recovery still refuses
-        it: the append lands in the main chain, the WAL record never
-        enters it, and the next `recover` names the corruption."""
+        """A forged WAL blocks all appends; neither file may be mutated."""
         path = tmp_path / "ledger.jsonl"
         ledger = _build(path)
         forged = _wal_record(4, _valid_claim("forged"), ledger.head_hash)
-        forged["entry_hash"] = "0" * 64  # forged "authentication"
-        wal_path_for(path).write_text(json.dumps(forged, sort_keys=True) + "\n",
-                                      encoding="utf-8")
+        forged["entry_hash"] = "0" * 64
+        wal_path = wal_path_for(path)
+        wal_path.write_text(json.dumps(forged, sort_keys=True) + "\n", encoding="utf-8")
+        previous_ledger = path.read_bytes()
+        previous_wal = wal_path.read_bytes()
 
-        appended = append_locked(
-            path, Claim("tool_call", {"agent": "z", "tool": "t"}, "log line 4")
-        )
-        # the real entry is in the main chain ...
-        assert appended.seq == 4
-        assert appended.claim.payload["agent"] == "z"
-        # ... the forged record is not: recovery refuses it, typed
+        with pytest.raises(WalError, match="hash mismatch"):
+            append_locked(path, Claim("tool_call", {"agent": "z", "tool": "t"}, "log line 4"))
+        assert path.read_bytes() == previous_ledger
+        assert wal_path.read_bytes() == previous_wal
         with pytest.raises(WalError, match="hash mismatch"):
             recover(path)

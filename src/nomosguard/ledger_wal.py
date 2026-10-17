@@ -128,16 +128,13 @@ def write_wal(
     wal_path = _wal_path(ledger_path)
     wal_seqs: set[int] = set()
     if wal_path.is_file():
-        for line in wal_path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                try:
-                    rec = _strict_loads(line)
-                    if isinstance(rec.get("seq"), int):
-                        wal_seqs.add(rec["seq"])
-                except json.JSONDecodeError:
-                    break  # torn tail: stop scanning
-                except (ValueError, UnicodeError) as exc:
-                    raise WalError(f"ambiguous or invalid WAL record: {exc}") from exc
+        # Only a hash- and claim-verified WAL can suppress an append.
+        # A naked sequence field, or boolean true (equal to integer one),
+        # must not silently discard new evidence.
+        recovered = recover(ledger_path)
+        if recovered.dropped:
+            raise WalError("torn WAL tail: recover before appending new evidence")
+        wal_seqs = {entry.seq for entry in recovered.pending}
 
     written = 0
     for entry in entries:
