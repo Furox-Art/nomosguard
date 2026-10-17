@@ -44,7 +44,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -158,8 +160,32 @@ def bundle_bytes(bundle: dict[str, Any]) -> bytes:
 
 
 def write_export_bundle(path: str | Path, bundle: dict[str, Any]) -> None:
-    """Write a bundle to disk in canonical form (newline='\\n', always)."""
-    Path(path).write_bytes(bundle_bytes(bundle))
+    """Atomically replace a canonical export without following destination links.
+
+    Write and fsync a temporary file in the same directory, then rename over
+    the destination. An interrupted write cannot truncate the previous bundle.
+    """
+    destination = Path(path)
+    encoded = bundle_bytes(bundle)
+    temp_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="wb",
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            dir=destination.parent,
+            delete=False,
+        ) as stream:
+            temp_path = Path(stream.name)
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_path, destination)
+    except OSError as exc:
+        raise ExportError(f"cannot atomically write export bundle: {exc}") from exc
+    finally:
+        if temp_path is not None:
+            temp_path.unlink(missing_ok=True)
 
 
 def read_export_bundle(path: str | Path) -> dict[str, Any]:

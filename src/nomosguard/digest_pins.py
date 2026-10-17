@@ -16,6 +16,7 @@ one by filename when the manifest holds several.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 
@@ -43,13 +44,21 @@ def resolve_digest_pin(pin: str | None, *, noun: str = "policy") -> str | None:
             manifest_ref, name = head, tail
     manifest = Path(manifest_ref)
     entries: dict[str, str] = {}
-    for line in manifest.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#"):
+    for lineno, line in enumerate(manifest.read_text(encoding="utf-8").splitlines(), 1):
+        stripped = line.partition("#")[0].strip()
+        if not stripped:
             continue
         parts = stripped.split()
+        if len(parts) not in (1, 2):
+            raise DigestPinError(f"{noun} digest manifest {manifest}:{lineno}: invalid row")
         digest = parts[0]
+        if re.fullmatch(r"sha256:[0-9a-fA-F]{64}", digest) is None:
+            raise DigestPinError(f"{noun} digest manifest {manifest}:{lineno}: invalid SHA-256 pin")
         entry_name = parts[1] if len(parts) > 1 else ""
+        if entry_name in entries:
+            raise DigestPinError(
+                f"{noun} digest manifest {manifest}:{lineno}: duplicate entry {entry_name!r}"
+            )
         entries[entry_name] = digest
     if not entries:
         raise DigestPinError(f"{noun} digest manifest is empty: {manifest}")
