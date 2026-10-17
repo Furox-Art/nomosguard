@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -77,7 +78,10 @@ def test_atomic_writer_handles_dir_fsync_failure_as_nondurable_warning_path(
     monkeypatch.setattr(ledger_module.os, "fsync", inject_failure)
     _atomic_write_lines(path, ['{"status":"audited"}'])
     assert json.loads(path.read_text()) == {"status": "audited"}
-    assert len(calls) == 2
+    # POSIX exposes a directory descriptor for the second fsync; Windows
+    # normally refuses opening directories with os.open, so the writer
+    # correctly falls back to the already-fsynced file descriptor.
+    assert len(calls) == (1 if os.name == "nt" else 2)
 
 
 def test_atomic_writer_cleans_tmp_after_replace_failure(monkeypatch, tmp_path):
