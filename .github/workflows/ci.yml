@@ -55,8 +55,17 @@ jobs:
           /tmp/clean-env/bin/python -m nomosguard.demo | python -m json.tool > /dev/null
           echo "zero-dependency demo OK"
 
-      - name: Run tests with coverage floor 85 (measured 91)
-        run: pytest tests/ -v --cov=nomosguard --cov-report=term --cov-fail-under=85
+      # Every source line and branch must be covered on every Linux interpreter;
+      # a passing run may not hide unavailable, skipped tests.
+      - name: Full statement and branch coverage (100% / zero skipped)
+        shell: bash
+        run: |
+          set -euo pipefail
+          pytest tests/ -q -rs --cov=nomosguard --cov-branch --cov-report=term-missing --cov-fail-under=100 | tee full-test-coverage.log
+          if grep -Eq '(^|[[:space:]])[1-9][0-9]* skipped' full-test-coverage.log; then
+            echo "::error::The mandatory Linux suite skipped at least one test"
+            exit 1
+          fi
 
       - name: Run demo (smoke)
         run: python -m nomosguard.demo
