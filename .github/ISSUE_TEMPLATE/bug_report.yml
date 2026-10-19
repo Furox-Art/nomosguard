@@ -1,0 +1,114 @@
+name: Bug report
+description: Report behaviour that contradicts the documentation or an invariant
+title: "[bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        NomosGuard is a security tool. Do not paste real credentials, hostnames,
+        or production logs. If this is a suspected vulnerability, use the private
+        route in SECURITY.md instead of a public issue.
+
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: Documented behaviour vs actual behaviour
+      description: Quote the exact output and name or link the documentation that says otherwise.
+      placeholder: |
+        README says a claim without evidence raises UnevidencedClaimError.
+        Instead, ledger.append(...) accepted the claim and printed ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The smallest script, JSONL input, policy file, or ledger that shows the problem. Redact sensitive values.
+      placeholder: |
+        1. write policy.json with ...
+        2. run python -m nomosguard.ingest.cli sample.jsonl --ledger ...
+        3. observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Command and full output
+      description: Include the exit code. stdout alone is usually not enough.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Read it from pyproject.toml, SKILL.md, or nomosguard.__version__.
+      placeholder: "0.7.9"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Python version, and install method.
+      placeholder: "Windows 11, CPython 3.13.2, pip install -e . from a source checkout"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      description: Pick every surface involved. Choose "Not sure" if the failure crosses several.
+      multiple: true
+      options:
+        - Evidence ledger, WAL, or locking
+        - Rule engine or hypothesis tracking
+        - Policy gate or policy loading
+        - Ingestion adapters or ingest CLI
+        - MCP server or MCP stdio boundary
+        - Evidence export or digest pinning
+        - Signatures or temporal correlation
+        - Containment plan or Executor
+        - Benchmark or demo
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: fail-closed
+    attributes:
+      label: Did the failure fail open?
+      description: The core is supposed to refuse or BLOCK when evidence is incomplete or malformed.
+      options:
+        - "Yes: an error or missing evidence produced ALLOW or a default success"
+        - "No: it raised, refused, or returned BLOCK"
+        - "Not applicable"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: artifacts
+    attributes:
+      label: Relevant artifacts
+      description: Redacted ledger, policy, or evidence excerpt. Never paste secrets or production logs.
+      render: json
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched open and closed issues for this problem.
+          required: true
+        - label: I read SECURITY.md and this is a defect, not a vulnerability.
+          required: true
+        - label: I removed tokens, credentials, hostnames, and private paths from anything I pasted.
+          required: true

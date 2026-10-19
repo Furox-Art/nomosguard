@@ -1,0 +1,94 @@
+name: Feature request
+description: Propose a capability, module, document, or integration
+title: "[feature] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read the ground rules in CONTRIBUTING.md before proposing. The hardest
+        constraint is that nothing at or inside the decision boundary may be
+        probabilistic or fail open. A proposal that cannot survive the
+        invariants below will be declined.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What cannot be done today
+      description: Describe the situation, not the solution.
+      placeholder: |
+        I need to express a policy condition that is not covered by the
+        documented policy format, so today I enforce it outside the gate.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: "The interface you have in mind: a CLI flag, a claim kind, a rule, a policy field, or an MCP tool."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Pick the closest area. Explain anything that spans several in the proposal.
+      options:
+        - Evidence ledger, persistence, or export
+        - Rule engine or hypothesis tracking
+        - Policy gate or policy bundle format
+        - Ingestion adapters or log normalization
+        - MCP server or SDK boundary
+        - Signatures or temporal correlation
+        - Containment plans
+        - Benchmark corpus or measurement
+        - Documentation
+        - Packaging or CI
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: invariants
+    attributes:
+      label: How this keeps the trust properties
+      description: Tick what the change preserves. If none apply, explain why the properties still hold.
+      options:
+        - label: A model or an unevidenced claim cannot create or upgrade a decision.
+          required: false
+        - label: Missing or malformed evidence still fails closed.
+          required: false
+        - label: The runtime stays standard library only.
+          required: false
+        - label: Existing ledgers, exports, and digest pins keep verifying, or the proposal includes a migration.
+          required: false
+        - label: Policy and ledger digest pinning is not weakened.
+          required: false
+        - label: "Not applicable: no runtime behaviour changes."
+          required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, or existing behaviour that is close but insufficient.
+    validations:
+      required: false
+
+  - type: textarea
+    id: contribution
+    attributes:
+      label: Willing to implement it
+      description: A working pull request is worth more than a detailed wish list.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched open and closed issues and pull requests for this proposal.
+          required: true
+        - label: I read the ground rules in CONTRIBUTING.md.
+          required: true
