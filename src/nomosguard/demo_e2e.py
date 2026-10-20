@@ -28,7 +28,8 @@ from pathlib import Path
 # these, the engine has no extractor for `network` / `vuln_severity` /
 # `temporal_*` claim kinds and the attack graph silently lacks the
 # canAccessHost facts the brute-force rule needs.
-from nomosguard import facts_security  # noqa: F401  # codeql[py/unused-import] — register security extractors
+# codeql[py/unused-import]
+from nomosguard import facts_security  # noqa: F401 — register security extractors
 from nomosguard.containment import render_plan
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.hypothesis import HypothesisTracker

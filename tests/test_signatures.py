@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import pytest
 
-from nomosguard import (  # codeql[py/unused-import] — register extractors
-    facts_security,  # noqa: F401
+# codeql[py/unused-import]
+from nomosguard import (
+    facts_security,  # noqa: F401 — register extractors
 )
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.ledger import Claim, EvidenceLedger

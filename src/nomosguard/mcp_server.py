@@ -21,9 +21,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from . import (  # codeql[py/unused-import] — register security extractors
+# codeql[py/unused-import]
+from . import (
     __version__,
-    facts_security,  # noqa: F401
+    facts_security,  # noqa: F401  — register security extractors
 )
 from .constants import tool_call_gate_rules, tool_call_rules
 from .evidence_export import export_bundle

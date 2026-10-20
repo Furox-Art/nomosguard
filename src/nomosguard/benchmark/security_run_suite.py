@@ -14,7 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .. import facts_security  # noqa: F401  # codeql[py/unused-import] — registers the security extractors
+# codeql[py/unused-import]
+from .. import facts_security  # noqa: F401  — registers the security extractors
 from ..gate import Decision, PolicyGate
 from ..ledger import Claim, EvidenceLedger
 from ..policy_security import containment_policy_rules

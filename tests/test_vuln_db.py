@@ -14,7 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from nomosguard import facts_security  # noqa: F401  # codeql[py/unused-import] — registers extractors
+# codeql[py/unused-import]
+from nomosguard import facts_security  # noqa: F401 — registers extractors
 from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
