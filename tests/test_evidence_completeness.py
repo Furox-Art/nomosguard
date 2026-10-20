@@ -9,7 +9,7 @@ matching facts; these tests would catch a regression.
 
 from __future__ import annotations
 
-from nomosguard import facts_security  # noqa: F401 — registers extractors
+from nomosguard import facts_security  # noqa: F401  # codeql[py/unused-import] — registers extractors
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.policy_security import containment_policy_rules

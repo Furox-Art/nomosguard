@@ -230,12 +230,8 @@ def recover(ledger_path: str | Path) -> WalRecovery:
         first_seq = first["seq"]
         if first_seq == 1:
             prev_seq = 0
-            prev_hash = "" if not main_seqs else head_hash
-            # genesis: prev_hash is empty ONLY when the main file is also
-            # empty; if main holds entries, the genesis hash is in main
-            # (the main file's first entry), but the WAL's first entry at
-            # seq 1 IS that entry, so it is already_applied and its
-            # prev_hash must be "".
+            # genesis: the WAL's first entry at seq 1 is already applied in
+            # main, so its prev_hash must be "".
             prev_hash = ""
         elif 1 <= first_seq - 1 <= max_main_seq and ledger_path.is_file():
             prev_entry = main.entries[first_seq - 2]  # 0-indexed

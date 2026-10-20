@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from nomosguard import facts_security  # noqa: F401 — registers extractors
+from nomosguard import facts_security  # noqa: F401  # codeql[py/unused-import] — registers extractors
 from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
@@ -232,10 +232,6 @@ class TestKeywordSearch:
 
     def test_limit_is_respected(self):
         """A keyword search is capped at the requested limit."""
-        class _FakeHTTP:
-            def __init__(self):
-                self.seen = []
-
         # Exercise the slicing logic without a network by stubbing _request.
         client = _offline_client(cache=FIXTURE_CVES)
         payload = json.loads((FIXTURE_DIR / "keyword_openssh.json").read_text())
@@ -617,7 +613,6 @@ class TestCacheTtl:
     """A cached CVE older than the TTL is re-fetched, not served forever."""
 
     def _write_cache(self, td: Path, cve_id: str, age_s: float, *, stamp: bool = True):
-        import json
         import time
         payload: dict = {"cve": {"id": cve_id}}
         if stamp:
@@ -663,7 +658,6 @@ class TestCacheTtl:
         with tempfile.TemporaryDirectory() as td:
             client = CachedNVDClient(cache_dir=td, offline=True, cache={})
             client._write_disk_cache("CVE-2024-6387", {"id": "CVE-2024-6387"})
-            import json
             payload = json.loads((Path(td) / "CVE-2024-6387.json").read_text())
             assert isinstance(payload.get("cached_at"), (int, float))
 

@@ -246,6 +246,8 @@ def _atomic_write_lines(path: Path, lines: list[str]) -> None:
             try:
                 os.fsync(dir_fd)
             except OSError:
+                # The rename already succeeded; a failed directory fsync
+                # only weakens durability, it does not invalidate the write.
                 pass
             finally:
                 os.close(dir_fd)
@@ -253,6 +255,7 @@ def _atomic_write_lines(path: Path, lines: list[str]) -> None:
         try:
             os.unlink(tmp)
         except OSError:
+            # Best-effort cleanup: preserve the original failure.
             pass
         raise
 
