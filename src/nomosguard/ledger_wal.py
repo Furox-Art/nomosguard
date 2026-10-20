@@ -197,7 +197,6 @@ def recover(ledger_path: str | Path) -> WalRecovery:
         head_hash = main.head_hash
         max_main_seq = max(main_seqs) if main_seqs else 0
     else:
-        main_seqs = set()
         head_hash = ""
         max_main_seq = 0
 

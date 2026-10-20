@@ -9,16 +9,11 @@ the README's fail-closed table cannot drift apart.
 
 from __future__ import annotations
 
+import importlib
 import json
 
 import pytest
 
-# codeql[py/unused-import]
-from nomosguard import (  # noqa: F401  — register the security extractors
-    facts_security,
-    signature_bridge,
-    temporal_bridge,
-)
 from nomosguard.containment import render_plan
 from nomosguard.demo_e2e import (
     NETWORK_CLAIMS,
@@ -49,6 +44,10 @@ from nomosguard.signatures import match_all
 from nomosguard.signatures_builtin import builtin_signatures
 from nomosguard.temporal import default_temporal_rules
 from nomosguard.temporal_bridge import run_temporal_into_ledger
+
+# Register the security and signature extractors at import time.
+importlib.import_module("nomosguard.facts_security")
+importlib.import_module("nomosguard.signature_bridge")
 
 
 class TestFailureModesFailClosed:

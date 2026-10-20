@@ -9,13 +9,15 @@ matching facts; these tests would catch a regression.
 
 from __future__ import annotations
 
-# codeql[py/unused-import]
-from nomosguard import facts_security  # noqa: F401 — registers extractors
+import importlib
+
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
+
+importlib.import_module("nomosguard.facts_security")  # registers extractors
 
 
 def _decide(claims: list[tuple[str, dict, str]]) -> dict:

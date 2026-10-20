@@ -18,14 +18,11 @@ Configure an MCP client to run it over stdio.
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 from typing import Any
 
-# codeql[py/unused-import]
-from . import (
-    __version__,
-    facts_security,  # noqa: F401  — register security extractors
-)
+from . import __version__
 from .constants import tool_call_gate_rules, tool_call_rules
 from .evidence_export import export_bundle
 from .gate import Decision, GateDenied, PolicyGate, PolicyRule
@@ -41,6 +38,8 @@ from .ledger_wal import WalError
 from .policy_security import containment_policy_rules
 from .rules import ClaimValueError, Rule, RuleDefinitionError, RuleEngine
 from .rules_security import security_rules
+
+importlib.import_module("nomosguard.facts_security")  # registers security extractors
 
 # MCP protocol constants
 JSONRPC_VERSION = "2.0"

@@ -7,16 +7,16 @@ must produce a gate decision — and a deterministic one.
 
 from __future__ import annotations
 
-# codeql[py/unused-import]
-from nomosguard import (  # noqa: F401 — register extractors
-    facts_security,
-)
+import importlib
+
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
 from nomosguard.temporal import default_temporal_rules
 from nomosguard.temporal_bridge import run_temporal_into_ledger
+
+importlib.import_module("nomosguard.facts_security")  # registers extractors
 
 BRUTE_LOGS = [
     "[08:14:01] auth: src=203.0.113.77:1234 failed password for admin",

@@ -17,12 +17,10 @@ Run: PYTHONPATH=src python3 -m pytest tests/test_signatures.py -q
 
 from __future__ import annotations
 
+import importlib
+
 import pytest
 
-# codeql[py/unused-import]
-from nomosguard import (
-    facts_security,  # noqa: F401 — register extractors
-)
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.policy_security import containment_policy_rules
@@ -43,6 +41,8 @@ from nomosguard.signatures import (
     validate_signatures,
 )
 from nomosguard.signatures_builtin import builtin_signatures
+
+importlib.import_module("nomosguard.facts_security")  # registers extractors
 
 # -- per-signature positive / negative lines --------------------------------
 #
