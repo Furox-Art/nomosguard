@@ -9,19 +9,20 @@ Measures (all from actual runs, never asserted):
 
 from __future__ import annotations
 
+import importlib
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-# codeql[py/unused-import]
-from .. import facts_security  # noqa: F401  — registers the security extractors
 from ..gate import Decision, PolicyGate
 from ..ledger import Claim, EvidenceLedger
 from ..policy_security import containment_policy_rules
 from ..rules import RuleEngine
 from ..rules_security import security_rules
 from .security_scenarios import SecurityScenario, build_security_scenarios
+
+importlib.import_module("nomosguard.facts_security")  # registers the security extractors
 
 
 def run_security_scenario(scenario: SecurityScenario) -> dict[str, Any]:

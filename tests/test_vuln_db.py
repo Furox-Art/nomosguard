@@ -8,14 +8,13 @@ while the transport is never touched.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 from pathlib import Path
 
 import pytest
 
-# codeql[py/unused-import]
-from nomosguard import facts_security  # noqa: F401 — registers extractors
 from nomosguard.ledger import Claim, EvidenceLedger
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
@@ -33,6 +32,8 @@ from nomosguard.vuln_db import (
     load_fixture_cache,
     severity_for_score,
 )
+
+importlib.import_module("nomosguard.facts_security")  # registers extractors
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "nvd"
 FIXTURE_CVES = load_fixture_cache(FIXTURE_DIR / "cves.json")

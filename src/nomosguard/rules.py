@@ -27,7 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from .constants import (
+from ._vocab import (
     CLAIM_KIND_POLICY_RULE,
     CLAIM_KIND_TOOL_CALL,
     CLAIM_KIND_VULNERABILITY,

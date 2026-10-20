@@ -18,6 +18,7 @@ The printed report is the actual tool output — nothing hand-written.
 
 from __future__ import annotations
 
+import importlib
 import json
 import tempfile
 from collections.abc import Callable
@@ -28,7 +29,6 @@ from pathlib import Path
 # these, the engine has no extractor for `network` / `vuln_severity` /
 # `temporal_*` claim kinds and the attack graph silently lacks the
 # canAccessHost facts the brute-force rule needs.
-import nomosguard.facts_security  # noqa: F401 — register security extractors
 from nomosguard.containment import render_plan
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.hypothesis import HypothesisTracker
@@ -51,6 +51,8 @@ from nomosguard.signatures import Match, match_all
 from nomosguard.signatures_builtin import builtin_signatures
 from nomosguard.temporal import default_temporal_rules
 from nomosguard.temporal_bridge import run_temporal_into_ledger
+
+importlib.import_module("nomosguard.facts_security")  # registers security extractors
 
 # -- the incident -------------------------------------------------------------
 # A single attacker (203.0.113.77) brute-forces web01, which carries a

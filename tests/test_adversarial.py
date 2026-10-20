@@ -7,16 +7,18 @@ claims — determinism, tamper-evidence, no path escape, no ReDoS.
 
 from __future__ import annotations
 
+import importlib
 import time
 
 import pytest
 
-import nomosguard.facts_security  # noqa: F401 — register extractors
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.ledger import Claim, EvidenceLedger, UnevidencedClaimError
 from nomosguard.policy_security import containment_policy_rules
 from nomosguard.rules import RuleEngine
 from nomosguard.rules_security import security_rules
+
+importlib.import_module("nomosguard.facts_security")  # registers extractors
 
 
 class TestTamperEvasion:
