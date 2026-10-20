@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from nomosguard import facts_security  # noqa: F401  — register extractors
+import nomosguard.facts_security  # noqa: F401 — register extractors
 from nomosguard.benchmark.security_run_suite import run_security_scenario
 from nomosguard.benchmark.security_scenarios import build_security_scenarios
 from nomosguard.gate import Decision, PolicyGate

@@ -11,7 +11,7 @@ import time
 
 import pytest
 
-from nomosguard import facts_security  # noqa: F401
+import nomosguard.facts_security  # noqa: F401 — register extractors
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.ledger import Claim, EvidenceLedger, UnevidencedClaimError
 from nomosguard.policy_security import containment_policy_rules

@@ -651,7 +651,7 @@ def _child_appender(ledger_path: str, tag: str, count: int, q) -> None:
         for i in range(1, count + 1):
             append_locked(ledger_path, _claim(i, tag))
         q.put((tag, count, None))
-    except BaseException as exc:  # noqa: BLE001 — surface child failures, don't hang
+    except (Exception, KeyboardInterrupt, SystemExit) as exc:  # noqa: BLE001 — surface child failures, don't hang
         q.put((tag, 0, f"{type(exc).__name__}: {exc}"))
 
 
@@ -758,8 +758,12 @@ class TestMultiWriterLocking:
     def test_lock_is_released_on_exception(self):
         with tempfile.TemporaryDirectory() as td:
             path = Path(td) / "locked.jsonl"
-            with pytest.raises(RuntimeError), LedgerLock(path):
-                raise RuntimeError("writer exploded")
+            def writer_explodes():
+                with LedgerLock(path):
+                    raise RuntimeError("writer exploded")
+
+            with pytest.raises(RuntimeError):
+                writer_explodes()
             # The lock must not be held by a dead scope.
             with LedgerLock(path, timeout=2.0):
                 pass

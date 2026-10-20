@@ -27,12 +27,6 @@ from dataclasses import dataclass
 # A normalized line always begins with a bracketed time, then a category,
 # then the canonical key=value fields plus event keywords.
 
-_TIME_PATTERNS = [
-    re.compile(r"\[(\d{2}:\d{2}:\d{2})\]"),
-    re.compile(r"(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})"),
-    re.compile(r"^(\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"),
-]
-
 # common event keyword vocabularies -> canonical keywords
 _AUTH_FAIL = re.compile(r"failed|FAILED|failure|auth.?fail", re.IGNORECASE)
 _AUTH_SUCCESS = re.compile(r"SUCCESS|accepted|login ok|session opened", re.IGNORECASE)
@@ -266,6 +260,7 @@ def normalize_gelf(line: str) -> NormalizedLine | None:
                 float(ts), tz=datetime.timezone.utc
             ).strftime("%H:%M:%S")
         except (ValueError, OSError, OverflowError):
+            # Keep the raw timestamp when it cannot be converted.
             pass
     cat = str(rec.get("facility") or rec.get("_event") or "gelf")
     src = str(rec.get("_src_ip") or rec.get("_source_ip") or "")

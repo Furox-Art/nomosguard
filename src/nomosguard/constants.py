@@ -19,11 +19,7 @@ of imports from `.gate`/`.rules`, which must stay import-cycle-free).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:  # pragma: no cover - typing only
-    from .gate import PolicyRule
-    from .rules import Rule
+from typing import Any
 
 # -- claim kinds --------------------------------------------------------------
 # The ledger's claim-kind namespace. A claim kind IS the namespace: the
@@ -89,11 +85,11 @@ POLICY_FORMAT_VERSION = 1
 # instances), so every consumer provably runs the same policy — see
 # tests/test_defaults.py.
 
-_TOOL_CALL_RULES: tuple[Rule, ...] | None = None
-_TOOL_CALL_GATE_RULES: tuple[PolicyRule, ...] | None = None
+_TOOL_CALL_RULES: tuple[Any, ...] | None = None
+_TOOL_CALL_GATE_RULES: tuple[Any, ...] | None = None
 
 
-def _build_tool_call_rules() -> tuple[Rule, ...]:
+def _build_tool_call_rules() -> tuple[Any, ...]:
     from .rules import Pattern, Rule
 
     return (
@@ -150,7 +146,7 @@ def _build_tool_call_rules() -> tuple[Rule, ...]:
     )
 
 
-def _build_tool_call_gate_rules() -> tuple[PolicyRule, ...]:
+def _build_tool_call_gate_rules() -> tuple[Any, ...]:
     from .gate import Decision, PolicyRule
 
     return (
@@ -169,7 +165,7 @@ def _build_tool_call_gate_rules() -> tuple[PolicyRule, ...]:
     )
 
 
-def canonical_tool_call_rules() -> tuple[Rule, ...]:
+def canonical_tool_call_rules() -> tuple[Any, ...]:
     """The canonical rule set as a cached tuple (one instance per process)."""
     global _TOOL_CALL_RULES
     if _TOOL_CALL_RULES is None:
@@ -177,12 +173,12 @@ def canonical_tool_call_rules() -> tuple[Rule, ...]:
     return _TOOL_CALL_RULES
 
 
-def tool_call_rules() -> list[Rule]:
+def tool_call_rules() -> list[Any]:
     """The canonical tool-call rule set (the same Rule objects every time)."""
     return list(canonical_tool_call_rules())
 
 
-def canonical_tool_call_gate_rules() -> tuple[PolicyRule, ...]:
+def canonical_tool_call_gate_rules() -> tuple[Any, ...]:
     """The canonical gate rules as a cached tuple."""
     global _TOOL_CALL_GATE_RULES
     if _TOOL_CALL_GATE_RULES is None:
@@ -190,7 +186,7 @@ def canonical_tool_call_gate_rules() -> tuple[PolicyRule, ...]:
     return _TOOL_CALL_GATE_RULES
 
 
-def tool_call_gate_rules() -> list[PolicyRule]:
+def tool_call_gate_rules() -> list[Any]:
     """The canonical gate rules for the tool-call vocabulary."""
     return list(canonical_tool_call_gate_rules())
 

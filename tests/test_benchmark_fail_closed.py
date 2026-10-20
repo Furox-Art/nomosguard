@@ -158,7 +158,7 @@ class TestSuiteReportsWhatItProved:
         rs = importlib.import_module("nomosguard.benchmark.run_suite")
         original = rs.build_all_scenarios
         try:
-            rs.build_all_scenarios = lambda: _corpus_without_failure_path()
+            rs.build_all_scenarios = _corpus_without_failure_path
             rs.run_suite(output_dir=tmp_path)
         finally:
             rs.build_all_scenarios = original

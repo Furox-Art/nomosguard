@@ -307,7 +307,6 @@ class TestSessionPersistence:
             assert decision["decision"] == "BLOCK"
 
     def test_corrupt_ledger_refused_at_startup(self):
-        import json
         import tempfile
         from pathlib import Path
 

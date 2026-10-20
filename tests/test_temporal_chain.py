@@ -7,9 +7,9 @@ must produce a gate decision — and a deterministic one.
 
 from __future__ import annotations
 
+# codeql[py/unused-import]
 from nomosguard import (  # noqa: F401 — register extractors
     facts_security,
-    temporal_bridge,
 )
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.policy_security import containment_policy_rules

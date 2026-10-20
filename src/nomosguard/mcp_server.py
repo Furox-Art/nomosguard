@@ -21,6 +21,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+# codeql[py/unused-import]
 from . import (
     __version__,
     facts_security,  # noqa: F401  — register security extractors
@@ -92,6 +93,7 @@ def _writable_ledger_target(path: Path) -> None:
         try:
             probe.unlink()
         except OSError:
+            # Best-effort probe cleanup; writability was already verified.
             pass
 
 

@@ -13,6 +13,7 @@ import json
 
 import pytest
 
+# codeql[py/unused-import]
 from nomosguard import (  # noqa: F401  — register the security extractors
     facts_security,
     signature_bridge,

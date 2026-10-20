@@ -162,6 +162,7 @@ class LedgerLock:
         try:
             _lock_un(self._fh)
         except OSError:
+            # Best-effort unlock: closing the handle releases the OS lock.
             pass
         finally:
             self._fh.close()
