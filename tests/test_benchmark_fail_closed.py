@@ -101,7 +101,9 @@ class TestFailClosedKpiIsVerdictDerived:
         exercised = [
             run_scenario(s) for s in build_all_scenarios() if not s.expected_exposed
         ]
-        assert all(r.fail_closed_ok is not None for r in exercised) or True
+        # At least one of these is decided by a real rule, so the KPI must be
+        # absent rather than defaulted to True.
+        assert any(r.fail_closed_ok is None for r in exercised)
         assert run_scenario(benign).fail_closed_ok is not None
         # a rule-decided scenario (policy_violation, ALERT via a rule) proves nothing
         policy_result = run_scenario(
