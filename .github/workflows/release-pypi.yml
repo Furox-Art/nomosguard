@@ -1,7 +1,8 @@
 name: Release to PyPI
 
-# Fires when a GitHub Release is published. The trusted OIDC publisher must
-# be registered on PyPI (pypi.org/manage/account/publishing) for:
+# Fires when a GitHub Release is published, or on manual dispatch from main.
+# Prereleases are never published. The trusted OIDC publisher must be
+# registered on PyPI (pypi.org/manage/account/publishing) for:
 #   project: nomosguard
 #   owner:   Furox-Art
 #   repo:    nomosguard
@@ -20,13 +21,33 @@ permissions: {}
 jobs:
   build:
     name: Build and verify distributions
+    # GitHub fires `release: published` for prereleases too. A prerelease tag
+    # that matches pyproject would publish an installable version to PyPI,
+    # where it can never be deleted or reused. Dispatch has no release
+    # payload, so gate only release events on `prerelease == false`.
+    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+          # Full history so the ancestry check below can see origin/main.
+          fetch-depth: 0
+      - name: Require the release commit to be on main
+        # A tag can point at any commit, including one on an unmerged branch.
+        # Ancestry (not equality with HEAD) still allows a release commit that
+        # main has since moved past.
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor HEAD origin/main || {
+            echo "::error::release commit $(git rev-parse HEAD) is not an ancestor of origin/main"
+            exit 1
+          }
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
@@ -41,25 +62,90 @@ jobs:
         run: python -m build
       - name: Check package metadata
         run: python -m twine check dist/*
-      - name: Verify the version matches the release tag
+      - name: Verify tag, version surfaces, and changelog
+        id: version
+        env:
+          REF: ${{ github.ref }}
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          PKG_VER=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
-          echo "release tag: $TAG, package version: $PKG_VER"
-          test "$TAG" = "$PKG_VER"
+          python - <<'PY'
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+
+          version = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+          ref = os.environ["REF"]
+
+          # workflow_dispatch from main releases the version pyproject declares.
+          # Any tag ref (release event or dispatched tag) must name that version.
+          if ref == "refs/heads/main":
+              print(f"workflow_dispatch on main: releasing pyproject version {version}")
+          elif ref.startswith("refs/tags/") and ref.removeprefix("refs/tags/").removeprefix("v") == version:
+              print(f"tag {ref} matches pyproject version {version}")
+          else:
+              print(
+                  f"::error::ref {ref} cannot be released; dispatch on refs/heads/main "
+                  f"or on the tag refs/tags/v{version}"
+              )
+              raise SystemExit(1)
+
+          init = Path("src/nomosguard/__init__.py").read_text(encoding="utf-8")
+          assert re.search(rf'^__version__ = "{re.escape(version)}"$', init, re.MULTILINE), (
+              "src/nomosguard/__init__.py __version__ does not match pyproject"
+          )
+
+          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          assert re.search(rf"^## {re.escape(version)}(?: |$)", changelog, re.MULTILINE), (
+              f"CHANGELOG.md has no '## {version}' release heading"
+          )
+
+          skill = Path("SKILL.md").read_text(encoding="utf-8")
+          assert re.search(rf"^version: {re.escape(version)}$", skill, re.MULTILINE), (
+              "SKILL.md version does not match pyproject"
+          )
+
+          security = Path("SECURITY.md").read_text(encoding="utf-8")
+          assert f"current source version is `{version}`" in security, (
+              "SECURITY.md current source version does not match pyproject"
+          )
+
+          print(f"Validated version {version} across pyproject, __init__, CHANGELOG, SKILL.md, SECURITY.md")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"version={version}\n")
+          PY
       - name: Install built wheel in a clean venv and run the full test suite
+        env:
+          PKG_VER: ${{ steps.version.outputs.version }}
         run: |
           python -m venv /tmp/clean
           # --no-deps applies to the wheel only: it proves nomosguard itself
           # needs nothing beyond the stdlib. pytest then brings its own deps.
           /tmp/clean/bin/pip install --quiet --no-deps dist/*.whl
-          /tmp/clean/bin/pip install --quiet pytest
+          /tmp/clean/bin/pip install --quiet pytest pytest-cov
           # zero runtime dependencies: prove the installed package runs on stdlib alone
-          /tmp/clean/bin/python -c "import nomosguard; print('import OK', nomosguard.__version__)"
+          /tmp/clean/bin/python -c "import nomosguard; assert nomosguard.__version__ == '$PKG_VER', nomosguard.__version__; print('import OK', nomosguard.__version__)"
           /tmp/clean/bin/python -m nomosguard.demo > /dev/null && echo "demo OK"
           # the tests import the INSTALLED wheel (src/ is never on sys.path here),
-          # so the released artifact is what the suite proves
-          /tmp/clean/bin/python -m pytest tests/ -q
+          # so the released artifact is what the suite proves. Same gates as CI:
+          # 100% statement+branch coverage and zero skipped tests, recorded in
+          # JUnit XML so a skip cannot hide in the summary text.
+          /tmp/clean/bin/python -m pytest tests/ -q -rs \
+            --cov=nomosguard --cov-branch --cov-report=term-missing --cov-fail-under=100 \
+            --junitxml=/tmp/release-tests.xml
+          /tmp/clean/bin/python - <<'PY'
+          import xml.etree.ElementTree as ET
+
+          root = ET.parse("/tmp/release-tests.xml").getroot()
+          suites = [root] if root.tag == "testsuite" else list(root)
+          totals = {key: 0 for key in ("tests", "failures", "errors", "skipped")}
+          for suite in suites:
+              for key in totals:
+                  totals[key] += int(suite.get(key, 0))
+          assert totals["tests"] > 0, "no tests ran"
+          assert totals["skipped"] == 0, f"release suite skipped {totals['skipped']} test(s)"
+          assert totals["failures"] == 0 and totals["errors"] == 0, totals
+          print(f"release suite: {totals['tests']} tests, 0 skipped, 0 failed")
+          PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dist
@@ -69,6 +155,8 @@ jobs:
   publish:
     name: Publish to PyPI via trusted OIDC
     needs: build
+    # Same gate as build: a prerelease must never reach PyPI.
+    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -83,7 +171,57 @@ jobs:
         with:
           name: dist
           path: dist
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages-dir: dist/
+          # A rerun after a partial upload must be a no-op for files already
+          # on PyPI; the verification below fails if any are genuinely absent.
+          skip-existing: true
+      - name: Verify the expected sdist and wheel are live on PyPI
+        env:
+          PKG_VER: ${{ needs.build.outputs.version }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import time
+          import urllib.error
+          import urllib.request
+          from pathlib import Path
+
+          project = "nomosguard"
+          version = os.environ["PKG_VER"]
+          expected = sorted(
+              path.name
+              for path in Path("dist").iterdir()
+              if path.is_file() and (path.name.endswith(".tar.gz") or path.name.endswith(".whl"))
+          )
+          url = f"https://pypi.org/pypi/{project}/{version}/json"
+          data = None
+          last_error = None
+          for _ in range(12):
+              try:
+                  with urllib.request.urlopen(url, timeout=60) as response:
+                      data = json.load(response)
+                  break
+              except urllib.error.HTTPError as error:
+                  last_error = error
+                  if error.code not in (404, 410):
+                      raise
+                  time.sleep(10)
+              except OSError as error:
+                  last_error = error
+                  time.sleep(10)
+          assert data is not None, (
+              f"{project} {version} is not visible on PyPI after publishing "
+              f"(last error: {last_error!r})"
+          )
+          published = sorted(item["filename"] for item in data["urls"])
+          missing = sorted(set(expected) - set(published))
+          assert not missing, f"PyPI is missing expected distributions: {missing}"
+          print(f"PASS {project} {version} is live with: {published}")
+          PY
