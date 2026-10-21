@@ -5,7 +5,10 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Unreleased — Fourth-round review hardening
+## 0.7.10 — 2026-10-21
+
+This release publishes the fourth-round hardening below, together with the
+post-review security, coverage and tooling work that followed it.
 
 ### Security
 
@@ -54,12 +57,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hypothesis chain counting:** independent evidence chains for the
   same fact are counted separately again (the trace guard collapsed
   them to 1), and each distinct derivation is traced exactly once.
-- **Docs:** README test counts and the SKILL.md version now match
-  reality (709 tests, 0.7.9).
+- **Docs:** README test counts and the SKILL.md/SECURITY versions now match
+  reality (1087 tests, 0.7.10).
 
 ### Tests
 
-709 tests (was 636). New this round: pinned golden hash vectors
+1087 tests (was 636 before this hardening cycle). New this round: pinned golden hash vectors
 (`tests/test_hash_vector.py` — entry/file digests that must keep
 loading), MCP stdio boundary refusals, startup digest-pin matrix
 (missing/created/torn/wrong), policy duplicate-name and unknown-field
@@ -73,8 +76,11 @@ own `NameError`, now it asserts the typed `RuleDefinitionError`.
 ### CI
 
 - New lint job (`ruff==0.17.0` — pinned so the default rule set cannot
-  drift) and a coverage floor (`--cov-fail-under=85`; measured 91).
+  drift) and a 100% statement/branch coverage gate with zero skipped tests on
+  Linux (`--cov-fail-under=100`). The Windows job runs the same suite without a
+  threshold; its measured 99.64% reflects POSIX-only `fcntl` branches.
 - New `windows-latest` job — exercises the `msvcrt` lock path.
+- Actions are pinned to commit SHAs and CodeQL analysis runs in CI.
 - The release workflow now runs the full test suite against the
   installed wheel in a clean venv, and no longer passes `--no-deps` to
   pytest (which had silently made that impossible before).

@@ -1,7 +1,7 @@
 ---
 name: nomosguard
 description: Deterministic security reasoning for AI agents — produce evidence-citing claims, then let the hash-chained ledger, rule engine, and fail-closed policy gate decide. The model never crosses the decision boundary.
-version: 0.7.9
+version: 0.7.10
 license: Apache-2.0
 ---
 
