@@ -159,6 +159,11 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
     runs-on: ubuntu-latest
     environment: pypi
+    # Serialise publishes of the same version so the pre-upload snapshot below
+    # cannot be invalidated by a concurrent run uploading between steps.
+    concurrency:
+      group: release-pypi-${{ needs.build.outputs.version }}
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write  # OIDC token for trusted publishing
@@ -174,6 +179,38 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
+      - name: Snapshot files already on PyPI
+        # Files present before this run cannot be byte-compared with a fresh
+        # build (wheels and sdists are not bit-reproducible), but anything this
+        # run uploads itself must match the tested artifact exactly.
+        env:
+          PKG_VER: ${{ needs.build.outputs.version }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+          from pathlib import Path
+
+          project = "nomosguard"
+          version = os.environ["PKG_VER"]
+          existing = {}
+          try:
+              with urllib.request.urlopen(
+                  f"https://pypi.org/pypi/{project}/{version}/json", timeout=60
+              ) as response:
+                  data = json.load(response)
+          except urllib.error.HTTPError as error:
+              if error.code not in (404, 410):
+                  raise
+          else:
+              existing = {
+                  item["filename"]: item["digests"]["sha256"] for item in data.get("urls", [])
+              }
+          Path("/tmp/pypi-existing.json").write_text(json.dumps(existing), encoding="utf-8")
+          print(f"files already on PyPI before this run: {sorted(existing)}")
+          PY
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
@@ -181,11 +218,12 @@ jobs:
           # A rerun after a partial upload must be a no-op for files already
           # on PyPI; the verification below fails if any are genuinely absent.
           skip-existing: true
-      - name: Verify the expected sdist and wheel are live on PyPI
+      - name: Verify the expected sdist and wheel are live with matching hashes
         env:
           PKG_VER: ${{ needs.build.outputs.version }}
         run: |
           python - <<'PY'
+          import hashlib
           import json
           import os
           import time
@@ -220,8 +258,21 @@ jobs:
               f"{project} {version} is not visible on PyPI after publishing "
               f"(last error: {last_error!r})"
           )
-          published = sorted(item["filename"] for item in data["urls"])
-          missing = sorted(set(expected) - set(published))
+          served = {item["filename"]: item["digests"]["sha256"] for item in data["urls"]}
+          missing = sorted(set(expected) - set(served))
           assert not missing, f"PyPI is missing expected distributions: {missing}"
-          print(f"PASS {project} {version} is live with: {published}")
+          preexisting = json.loads(Path("/tmp/pypi-existing.json").read_text(encoding="utf-8"))
+          mismatched = []
+          for name in expected:
+              local = hashlib.sha256((Path("dist") / name).read_bytes()).hexdigest()
+              if local == served[name]:
+                  continue
+              if name in preexisting:
+                  print(f"note: {name} predates this run; PyPI keeps the earlier bytes")
+                  continue
+              mismatched.append(name)
+          assert not mismatched, (
+              f"PyPI serves bytes this run did not upload for: {mismatched}"
+          )
+          print(f"PASS {project} {version} is live with matching hashes: {expected}")
           PY
