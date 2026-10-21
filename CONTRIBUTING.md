@@ -69,6 +69,11 @@ if any test is skipped. The Windows job runs `pytest tests/ -q` so the `msvcrt`
 lock path is exercised. The exact invocations are in
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
+The 100% statement/branch threshold is enforced on Linux only. Windows runs the
+same suite without a coverage threshold; its measured 99.64% reflects POSIX-only
+`fcntl` branches (and the directory-`fsync` path) that cannot execute there, not
+untested Windows code.
+
 Benchmark results are committed under `src/nomosguard/benchmark/results/`.
 Regenerate them from a real run; do not edit expected outcomes or result files
 by hand to make a change look better.

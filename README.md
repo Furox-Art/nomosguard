@@ -44,6 +44,12 @@ scope, and first-release boundary. The core (evidence ledger, rule
 engine, policy gate) is implemented with 1087 tests and a
 reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 
+Coverage is a Linux gate: CI enforces 100% statement and branch coverage there and
+fails on any skipped test. The Windows job runs the same suite without a threshold;
+its measured **99.64%** leaves the POSIX-only `fcntl` lock branches (and the
+directory-`fsync` path) uncovered because those branches cannot execute on Windows.
+The Windows run is a portability check, not a second 100% gate.
+
 ### Components
 
 | Module | What it does |
@@ -185,6 +191,9 @@ Committed samples: `examples/sample_toolcalls.jsonl`,
 ### Run it
 
 ```bash
+# consumer install from PyPI
+pip install nomosguard
+# editable install from this checkout (development)
 pip install -e .
 python -m nomosguard.demo    # committed scenario: derivation + BLOCK
 python -m nomosguard.demo_e2e  # one incident through every deterministic layer

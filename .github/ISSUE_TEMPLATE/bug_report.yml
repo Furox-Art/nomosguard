@@ -46,7 +46,7 @@ body:
     attributes:
       label: Version
       description: Read it from pyproject.toml, SKILL.md, or nomosguard.__version__.
-      placeholder: "0.7.9"
+      placeholder: "0.7.10"
     validations:
       required: true
 

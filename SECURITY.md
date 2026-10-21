@@ -11,7 +11,7 @@ policy gate fails closed. A way around any of those is a security issue.
 | `0.7.x` | Yes |
 | `< 0.7` | No |
 
-The current source version is `0.7.9`, declared consistently in
+The current source version is `0.7.10`, declared consistently in
 `pyproject.toml`, `SKILL.md`, and `nomosguard.__version__`. Reproduce a
 suspected problem against the latest `0.7.x` source before reporting it.
 

@@ -31,7 +31,12 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install build tooling
-        run: python -m pip install --upgrade build twine
+        # Pinned instead of `--upgrade build twine`: the artifacts tested here
+        # are the ones published, so the toolchain that produced them must not
+        # depend on the day CI ran. twine >= 7.0.0 is required because 6.x
+        # hardcodes a metadata-version list ending at 2.4 and rejects the
+        # Metadata-Version newer hatchling emits.
+        run: python -m pip install "build==1.6.1" "twine==7.0.0"
       - name: Build sdist and wheel
         run: python -m build
       - name: Check package metadata
@@ -59,6 +64,7 @@ jobs:
         with:
           name: dist
           path: dist/
+          if-no-files-found: error
 
   publish:
     name: Publish to PyPI via trusted OIDC
@@ -69,15 +75,15 @@ jobs:
       contents: read
       id-token: write  # OIDC token for trusted publishing
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # Publish exactly the artifacts the build job built, checked and tested.
+      # Rebuilding in this job silently replaced them with a second, untested
+      # build, so the tested and published bytes could differ.
+      - name: Download the tested distributions
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          persist-credentials: false
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.12"
-      - name: Install build tooling
-        run: python -m pip install --upgrade build
-      - name: Build distributions
-        run: python -m build
+          name: dist
+          path: dist
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          packages-dir: dist/
