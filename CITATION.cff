@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "NomosGuard: deterministic security reasoning core"
+abstract: >-
+  NomosGuard keeps the decision boundary away from language models: every
+  security conclusion must arrive as a structured claim with a cited
+  evidence fragment, recorded in an append-only SHA-256 hash-chained ledger
+  with write-ahead recovery. An attack-path rule engine and a fail-closed
+  policy gate consume that ledger, so the same evidence always yields the
+  same verdict and tampering is detectable.
+authors:
+  - family-names: "Furox"
+    given-names: "Art"
+version: 0.7.10
+date-released: "2026-10-21"
+license: Apache-2.0
+repository-code: "https://github.com/Furox-Art/nomosguard"
+url: "https://github.com/Furox-Art/nomosguard"
+keywords:
+  - security
+  - evidence ledger
+  - hash chain
+  - tamper evident
+  - policy gate
+  - attack graph
+  - agent security
+  - deterministic reasoning

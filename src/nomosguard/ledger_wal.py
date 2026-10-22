@@ -49,15 +49,24 @@ from pathlib import Path
 from typing import Any
 
 from .ledger import (
+    _ENTRY_FIELDS,
     Claim,
     EvidenceLedger,
     LedgerEntry,
     UnevidencedClaimError,
+    _is_utc_timestamp,
     _strict_loads,
     wal_path_for,
 )
 
 WAL_FORMAT_VERSION = 1
+
+#: A WAL only exists between a crash and its recovery; a successful save
+#: checkpoints it empty. Without a bound, `recover` reads every line into
+#: memory before validating one, so a planted multi-gigabyte `.wal` turns
+#: startup recovery into an out-of-memory denial of service. 64 MiB is far
+#: above any legitimate crash tail and bounded enough to hold comfortably.
+MAX_WAL_BYTES = 64 * 1024 * 1024
 
 
 class WalError(ValueError):
@@ -206,9 +215,27 @@ def recover(ledger_path: str | Path) -> WalRecovery:
         return result
 
     # Read the WAL with a one-line lookahead so we know which line is last.
+    # `readline` is capped so a single planted line cannot allocate the
+    # whole file before the byte bound below rejects it.
     raw_lines: list[str] = []
+    total_chars = 0
     with wal_path.open("r", encoding="utf-8", errors="replace") as fh:
-        for line in fh:
+        while True:
+            line = fh.readline(MAX_WAL_BYTES + 1)
+            if not line:
+                break
+            if len(line) > MAX_WAL_BYTES:
+                raise WalError(
+                    f"WAL record exceeds {MAX_WAL_BYTES} bytes; refusing to "
+                    "read a WAL that cannot be a legitimate crash tail"
+                )
+            total_chars += len(line)
+            if total_chars > MAX_WAL_BYTES:
+                raise WalError(
+                    f"WAL exceeds {MAX_WAL_BYTES} bytes; refusing to read it "
+                    "into memory (a WAL only holds entries the main ledger "
+                    "file has not checkpointed yet)"
+                )
             if line.strip():
                 raw_lines.append(line)
 
@@ -255,6 +282,13 @@ def recover(ledger_path: str | Path) -> WalRecovery:
                 f"WAL entries after seq {prev_seq} were discarded"
             )
             break
+
+        unknown = set(record) - _ENTRY_FIELDS
+        if unknown:
+            raise WalError(
+                f"WAL line {lineno}: unknown field(s) {sorted(unknown)} — a "
+                "WAL record uses the ledger entry schema exactly"
+            )
 
         claim_data = record.get("claim")
         if not isinstance(claim_data, dict):
@@ -315,6 +349,12 @@ def recover(ledger_path: str | Path) -> WalRecovery:
         if not isinstance(timestamp, str) or not timestamp:
             raise WalError(
                 f"WAL line {lineno} (seq {seq}): missing timestamp"
+            )
+        if not _is_utc_timestamp(timestamp):
+            raise WalError(
+                f"WAL line {lineno} (seq {seq}): timestamp must be ISO-8601 "
+                f"UTC with an explicit designator (Z or +00:00), got "
+                f"{timestamp!r}"
             )
 
         entry = LedgerEntry(
