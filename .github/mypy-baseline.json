@@ -1,0 +1,20 @@
+{
+  "src/nomosguard/benchmark/run_suite.py": 2,
+  "src/nomosguard/benchmark/scenarios.py": 2,
+  "src/nomosguard/benchmark/security_run_suite.py": 1,
+  "src/nomosguard/benchmark/security_scenarios.py": 4,
+  "src/nomosguard/demo.py": 1,
+  "src/nomosguard/demo_e2e.py": 1,
+  "src/nomosguard/evidence_export.py": 1,
+  "src/nomosguard/facts_security.py": 6,
+  "src/nomosguard/ingest/cli.py": 2,
+  "src/nomosguard/ledger.py": 1,
+  "src/nomosguard/ledger_lock.py": 10,
+  "src/nomosguard/log_normalize.py": 7,
+  "src/nomosguard/mcp_stdio.py": 7,
+  "src/nomosguard/policy.py": 6,
+  "src/nomosguard/rules.py": 5,
+  "src/nomosguard/schema.py": 1,
+  "src/nomosguard/temporal_bridge.py": 3,
+  "src/nomosguard/vuln_db.py": 1
+}
