@@ -8,7 +8,7 @@ from nomosguard.ingest.toolcall_jsonl import IngestError, parse_toolcall_line
 
 
 def TestOneInput(data: bytes) -> None:
-    fdp = atheris.FuzzDataProvider(data)
+    fdp = atheris.FuzzedDataProvider(data)
     line = fdp.ConsumeUnicodeNoSurrogates(4096)
     line_no = fdp.ConsumeIntInRange(1, 1000)
     try:
