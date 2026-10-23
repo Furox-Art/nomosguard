@@ -1,0 +1,34 @@
+name: Fuzz
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "src/nomosguard/**"
+      - "tests/fuzz/**"
+      - ".github/workflows/fuzz.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-nomosguard
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install Atheris
+        run: python -m pip install atheris==3.1.0
+      - name: Install nomosguard
+        run: python -m pip install -e .
+      - name: Fuzz tool-call JSONL parser
+        run: python tests/fuzz/fuzz_toolcall_jsonl.py -max_total_time=60 -rss_limit_mb=2048 -print_final_stats=1
