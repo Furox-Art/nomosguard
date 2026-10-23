@@ -76,6 +76,15 @@ def test_ledger_load_refuses_naive_timestamp(tmp_path: Path) -> None:
         EvidenceLedger.load(path)
 
 
+def test_ledger_load_refuses_regex_valid_but_impossible_timestamp(tmp_path: Path) -> None:
+    path = tmp_path / "ledger.jsonl"
+    path.write_text(
+        _ledger_bytes(timestamp="2026-13-32T25:61:61Z"), encoding="utf-8"
+    )
+    with pytest.raises(LedgerFileError, match="ISO-8601 UTC"):
+        EvidenceLedger.load(path)
+
+
 def test_ledger_load_refuses_non_string_timestamp(tmp_path: Path) -> None:
     path = tmp_path / "ledger.jsonl"
     path.write_text(_ledger_bytes(timestamp=123), encoding="utf-8")
