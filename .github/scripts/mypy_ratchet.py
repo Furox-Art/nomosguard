@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Strict mypy ratchet for nomosguard.
 
 Runs ``mypy --strict`` over ``src/nomosguard`` and compares the per-file error count
