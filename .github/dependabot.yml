@@ -1,0 +1,35 @@
+version: 2
+updates:
+  # Every workflow pins actions to an immutable 40-hex commit SHA, so a moved
+  # tag cannot silently change what CI executes.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    open-pull-requests-limit: 2
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "ci"
+    groups:
+      routine-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+
+  # pyproject.toml declares the dev dependency (pytest). Watching pip means a
+  # vulnerable pytest can raise a PR instead of waiting to be noticed.
+  - package-ecosystem: "pip"
+    directory: "/"
+    open-pull-requests-limit: 2
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"

@@ -19,6 +19,7 @@ import hmac
 import json
 import math
 import os
+import re
 import tempfile
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
@@ -27,6 +28,37 @@ from pathlib import Path
 from typing import IO, Any
 
 LEDGER_FORMAT_VERSION = 1
+
+_ENTRY_FIELDS = frozenset({"seq", "timestamp", "claim", "entry_hash", "prev_hash"})
+
+# The recorded shape of a ledger timestamp: ISO-8601 with an explicit UTC
+# designator, matching evidence_export.TIMESTAMP_FORMAT. The timestamp is
+# unhashed audit data, so load must not accept a value that is not a real
+# instant; a naive local time or arbitrary string would make the audit
+# trail meaningless and could break downstream consumers.
+_TIMESTAMP_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|\+00:00)$"
+)
+
+
+def _is_utc_timestamp(value: Any) -> bool:
+    if not isinstance(value, str) or not _TIMESTAMP_RE.match(value):
+        return False
+    # Strip the (already regex-checked) UTC designator, then normalise the
+    # fraction to six digits: Python 3.10's fromisoformat only accepts 3 or
+    # 6, while this module still supports 3.10.
+    body = value[:-1] if value.endswith("Z") else value[:-6]
+    date_part, _, time_part = body.partition("T")
+    time_main, _, fraction = time_part.partition(".")
+    if fraction:
+        body = f"{date_part}T{time_main}.{(fraction + '000000')[:6]}"
+    else:
+        body = f"{date_part}T{time_main}"
+    try:
+        datetime.fromisoformat(body)
+    except ValueError:
+        return False
+    return True
 
 
 class UnevidencedClaimError(ValueError):
@@ -573,6 +605,14 @@ class EvidenceLedger:
                 record = item["record"]
                 i = lineno - 1  # human-facing entry index
 
+                unknown = set(record) - _ENTRY_FIELDS
+                if unknown:
+                    raise LedgerFileError(
+                        f"entry {i}: unknown field(s) {sorted(unknown)} — a "
+                        "persisted entry holds exactly seq, timestamp, claim, "
+                        "entry_hash, prev_hash"
+                    )
+
                 claim_data = record.get("claim")
                 if not isinstance(claim_data, dict):
                     raise LedgerFileError(f"entry {i} has a malformed claim: expected an object")
@@ -605,6 +645,15 @@ class EvidenceLedger:
                 if not isinstance(seq, int) or isinstance(seq, bool):
                     raise LedgerFileError(f"entry {i}: seq must be an integer, got {seq!r}")
 
+                timestamp = record.get("timestamp")
+                if not isinstance(timestamp, str) or not timestamp:
+                    raise LedgerFileError(f"entry {i}: missing timestamp")
+                if not _is_utc_timestamp(timestamp):
+                    raise LedgerFileError(
+                        f"entry {i}: timestamp must be ISO-8601 UTC with an "
+                        f"explicit designator (Z or +00:00), got {timestamp!r}"
+                    )
+
                 # -- load-time conflict detection --------------------------------
                 expected_seq = len(ledger._entries) + 1
                 if seq < expected_seq:
@@ -634,13 +683,11 @@ class EvidenceLedger:
                         f"entry {i} (seq {expected_seq}): broken chain link — "
                         f"prev_hash does not match entry {expected_seq - 1}"
                     )
-                if "timestamp" not in record:
-                    raise LedgerFileError(f"entry {i}: missing timestamp")
 
                 ledger._entries.append(
                     LedgerEntry(
                         seq=expected_seq,
-                        timestamp=record["timestamp"],
+                        timestamp=timestamp,
                         claim=claim,
                         entry_hash=recomputed,
                         prev_hash=expected_prev,
