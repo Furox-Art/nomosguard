@@ -9,6 +9,9 @@ core" claim is dead.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 
 from nomosguard.gate import Decision, PolicyGate
 from nomosguard.ledger import Claim, EvidenceLedger
@@ -108,3 +111,67 @@ class TestDeterminism:
         assert normal == shuffled == reversed_order, (
             "gate verdict changed with claim order — decision is not order-independent"
         )
+
+
+# Runs the same pipeline in a fresh interpreter so the test observes the
+# process-level hash seed rather than reusing the pytest process's dicts and
+# sets. The claim is "any process order", so it has to leave this process.
+_SNAPSHOT_SCRIPT = """
+import json
+
+from nomosguard.gate import Decision, PolicyGate
+from nomosguard.ledger import Claim, EvidenceLedger
+from nomosguard.policy_security import containment_policy_rules
+from nomosguard.rules import RuleEngine
+from nomosguard.rules_security import security_rules
+
+SCENARIO = [
+    ("network", {"host": "web01", "protocol": "ssh", "port": 22, "allowed_from": "203.0.113.77"}, "fw log line A"),
+    ("vuln_host", {"host": "web01", "cve": "CVE-2026-31142"}, "nvd line B"),
+    ("network", {"host": "db02", "protocol": "postgres", "port": 5432, "allowed_from": "web01 (10.0.4.21)"}, "netflow line C"),
+    ("exec_code", {"host": "web01", "user": "deploy"}, "iam line D"),
+    ("network", {"host": "web02", "protocol": "https", "port": 443, "allowed_from": "203.0.113.77"}, "fw log line E"),
+]
+
+ledger = EvidenceLedger()
+for kind, payload, evidence in SCENARIO:
+    ledger.append(Claim(kind=kind, payload=payload, evidence=evidence))
+ok, _ = ledger.verify()
+
+engine = RuleEngine(rules=security_rules())
+engine.add_facts_from_ledger(ledger)
+engine.derive()
+
+gate = PolicyGate(policy_rules=containment_policy_rules(), fallback=Decision.ALERT)
+result = gate.evaluate_with_fallback(engine)
+
+print(json.dumps({
+    "ledger_ok": ok,
+    "ledger_hashes": [e.entry_hash for e in ledger.entries],
+    "gate_decision": str(result["decision"]),
+    "gate_decisions": [
+        [d["subject"], str(d["decision"]), d["policy_rule"]]
+        for d in result.get("all_decisions", [])
+    ],
+}))
+"""
+
+
+class TestCrossProcessDeterminism:
+    """The same evidence must produce the same bytes in a fresh interpreter."""
+
+    def _snapshot(self, hash_seed: int) -> str:
+        env = {**os.environ, "PYTHONHASHSEED": str(hash_seed)}
+        completed = subprocess.run(
+            [sys.executable, "-c", _SNAPSHOT_SCRIPT],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env=env,
+            check=False,
+        )
+        assert completed.returncode == 0, completed.stderr
+        return completed.stdout
+
+    def test_output_is_byte_identical_across_hash_seeds(self) -> None:
+        assert self._snapshot(0) == self._snapshot(12345)
