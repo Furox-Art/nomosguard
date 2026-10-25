@@ -41,7 +41,7 @@ and the transcript is tamper-evident.
 
 Early development — see [VISION.md](VISION.md) for the architecture,
 scope, and first-release boundary. The core (evidence ledger, rule
-engine, policy gate) is implemented with 1087 tests and a
+engine, policy gate) is implemented with 1112 tests and a
 reproducible demo scenario, real log ingestion, and a measured benchmark corpus.
 
 Coverage is a Linux gate: CI enforces 100% statement and branch coverage there and
@@ -111,7 +111,10 @@ to action plans a human reviews.
 
 Run with `python -m nomosguard.benchmark.run_suite_main --output DIR`. The
 corpus is committed and deterministic; the expected outcomes are
-hand-derived from the facts, not produced by the engine. Latest run
+hand-derived from the facts, not produced by the engine. Set
+`SOURCE_DATE_EPOCH` (seconds) to pin the `run_at` header: with it set,
+`results.json`, `RESULTS.md` and `security_results.json` are byte-identical
+between runs. Latest run
 (committed in `src/nomosguard/benchmark/results/`):
 
 | metric | value |
@@ -198,7 +201,7 @@ pip install -e .
 python -m nomosguard.demo    # committed scenario: derivation + BLOCK
 python -m nomosguard.demo_e2e  # one incident through every deterministic layer
                                 # (+ stage 8: each failure mode triggered, not promised)
-pytest tests/                # 1087 tests incl. security + adversarial suites
+pytest tests/                # 1112 tests incl. security + adversarial suites
 python -m nomosguard.benchmark.run_suite_main          # tool-call corpus (11 scenarios)
 python -m nomosguard.benchmark.security_main           # security corpus (5 scenarios)
 ```

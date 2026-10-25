@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +15,7 @@ from ..constants import tool_call_gate_rules, tool_call_rules
 from ..gate import Decision, PolicyGate, PolicyRule
 from ..ledger import Claim, EvidenceLedger
 from ..rules import Rule, RuleEngine
+from .clock import run_at
 from .scenarios import Scenario, build_all_scenarios
 
 
@@ -151,7 +151,7 @@ def run_suite(output_dir: str | Path | None = None) -> dict[str, Any]:
         "fail_closed_scenarios": len(fail_closed_ground_truth),
         "fail_closed_exercised": len(exercised),
         "all_passed": all(r.passed for r in results),
-        "run_at": datetime.now(timezone.utc).isoformat(),
+        "run_at": run_at(),
         "results": [
             {
                 "name": r.name,
