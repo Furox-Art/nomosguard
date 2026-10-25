@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import json
 import os
@@ -45,6 +46,33 @@ SCENARIO = [
 ]
 
 
+def _benchmark_digests() -> dict[str, str]:
+    """Exercise both benchmark suites under a pinned SOURCE_DATE_EPOCH."""
+    run_suite_module = importlib.import_module("nomosguard.benchmark.run_suite")
+    from nomosguard.benchmark import security_run_suite
+
+    previous = os.environ.get("SOURCE_DATE_EPOCH")
+    os.environ["SOURCE_DATE_EPOCH"] = "1700000000"
+    try:
+        tool_call = run_suite_module.run_suite()
+        security = security_run_suite.run_security_suite()
+    finally:
+        if previous is None:
+            os.environ.pop("SOURCE_DATE_EPOCH", None)
+        else:
+            os.environ["SOURCE_DATE_EPOCH"] = previous
+    if not tool_call["all_passed"] or not security["all_passed"]:
+        raise SystemExit("benchmark suites failed under the determinism workload")
+    return {
+        "tool_call_benchmark": hashlib.sha256(
+            json.dumps(tool_call, sort_keys=True).encode("utf-8")
+        ).hexdigest(),
+        "security_benchmark": hashlib.sha256(
+            json.dumps(security, sort_keys=True, default=list).encode("utf-8")
+        ).hexdigest(),
+    }
+
+
 def main() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     sys.path.insert(0, str(repo_root / "src"))
@@ -81,6 +109,7 @@ def main() -> None:
             (decision["subject"], str(decision["decision"]), decision["policy_rule"])
             for decision in result.get("all_decisions", [])
         ),
+        "benchmark_digests": _benchmark_digests(),
     }
     if (
         not ok
