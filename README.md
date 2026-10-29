@@ -307,6 +307,21 @@ The server never calls a model. Agents load `SKILL.md` for the behavioral
 contract: assert claims with evidence, derive paths, read the gate
 decision, explain it — never decide it.
 
+## Related projects
+
+Part of the Furox scientific-computing portfolio — eleven independently versioned projects that pair agent-facing interfaces (MCP servers and Agent Skills) with deterministic, fail-closed verification.
+
+- [scientific-computing-system](https://github.com/Furox-Art/scientific-computing-system) — zero-dependency Python numerics with run manifests.
+- [scientific-computing-system-2.0](https://github.com/Furox-Art/scientific-computing-system-2.0) — NumPy/SciPy/pandas build with replayable fit provenance.
+- [scientific-toolkit](https://github.com/Furox-Art/scientific-toolkit) — MCP gateway over nine research tools.
+- [axiomize](https://github.com/Furox-Art/axiomize) — unit-checked modeling engine with SBML, CellML and Modelica export.
+- [axiomize-quantum-skills-2.0](https://github.com/Furox-Art/axiomize-quantum-skills-2.0) — modeling engine plus quantum-inspired reasoning bundle.
+- [quantum-reasoning-skill](https://github.com/Furox-Art/quantum-reasoning-skill) — agent skill that keeps competing hypotheses alive.
+- [plan-auditor](https://github.com/Furox-Art/plan-auditor) — evidence-based completion gate for coding agents.
+- [eq-layer](https://github.com/Furox-Art/eq-layer) — interaction-policy layer that decides how an agent speaks.
+- [literature-evidence-mcp](https://github.com/Furox-Art/literature-evidence-mcp) — provenance-first literature MCP server.
+- [repocraft](https://github.com/Furox-Art/repocraft) — byte-deterministic project scaffolding.
+
 ## License
 
 Apache-2.0
