@@ -3,13 +3,19 @@
 > Status line is updated as work lands. Every number in this file comes from
 > an actual test run or CI run, never hand-computed.
 
-## Current state (verified 2026-10-09)
+## Current state (verified 2026-10-30)
 
 **Repository:** https://github.com/Furox-Art/nomosguard (public, Apache-2.0)
-**Version:** 0.1.0 (unreleased — not yet on PyPI)
-**Tests:** 32 passed (core: 30, MCP: 32 incl. stdio protocol)
+**Version:** 0.7.10 — on PyPI since 2026-10-21 with a PEP 740 provenance
+attestation; GitHub release
+[`v0.7.10`](https://github.com/Furox-Art/nomosguard/releases/tag/v0.7.10)
+**Tests:** 1115 passed locally on Python 3.12 (2026-10-30)
 **CI:** green on Python 3.10 / 3.11 / 3.12 / 3.13 + zero-dependency check
-**Commits:** f63547c (ledger persistence)
+(run 40952174554, commit c60e3ce)
+**Plan:** P1–P5 are delivered; each checkbox below records where the
+deliverable shipped.
+
+## Starting point (verified 2026-10-09)
 
 ### What exists and is proven
 
@@ -52,16 +58,18 @@ evidence-citing claims." Today claims are synthetic in-memory dicts. Until
 a real parser exists, the demo cannot leave the lab.
 
 Deliverables:
-- [ ] `ingest/toolcall_jsonl.py` — parse a JSONL file of MCP tool-call
+- [x] `ingest/toolcall_jsonl.py` — parse a JSONL file of MCP tool-call
       records into ledger claims. Each claim's `evidence` field carries the
       source line hash (SHA-256 of the raw line), not a paraphrase.
-- [ ] Payload schema validation per claim kind (reject malformed records
+      (shipped; `_line_hash` in `src/nomosguard/ingest/toolcall_jsonl.py`)
+- [x] Payload schema validation per claim kind (reject malformed records
       with a per-record error, never silently skip — the gateway's
       fail-closed discipline applies to ingestion too).
-- [ ] Ingest demo: committed sample log (synthetic but *realistic* — the
+- [x] Ingest demo: committed sample log (synthetic but *realistic* — the
       same shapes real MCP gateways emit) → parsed → derived → decided.
-- [ ] Tests: parser unit tests (well-formed, malformed, empty-line,
+- [x] Tests: parser unit tests (well-formed, malformed, empty-line,
       duplicate-record idempotency), and an end-to-end ingest→derive→gate test.
+      (`tests/test_ingest.py`, plus the CLI contract tests)
 
 Exit criteria: `python -m nomosguard.ingest.toolcall_jsonl sample.jsonl`
 produces a verified ledger; every claim cites a verifiable line hash.
@@ -73,20 +81,27 @@ released today all share) is: publish real measurements, including null
 results. A security reasoning core with no corpus is unfalsifiable.
 
 Deliverables:
-- [ ] `benchmark/scenarios/` — a committed corpus of tool-call attack
+- [x] `benchmark/scenarios/` — a committed corpus of tool-call attack
       scenarios with known ground truth (which paths should be derived,
       which should not): at minimum (a) vulnerable-component exposure
       (positive), (b) benign multi-tool workflow (negative — must NOT
       fire), (c) chained access path 3+ hops deep (positive), (d)
       incomplete evidence (fail-closed default must apply).
-- [ ] `benchmark/run_suite.py` — measures recall (caught / total positive),
+      (shipped as `src/nomosguard/benchmark/scenarios.py`: 11 scenarios)
+- [x] `benchmark/run_suite.py` — measures recall (caught / total positive),
       false-positive rate, and fail-closed correctness; writes committed
       JSON + markdown results.
-- [ ] Honesty gate: results page states what the corpus does NOT cover
+      (results in `src/nomosguard/benchmark/results/`: recall 10/10,
+      0 false positives, fail-closed exercised — measured 2026-10-14)
+- [x] Honesty gate: results page states what the corpus does NOT cover
       (no real-world logs, no adversarial evidence tampering inside the
       ledger — that is the ledger's own test's job).
-- [ ] README gets a measured-results section ONLY if numbers support a
+      (`docs/REAL_CORPUS.md`: "What this establishes — and what it does
+      not", including the 64% false-positive rate when every signature is
+      trusted equally)
+- [x] README gets a measured-results section ONLY if numbers support a
       claim; otherwise the "not yet demonstrated" disclaimer stays.
+      (README "Benchmark (measured, not asserted)")
 
 Exit criteria: corpus runs green in CI; results committed from an actual
 run; limitations stated.
@@ -98,27 +113,40 @@ tool whose rules cannot be inspected or versioned outside the code is a
 maintenance trap.
 
 Deliverables:
-- [ ] Policy file format (JSON): rules (Pattern triples) + gate decisions,
+- [x] Policy file format (JSON): rules (Pattern triples) + gate decisions,
       with a schema validator that rejects malformed rules at load.
-- [ ] `NomosGuardSession.from_policy_file(path)`.
-- [ ] Tests: valid config loads, malformed config rejected with precise
-      error, unknown decision rejected.
+      (`policy.load_policy` + `PolicyConfigError`; invalid patterns,
+      unknown decisions, duplicate names and unknown fields are refused)
+- [x] Policy loading entry point. Shipped as `policy.load_policy()`,
+      consumed by the ingest CLI (`--policy`) and the demo; the plan's
+      proposed name `NomosGuardSession.from_policy_file(path)` was not
+      used, the session keeps taking validated rule objects.
+- [x] Tests: valid config loads, malformed config rejected with precise
+      error, unknown decision rejected. (`tests/test_policy.py`)
 
 ### P4 — Ledger hardening
 
-- [ ] Concurrent-append safety note: current design is single-writer;
-      document it, or add file locking. Decide, don't leave ambiguous.
-- [ ] `load` performance on large ledgers: streaming parse + verify
-      instead of read-all (the chain verify is O(n) either way, but memory
-      should be O(1) per entry).
+- [x] Concurrent-append safety: file locking landed instead of a
+      single-writer note. `ledger_lock.py` provides exclusive locking
+      (`fcntl` on POSIX, `msvcrt` on Windows) and `append_locked`
+      re-reads the tail under the lock; CI exercises both backends,
+      including a `windows-latest` job.
+- [x] `load` performance on large ledgers: `EvidenceLedger.load` streams
+      the file through `iter_ledger_records`, so memory stays O(1) per
+      entry while the chain verify stays O(n)
+      (`tests/test_ledger_load_validation.py` covers the load checks).
 
 ### P5 — First release
 
-- [ ] PyPI trusted publisher (`furox-nomosguard`? — name TBD) + PyPI
-      publish workflow. PyPI/npm release only AFTER P1+P2 land: a first
-      release should ship with the ingestion path and a measured corpus,
-      not before.
-- [ ] GitHub Release notes linking VISION.md + benchmark results.
+- [x] PyPI trusted publisher + publish workflow. The package is named
+      `nomosguard` (not `furox-nomosguard`); `.github/workflows/release-pypi.yml`
+      publishes via trusted OIDC (`id-token: write`, `pypi` environment),
+      and 0.7.10 carries a PEP 740 provenance attestation. The plan's gate
+      held: the 0.1.0 wheel (2026-10-09) already contains `nomosguard/ingest/`
+      and `benchmark/results/`.
+- [x] GitHub Release notes link VISION.md + benchmark results.
+      (`v0.7.10` notes link VISION.md, the measured benchmark results and
+      `docs/REAL_CORPUS.md`)
 
 ### Explicitly out of scope (guard against scope creep)
 
