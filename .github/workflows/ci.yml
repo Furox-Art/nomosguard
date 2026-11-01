@@ -107,17 +107,9 @@ jobs:
               atexit.register(lambda: print("DIAG atexit reached", flush=True))
           '@ | Set-Content -Path _diag_plugin.py -Encoding utf8
           $env:PYTHONPATH = "."
-          pytest -p _diag_plugin tests/ -q
-          $c1 = $LASTEXITCODE
-          Write-Output "DIAG console_script_exit=$c1"
-          python -m pytest -p _diag_plugin tests/ -q
-          $c2 = $LASTEXITCODE
-          Write-Output "DIAG python_m_exit=$c2"
-          pytest -p _diag_plugin tests/ -q *> _diag_redirected.log
-          $c3 = $LASTEXITCODE
-          Get-Content _diag_redirected.log -Tail 3
-          Write-Output "DIAG redirected_exit=$c3"
-          exit $c1
+          Write-Output "DIAG PSVersion=$($PSVersionTable.PSVersion)"
+          python -c "import subprocess,sys;r=subprocess.run([sys.executable,'-m','pytest','-p','_diag_plugin','tests/','-q']);print('DIAG_SUBPROCESS_EXIT',r.returncode)"
+          Write-Output "DIAG after_python_reached"
 
       - name: Run demo (smoke)
         run: python -m nomosguard.demo
