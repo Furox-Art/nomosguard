@@ -178,6 +178,7 @@ def cmd_start(args: argparse.Namespace) -> int:
     try:
         stop_path(root).unlink()
     except OSError:
+        # A missing stop marker is the normal start state.
         pass
     write_state(
         root,
@@ -272,6 +273,7 @@ def cmd_stop(args: argparse.Namespace) -> int:
             try:
                 os.kill(pid, signal.SIGTERM)
             except OSError:
+                # The daemon already exited between the wait and the signal.
                 pass
             state = _wait_stopped(root, pid, 2.0)
             if state is None:

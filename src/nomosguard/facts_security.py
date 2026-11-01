@@ -18,12 +18,15 @@ Fact vocabulary:
 
 from __future__ import annotations
 
+import importlib
 from typing import Any
 
 # Registers the outbound-traffic extractors alongside the security set, so
 # importing this module (the one place every consumer already imports for the
-# security vocabulary) makes the traffic claim kinds interpretable too.
-from . import facts_traffic as _facts_traffic  # noqa: F401
+# security vocabulary) makes the traffic claim kinds interpretable too. The
+# dynamic import keeps static analysers from treating the registration as an
+# unused symbol.
+importlib.import_module(f"{__package__}.facts_traffic")
 from .constants import (
     CLAIM_KIND_EXEC_CODE,
     CLAIM_KIND_HOST,

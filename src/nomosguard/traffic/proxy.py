@@ -24,7 +24,7 @@ import threading
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, BinaryIO, Self
+from typing import Any, BinaryIO
 
 from ..constants import CLAIM_KIND_TRAFFIC_REQUEST, traffic_policy
 from ..gate import Decision, PolicyGate
@@ -230,6 +230,7 @@ class _ProxyHandler(socketserver.BaseRequestHandler):
             host, port = _split_authority(parts[1])
             issued = owner.ca.issue(host)
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             context.load_cert_chain(str(issued.cert_path), str(issued.key_path))
             self.request.sendall(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             with context.wrap_socket(self.request, server_side=True) as tls:
@@ -307,7 +308,9 @@ class TrafficProxy:
         self._server = None
         self._thread = None
 
-    def __enter__(self) -> Self:
+    # typing.Self is Python 3.11+; this package still supports 3.10, so the
+    # concrete class is the backwards-compatible return annotation.
+    def __enter__(self) -> TrafficProxy:  # noqa: PYI034
         self.start()
         return self
 
@@ -407,6 +410,7 @@ class TrafficProxy:
         context = ssl.create_default_context(
             cafile=str(self.upstream_ca) if self.upstream_ca is not None else None
         )
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         raw_socket = socket.create_connection((connect_host, connect_port), timeout=20)
         upstream = context.wrap_socket(raw_socket, server_hostname=request.host)
         connection = http.client.HTTPConnection(request.host, request.port, timeout=20)

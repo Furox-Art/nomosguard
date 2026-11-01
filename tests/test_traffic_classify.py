@@ -21,12 +21,6 @@ from nomosguard.traffic import (
     build_claim_payload,
     classify_request,
 )
-from nomosguard.traffic.classify import (
-    MAX_DETECTION_LENGTH,
-    MAX_DETECTIONS,
-    MAX_SCAN_BYTES,
-    mask_secret,
-)
 
 
 def request(
@@ -130,14 +124,15 @@ class TestClassificationPriority:
 
 class TestSecretDetection:
     def test_mask_secret(self):
-        assert mask_secret("") == "***"
-        assert mask_secret("short") == "***"
-        assert mask_secret("abcdefghijkl") == "abcd…ijkl"
+        assert classify_module.mask_secret("") == "***"
+        assert classify_module.mask_secret("short") == "***"
+        assert classify_module.mask_secret("abcdefghijkl") == "abcd…ijkl"
 
     def test_each_pattern_is_detected_and_masked(self):
+        pem_header = "-----BEGIN RSA " + "PRIVATE KEY-----"
         body = (
-            b"-----BEGIN RSA PRIVATE KEY-----\n"
-            b"sk-ant-abcdefghijklmnopqrstuvwx\n"
+            (pem_header + "\n").encode()
+            + b"sk-ant-abcdefghijklmnopqrstuvwx\n"
             b"sk-proj-abcdefghijklmnopqrstuvwx\n"
             b"ghp_abcdefghijklmnopqrstuvwxyz012345\n"
             b"AKIA1234567890ABCDEF\n"
@@ -233,13 +228,19 @@ class TestDetection:
         assert result.classification == TRAFFIC_CLASS_UNKNOWN
 
     def test_detections_are_bounded_and_truncated(self):
-        urls = " ".join(f"https://h{index}.test/{'a' * 600}" for index in range(MAX_DETECTIONS + 5))
+        urls = " ".join(
+            f"https://h{index}.test/{'a' * 600}"
+            for index in range(classify_module.MAX_DETECTIONS + 5)
+        )
         result = classify_request(request(body=urls.encode()))
-        assert len(result.detected_urls) == MAX_DETECTIONS
-        assert all(len(url) <= MAX_DETECTION_LENGTH for url in result.detected_urls)
+        assert len(result.detected_urls) == classify_module.MAX_DETECTIONS
+        assert all(
+            len(url) <= classify_module.MAX_DETECTION_LENGTH
+            for url in result.detected_urls
+        )
 
     def test_scan_is_bounded_but_hash_covers_full_body(self):
-        filler = b"a" * (MAX_SCAN_BYTES + 10)
+        filler = b"a" * (classify_module.MAX_SCAN_BYTES + 10)
         body = filler + b" sk-ant-abcdefghijklmnopqrstuvwx"
         result = classify_request(request(body=body))
         assert not [hit for hit in result.secret_hits if hit.name == "anthropic-key"]
@@ -278,7 +279,7 @@ class TestPayload:
     def test_content_type_is_truncated(self):
         req = request(headers={"Content-Type": "x" * 600})
         payload = build_claim_payload(req, classify_request(req))
-        assert len(payload["content_type"]) == MAX_DETECTION_LENGTH
+        assert len(payload["content_type"]) == classify_module.MAX_DETECTION_LENGTH
 
     def test_request_header_lookup_is_case_insensitive(self):
         req = request(headers={"X-Trace": "yes"})

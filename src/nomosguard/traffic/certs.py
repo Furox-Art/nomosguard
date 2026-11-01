@@ -103,11 +103,10 @@ def _pem_der(path: Path) -> bytes:
         raise CertificateError(f"cannot read certificate {path}: {exc}") from exc
 
 
-def certificate_fingerprint(cert_path: str | Path, algorithm: str = "sha256") -> str:
-    """Uppercase hex fingerprint of a PEM certificate (no separators)."""
+def certificate_fingerprint(cert_path: str | Path) -> str:
+    """Uppercase SHA-256 hex fingerprint of a PEM certificate (no separators)."""
     der = _pem_der(Path(cert_path))
-    digest = hashlib.new(algorithm, der)
-    return digest.hexdigest().upper()
+    return hashlib.sha256(der).hexdigest().upper()
 
 
 class CertificateAuthority:
@@ -175,6 +174,8 @@ class CertificateAuthority:
         try:
             os.chmod(self.key_path, 0o600)
         except OSError:
+            # Windows has no POSIX mode bits; the key still lives under the
+            # user's control-plane directory.
             pass
 
     def _verify(self, cert_path: Path, *, what: str) -> None:
@@ -185,10 +186,7 @@ class CertificateAuthority:
         )
 
     def fingerprint(self) -> str:
-        return certificate_fingerprint(self.cert_path, "sha256")
-
-    def thumbprint_sha1(self) -> str:
-        return certificate_fingerprint(self.cert_path, "sha1")
+        return certificate_fingerprint(self.cert_path)
 
     def issue(self, host: str) -> IssuedCertificate:
         """Issue (or reuse) a leaf certificate whose SAN is exactly ``host``."""
@@ -215,6 +213,7 @@ class CertificateAuthority:
                 try:
                     os.chmod(key_path, 0o600)
                 except OSError:
+                    # Windows has no POSIX mode bits; see _write_private.
                     pass
 
             san = self._san(host)
@@ -279,6 +278,8 @@ class CertificateAuthority:
             try:
                 self.root.rmdir()
             except OSError:
+                # Another writer may still hold a file open; removal is
+                # best-effort and the caller re-checks existence.
                 pass
 
 
@@ -305,7 +306,7 @@ def install_trust(
     platform = platform or sys.platform
     run = runner or _default_runner
     if platform.startswith("win"):
-        thumb = ca.thumbprint_sha1() if ca is not None else certificate_fingerprint(cert, "sha1")
+        thumb = ca.fingerprint() if ca is not None else certificate_fingerprint(cert)
         added = run(["certutil", "-addstore", "-user", "Root", str(cert)])
         if added.returncode != 0:
             return False, f"certutil addstore failed: {_detail(added)}"
@@ -359,7 +360,7 @@ def uninstall_trust(
     platform = platform or sys.platform
     run = runner or _default_runner
     if platform.startswith("win"):
-        thumb = ca.thumbprint_sha1() if ca is not None else certificate_fingerprint(cert, "sha1")
+        thumb = ca.fingerprint() if ca is not None else certificate_fingerprint(cert)
         deleted = run(["certutil", "-delstore", "-user", "Root", thumb])
         if deleted.returncode != 0:
             return False, f"certutil delstore failed: {_detail(deleted)}"

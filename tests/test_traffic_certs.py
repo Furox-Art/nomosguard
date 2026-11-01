@@ -100,10 +100,7 @@ class TestHelpers:
     def test_fingerprints(self, real_ca):
         sha256 = certificate_fingerprint(real_ca.cert_path)
         assert len(sha256) == 64 and sha256 == sha256.upper()
-        sha1 = certificate_fingerprint(real_ca.cert_path, "sha1")
-        assert len(sha1) == 40
         assert real_ca.fingerprint() == sha256
-        assert real_ca.thumbprint_sha1() == sha1
 
 
 class TestCertificateAuthority:

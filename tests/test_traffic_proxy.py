@@ -176,6 +176,7 @@ def send_through_proxy(
     head = _read_until_socket(raw, b"\r\n\r\n")
     assert b" 200 " in head, head
     context = ssl.create_default_context(cafile=str(ca_cert))
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     tls = context.wrap_socket(raw, server_hostname=host)
     try:
         all_headers = {"Host": host, "Connection": "close"}
@@ -384,6 +385,7 @@ class TestEndToEnd:
             raw.sendall(b"CONNECT api.test:443 HTTP/1.1\r\n\r\n")
             _read_until_socket(raw, b"\r\n\r\n")
             context = ssl.create_default_context(cafile=str(watch_ca.cert_path))
+            context.minimum_version = ssl.TLSVersion.TLSv1_2
             tls = context.wrap_socket(raw, server_hostname="api.test")
             tls.close()
         finally:
@@ -428,8 +430,10 @@ class TestHandlerProtocol:
             try:
                 assert raw.recv(4096) == b""
             except ConnectionResetError:
+                # A reset is the other acceptable shape of "closed".
                 pass
             except ConnectionAbortedError:
+                # A reset is the other acceptable shape of "closed".
                 pass
             raw.close()
         finally:

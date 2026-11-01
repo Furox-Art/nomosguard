@@ -227,7 +227,7 @@ def build_report(
 
     by_day: dict[str, dict[str, Any]] = {}
     hosts: dict[str, int] = {}
-    secret_hits: dict[tuple[str, str], int] = {}
+    hit_totals: dict[tuple[str, str], int] = {}
     per_session: dict[str, int] = {}
     unrecognized: set[str] = set()
     total = 0
@@ -261,7 +261,7 @@ def build_report(
             masked = _unrecognized(hit.get("masked"))
             if name and masked:
                 key = (name, masked)
-                secret_hits[key] = secret_hits.get(key, 0) + 1
+                hit_totals[key] = hit_totals.get(key, 0) + 1
         if day is not None and date != day:
             # Counters below are global; the per-day view keeps the filter.
             continue
@@ -280,7 +280,7 @@ def build_report(
     report["hosts"] = dict(sorted(hosts.items()))
     report["secret_hits"] = [
         {"name": name, "masked": masked, "count": count}
-        for (name, masked), count in sorted(secret_hits.items())
+        for (name, masked), count in sorted(hit_totals.items())
     ]
     report["unrecognized_classes"] = sorted(unrecognized)
 

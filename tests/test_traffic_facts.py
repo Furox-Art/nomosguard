@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from nomosguard import facts_security  # noqa: F401  (registers the extractors)
 from nomosguard.constants import (
     CLAIM_KIND_TRAFFIC_REQUEST,
     CLAIM_KIND_TRAFFIC_SESSION,
