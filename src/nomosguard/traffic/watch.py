@@ -8,10 +8,12 @@ as a failure. Silence is never promoted to success.
 
 from __future__ import annotations
 
+import ctypes
 import datetime as _dt
 import json
 import os
-from collections.abc import Iterable
+import sys
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -103,17 +105,63 @@ def load_trust_marker(workspace: str | Path) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def pid_is_alive(pid: object) -> bool:
-    """Only a provably dead PID reports dead (same discipline as the core)."""
-    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
-        return False
+_PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+_ERROR_INVALID_PARAMETER = 87
+_STILL_ACTIVE = 259
+
+
+def _posix_pid_is_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
-    except OSError as exc:
-        return getattr(exc, "winerror", None) != 87
+    except OSError:
+        # EPERM means the process exists under another owner; only a
+        # provably missing PID may report dead.
+        return True
     return True
+
+
+def _win_kernel32() -> Any:
+    return ctypes.windll.kernel32  # type: ignore[attr-defined]
+
+
+def _win_pid_is_alive(pid: int, api: Any = None) -> bool:
+    """Ask kernel32 whether the PID exists, without signalling it.
+
+    os.kill(pid, 0) cannot be the probe here: CTRL_C_EVENT *is* 0, so that
+    call broadcasts a console Ctrl+C to the PID's process group and interrupts
+    every process sharing the console — a liveness check must not do that.
+    """
+    api = _win_kernel32() if api is None else api
+    try:
+        handle = api.OpenProcess(_PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            # A PID that refuses to open still exists; only
+            # ERROR_INVALID_PARAMETER proves that it is gone.
+            return bool(api.GetLastError() != _ERROR_INVALID_PARAMETER)
+        try:
+            code = ctypes.c_ulong(_STILL_ACTIVE)
+            if api.GetExitCodeProcess(handle, ctypes.pointer(code)):
+                return code.value == _STILL_ACTIVE
+            return True
+        finally:
+            api.CloseHandle(handle)
+    except OSError:
+        return True
+
+
+# A dict lookup, not an `if sys.platform` branch: the Windows probe stays
+# reachable (and covered) on every platform.
+_PID_PROBES: dict[str, Callable[[int], bool]] = {"win32": _win_pid_is_alive}
+_PLATFORM_PROBE = _PID_PROBES.get(sys.platform, _posix_pid_is_alive)
+
+
+def pid_is_alive(pid: object) -> bool:
+    """Only a provably dead PID reports dead (same discipline as the core)."""
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        return False
+    return _PLATFORM_PROBE(pid)
 
 
 def build_session_id(now: _dt.datetime | None = None, pid: int | None = None) -> str:

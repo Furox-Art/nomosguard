@@ -91,25 +91,7 @@ jobs:
           pip install -e . pytest
 
       - name: Run tests (exercises the msvcrt lock path)
-        run: |
-          @'
-          import atexit
-
-          def pytest_sessionfinish(session, exitstatus):
-              print(
-                  f"DIAG sessionfinish exitstatus={exitstatus} "
-                  f"testsfailed={session.testsfailed} collected={session.testscollected}",
-                  flush=True,
-              )
-
-          def pytest_unconfigure(config):
-              print("DIAG unconfigure reached", flush=True)
-              atexit.register(lambda: print("DIAG atexit reached", flush=True))
-          '@ | Set-Content -Path _diag_plugin.py -Encoding utf8
-          $env:PYTHONPATH = "."
-          Write-Output "DIAG PSVersion=$($PSVersionTable.PSVersion)"
-          python -c "import subprocess,sys;r=subprocess.run([sys.executable,'-m','pytest','-p','_diag_plugin','tests/','-q']);print('DIAG_SUBPROCESS_EXIT',r.returncode)"
-          Write-Output "DIAG after_python_reached"
+        run: pytest tests/ -q
 
       - name: Run demo (smoke)
         run: python -m nomosguard.demo

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ctypes
 import datetime as dt
 import json
 import os
@@ -77,6 +78,40 @@ def save_claims(path: Path, request_payloads, session_payloads) -> EvidenceLedge
     return save_ledger(path, claims)
 
 
+class FakeKernel32:
+    """A scripted stand-in for the kernel32 process queries."""
+
+    def __init__(self, handle=0, last_error=0, exit_code=None, query_ok=1, explode=None):
+        self.handle = handle
+        self.last_error = last_error
+        self.exit_code = exit_code
+        self.query_ok = query_ok
+        self.explode = explode
+        self.calls: list[str] = []
+
+    def OpenProcess(self, access, inherit, pid):
+        self.calls.append("OpenProcess")
+        if self.explode is not None:
+            raise self.explode
+        assert access == 0x1000, "the probe must ask for query rights only"
+        return self.handle
+
+    def GetExitCodeProcess(self, handle, code):
+        self.calls.append("GetExitCodeProcess")
+        assert handle == self.handle
+        if self.exit_code is not None:
+            code.contents.value = self.exit_code
+        return self.query_ok
+
+    def CloseHandle(self, handle):
+        self.calls.append("CloseHandle")
+        return 1
+
+    def GetLastError(self):
+        self.calls.append("GetLastError")
+        return self.last_error
+
+
 class TestPathsAndState:
     def test_paths(self, tmp_path):
         root = tmp_path / "ws"
@@ -126,29 +161,64 @@ class TestPidAndSession:
     def test_dead_pid(self):
         assert pid_is_alive(999_999_999) is False
 
-    def test_windows_dead_pid_error_is_dead(self, monkeypatch):
-        class InvalidPid(OSError):
-            winerror = 87
-
-        def kill(pid, sig):
-            raise InvalidPid("invalid pid")
-
-        monkeypatch.setattr(watch.os, "kill", kill)
-        assert pid_is_alive(123) is False
-
-    def test_missing_process_is_dead(self, monkeypatch):
+    def test_posix_missing_process_is_dead(self, monkeypatch):
         def kill(pid, sig):
             raise ProcessLookupError
 
+        monkeypatch.setattr(watch, "_PLATFORM_PROBE", watch._posix_pid_is_alive)
         monkeypatch.setattr(watch.os, "kill", kill)
         assert pid_is_alive(123) is False
 
-    def test_unprovable_error_is_alive(self, monkeypatch):
+    def test_posix_unprovable_error_is_alive(self, monkeypatch):
         def kill(pid, sig):
             raise OSError("ambiguous")
 
+        monkeypatch.setattr(watch, "_PLATFORM_PROBE", watch._posix_pid_is_alive)
         monkeypatch.setattr(watch.os, "kill", kill)
         assert pid_is_alive(123) is True
+
+    def test_windows_probe_never_signals_the_pid(self, monkeypatch):
+        # os.kill(pid, 0) is not a probe on Windows: CTRL_C_EVENT is 0, so it
+        # broadcasts a console Ctrl+C to the probed process group.
+        def never_signal(pid, sig):
+            raise AssertionError(f"os.kill({pid}, {sig}) would signal a live process")
+
+        api = FakeKernel32(handle=1234, exit_code=watch._STILL_ACTIVE)
+        monkeypatch.setattr(watch.os, "kill", never_signal)
+        monkeypatch.setattr(watch, "_win_kernel32", lambda: api)
+        monkeypatch.setattr(watch, "_PLATFORM_PROBE", watch._win_pid_is_alive)
+        assert pid_is_alive(1234) is True
+        assert api.calls == ["OpenProcess", "GetExitCodeProcess", "CloseHandle"]
+
+    def test_windows_probe_reads_the_default_kernel32(self, monkeypatch):
+        api = FakeKernel32(handle=4321, exit_code=watch._STILL_ACTIVE)
+        monkeypatch.setattr(
+            ctypes, "windll", types.SimpleNamespace(kernel32=api), raising=False
+        )
+        assert watch._win_pid_is_alive(4321) is True
+        assert api.calls[0] == "OpenProcess"
+
+    def test_windows_probe_no_such_process_is_dead(self):
+        api = FakeKernel32(handle=0, last_error=87)
+        assert watch._win_pid_is_alive(123, api=api) is False
+        assert api.calls == ["OpenProcess", "GetLastError"]
+
+    def test_windows_probe_unopenable_pid_stays_alive(self):
+        api = FakeKernel32(handle=0, last_error=5)
+        assert watch._win_pid_is_alive(123, api=api) is True
+
+    def test_windows_probe_exited_pid_is_dead(self):
+        api = FakeKernel32(handle=1234, exit_code=0)
+        assert watch._win_pid_is_alive(123, api=api) is False
+
+    def test_windows_probe_failed_query_stays_alive(self):
+        api = FakeKernel32(handle=1234, exit_code=None, query_ok=0)
+        assert watch._win_pid_is_alive(123, api=api) is True
+        assert api.calls == ["OpenProcess", "GetExitCodeProcess", "CloseHandle"]
+
+    def test_windows_probe_api_error_stays_alive(self):
+        api = FakeKernel32(explode=OSError("kernel32 unavailable"))
+        assert watch._win_pid_is_alive(123, api=api) is True
 
     def test_build_session_id_with_fixed_clock(self):
         moment = dt.datetime(2026, 1, 2, 3, 4, 5, 6000, tzinfo=dt.timezone.utc)
