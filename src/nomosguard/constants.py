@@ -36,12 +36,20 @@ from ._vocab import (
     CLAIM_KIND_TEMPORAL_PORT_SCAN,
     CLAIM_KIND_TEMPORAL_PREFIX,
     CLAIM_KIND_TOOL_CALL,
+    CLAIM_KIND_TRAFFIC_REQUEST,
+    CLAIM_KIND_TRAFFIC_SESSION,
     CLAIM_KIND_VULN_HOST,
     CLAIM_KIND_VULN_SEVERITY,
     CLAIM_KIND_VULNERABILITY,
     CLAIM_KINDS,
     POLICY_EFFECT_ALLOW,
     POLICY_EFFECT_DENY,
+    TRAFFIC_CLASS_PROMPT,
+    TRAFFIC_CLASS_TELEMETRY,
+    TRAFFIC_CLASS_TOOL_RESULT,
+    TRAFFIC_CLASS_TRANSCRIPT_UPLOAD,
+    TRAFFIC_CLASS_UNKNOWN,
+    TRAFFIC_CLASSES,
     VALID_POLICY_EFFECTS,
 )
 
@@ -58,6 +66,8 @@ __all__ = [
     "CLAIM_KIND_TEMPORAL_PORT_SCAN",
     "CLAIM_KIND_TEMPORAL_PREFIX",
     "CLAIM_KIND_TOOL_CALL",
+    "CLAIM_KIND_TRAFFIC_REQUEST",
+    "CLAIM_KIND_TRAFFIC_SESSION",
     "CLAIM_KIND_VULNERABILITY",
     "CLAIM_KIND_VULN_HOST",
     "CLAIM_KIND_VULN_SEVERITY",
@@ -65,12 +75,21 @@ __all__ = [
     "POLICY_EFFECT_DENY",
     "POLICY_FORMAT",
     "POLICY_FORMAT_VERSION",
+    "TRAFFIC_CLASSES",
+    "TRAFFIC_CLASS_PROMPT",
+    "TRAFFIC_CLASS_TELEMETRY",
+    "TRAFFIC_CLASS_TOOL_RESULT",
+    "TRAFFIC_CLASS_TRANSCRIPT_UPLOAD",
+    "TRAFFIC_CLASS_UNKNOWN",
     "VALID_POLICY_EFFECTS",
     "canonical_tool_call_gate_rules",
     "canonical_tool_call_rules",
     "is_known_claim_kind",
     "tool_call_gate_rules",
     "tool_call_rules",
+    "traffic_gate_rules",
+    "traffic_policy",
+    "traffic_rules",
 ]
 
 # -- policy file format (the pin checked by policy.load_policy) ----------------
@@ -187,6 +206,117 @@ def canonical_tool_call_gate_rules() -> tuple[Any, ...]:
 def tool_call_gate_rules() -> list[Any]:
     """The canonical gate rules for the tool-call vocabulary."""
     return list(canonical_tool_call_gate_rules())
+
+
+# -- the canonical outbound-traffic rule set --------------------------------
+# A transcript upload is a derived risk, not just a label: the rule makes the
+# derivation (and its evidence source) visible in the same trace the tool-call
+# rules use. The gate rules then map every observed class to a decision. They
+# are defined here once for the same reason as the tool-call set: a policy rule
+# written in two places will disagree with itself.
+
+_TRAFFIC_RULES: tuple[Any, ...] | None = None
+_TRAFFIC_GATE_RULES: dict[bool, tuple[Any, ...]] = {}
+
+
+def _build_traffic_rules() -> tuple[Any, ...]:
+    from .rules import Pattern, Rule
+
+    return (
+        Rule(
+            name="transcript_upload_leaks_transcript",
+            body=(Pattern("?host", "requestClass", TRAFFIC_CLASS_TRANSCRIPT_UPLOAD),),
+            head=Pattern("?host", "transcriptLeak", "true"),
+            description="A request classified as a transcript upload leaks conversation data.",
+        ),
+    )
+
+
+def _build_traffic_gate_rules(enforcement: bool) -> tuple[Any, ...]:
+    from .gate import Decision, PolicyRule
+
+    risk = Decision.BLOCK if enforcement else Decision.ALERT
+    return (
+        PolicyRule(
+            name="allow_prompt_traffic",
+            match_relation="requestClass",
+            match_object=TRAFFIC_CLASS_PROMPT,
+            decision=Decision.ALLOW,
+            requires=(CLAIM_KIND_TRAFFIC_REQUEST,),
+            description="Model prompt traffic is expected and allowed.",
+        ),
+        PolicyRule(
+            name="allow_tool_result_traffic",
+            match_relation="requestClass",
+            match_object=TRAFFIC_CLASS_TOOL_RESULT,
+            decision=Decision.ALLOW,
+            requires=(CLAIM_KIND_TRAFFIC_REQUEST,),
+            description="Tool-result traffic to a model endpoint is expected.",
+        ),
+        PolicyRule(
+            name="allow_telemetry_traffic",
+            match_relation="requestClass",
+            match_object=TRAFFIC_CLASS_TELEMETRY,
+            decision=Decision.ALLOW,
+            requires=(CLAIM_KIND_TRAFFIC_REQUEST,),
+            description="Telemetry traffic is recorded without a risk decision.",
+        ),
+        PolicyRule(
+            name="block_transcript_upload",
+            match_relation="transcriptLeak",
+            decision=risk,
+            requires=(CLAIM_KIND_TRAFFIC_REQUEST,),
+            description="Transcript uploads are alerted, or blocked in enforcement mode.",
+        ),
+        PolicyRule(
+            name="block_unknown_traffic",
+            match_relation="requestClass",
+            match_object=TRAFFIC_CLASS_UNKNOWN,
+            decision=risk,
+            requires=(CLAIM_KIND_TRAFFIC_REQUEST,),
+            description="Unclassified outbound requests are alerted, or blocked in enforcement mode.",
+        ),
+        PolicyRule(
+            name="block_secret_exposure",
+            match_relation="secretExposure",
+            decision=risk,
+            requires=(CLAIM_KIND_TRAFFIC_REQUEST,),
+            description="Any masked secret hit in outbound payloads is alerted, or blocked in enforcement mode.",
+        ),
+        PolicyRule(
+            name="block_watch_silence",
+            match_relation="trafficSilent",
+            decision=risk,
+            requires=(CLAIM_KIND_TRAFFIC_SESSION,),
+            description="A watch session that captured nothing is never treated as success.",
+        ),
+    )
+
+
+def canonical_traffic_rules() -> tuple[Any, ...]:
+    """The canonical traffic derivation rules as a cached tuple."""
+    global _TRAFFIC_RULES
+    if _TRAFFIC_RULES is None:
+        _TRAFFIC_RULES = _build_traffic_rules()
+    return _TRAFFIC_RULES
+
+
+def traffic_rules() -> list[Any]:
+    """The canonical outbound-traffic derivation rules."""
+    return list(canonical_traffic_rules())
+
+
+def traffic_gate_rules(enforcement: bool = False) -> list[Any]:
+    """Traffic gate rules for warning (default) or enforcement mode."""
+    key = bool(enforcement)
+    if key not in _TRAFFIC_GATE_RULES:
+        _TRAFFIC_GATE_RULES[key] = _build_traffic_gate_rules(key)
+    return list(_TRAFFIC_GATE_RULES[key])
+
+
+def traffic_policy(enforcement: bool = False) -> tuple[list[Any], list[Any]]:
+    """The complete traffic policy: derivation rules plus gate rules."""
+    return traffic_rules(), traffic_gate_rules(enforcement)
 
 
 def is_known_claim_kind(kind: str) -> bool:

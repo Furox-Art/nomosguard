@@ -45,6 +45,9 @@ classifiers = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 
+[project.scripts]
+nomosguard = "nomosguard.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/Furox-Art/nomosguard"
 Documentation = "https://github.com/Furox-Art/nomosguard/blob/main/README.md"

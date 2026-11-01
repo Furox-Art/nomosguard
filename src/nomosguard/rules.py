@@ -414,13 +414,14 @@ class RuleEngine:
 
 # Deterministic extractors: claim kind -> list of Fact. Each extractor is a
 # pure function of the claim payload; no randomness, no model calls.
-_EXTRACTORS: dict[str, Callable[[dict[str, Any], str], list[Fact]]] = {}
+Extractor = Callable[[dict[str, Any], str], list[Fact]]
+_EXTRACTORS: dict[str, Extractor] = {}
 
 
-def register_extractor(kind: str):
+def register_extractor(kind: str) -> Callable[[Extractor], Extractor]:
     """Decorator to register a fact extractor for a claim kind."""
 
-    def deco(fn: Callable[[dict[str, Any], str], list[Fact]]):
+    def deco(fn: Extractor) -> Extractor:
         _EXTRACTORS[kind] = fn
         return fn
 
