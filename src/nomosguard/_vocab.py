@@ -28,6 +28,25 @@ CLAIM_KIND_PRIVILEGE = "privilege"
 CLAIM_KIND_VULN_HOST = "vuln_host"
 CLAIM_KIND_VULN_SEVERITY = "vuln_severity"
 
+# Agent outbound-traffic evidence (the local HTTPS watch).
+CLAIM_KIND_TRAFFIC_REQUEST = "traffic_request"
+CLAIM_KIND_TRAFFIC_SESSION = "traffic_session"
+
+# The deterministic request classes. A class outside this tuple is refused
+# by the extractor instead of becoming an uninterpretable row in a report.
+TRAFFIC_CLASS_PROMPT = "prompt"
+TRAFFIC_CLASS_TOOL_RESULT = "tool-result"
+TRAFFIC_CLASS_TELEMETRY = "telemetry"
+TRAFFIC_CLASS_TRANSCRIPT_UPLOAD = "transcript-upload"
+TRAFFIC_CLASS_UNKNOWN = "unknown"
+TRAFFIC_CLASSES: tuple[str, ...] = (
+    TRAFFIC_CLASS_PROMPT,
+    TRAFFIC_CLASS_TOOL_RESULT,
+    TRAFFIC_CLASS_TELEMETRY,
+    TRAFFIC_CLASS_TRANSCRIPT_UPLOAD,
+    TRAFFIC_CLASS_UNKNOWN,
+)
+
 # The per-finding bridges build their kinds at runtime:
 #   temporal  -> f"{CLAIM_KIND_TEMPORAL_PREFIX}{rule_name}"
 #   signature -> f"{CLAIM_KIND_SIGNATURE_PREFIX}{signature_id.lower()}"
@@ -52,6 +71,8 @@ CLAIM_KINDS: tuple[str, ...] = (
     CLAIM_KIND_PRIVILEGE,
     CLAIM_KIND_VULN_HOST,
     CLAIM_KIND_VULN_SEVERITY,
+    CLAIM_KIND_TRAFFIC_REQUEST,
+    CLAIM_KIND_TRAFFIC_SESSION,
     CLAIM_KIND_TEMPORAL_BRUTE_FORCE,
     CLAIM_KIND_TEMPORAL_PORT_SCAN,
     CLAIM_KIND_TEMPORAL_EXFIL_BURST,

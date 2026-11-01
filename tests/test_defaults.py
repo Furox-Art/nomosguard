@@ -144,7 +144,11 @@ class TestClaimKindVocabulary:
         would make that decision permanently 'incomplete evidence' —
         a fail-closed default masquerading as a real chain.
         """
-        from nomosguard import facts_security, signature_bridge, temporal_bridge  # noqa: F401
+        from nomosguard import (  # noqa: F401
+            facts_security,
+            signature_bridge,
+            temporal_bridge,
+        )
         for rule in containment_policy_rules():
             for kind in rule.requires:
                 assert constants.is_known_claim_kind(kind) or (

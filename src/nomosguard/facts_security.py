@@ -20,6 +20,10 @@ from __future__ import annotations
 
 from typing import Any
 
+# Registers the outbound-traffic extractors alongside the security set, so
+# importing this module (the one place every consumer already imports for the
+# security vocabulary) makes the traffic claim kinds interpretable too.
+from . import facts_traffic as _facts_traffic  # noqa: F401
 from .constants import (
     CLAIM_KIND_EXEC_CODE,
     CLAIM_KIND_HOST,
@@ -45,7 +49,7 @@ def _int_field(payload: dict[str, Any], field: str, claim_kind: str) -> int | No
         raise ClaimValueError(
             f"{claim_kind}: field {field!r} must be an integer, got {value!r}"
         )
-    return value
+    return int(value)
 
 
 @register_extractor(CLAIM_KIND_HOST)
