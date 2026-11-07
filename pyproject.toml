@@ -58,3 +58,10 @@ packages = ["src/nomosguard"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.report]
+# `coverage run --source=src/nomosguard -m pytest` reports 4730 statements,
+# 0 missed (1361 tests) on this tree, but nothing enforced it. Recording the
+# floor makes a plain `coverage report` fail when the floor is not met.
+# Branch coverage is not enabled: it was never measured.
+fail_under = 100
