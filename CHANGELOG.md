@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.7.11 — 2026-11-07
+
+- Python 3.10 support dropped: `requires-python` is now `>=3.11`, the 3.10
+  classifier is gone and the CI matrix runs 3.11, 3.12 and 3.13. No code change;
+  the portfolio is consolidating on a single support floor and 3.10 is out of
+  upstream support.
+
 ## 0.7.10 — 2026-10-21
 
 This release publishes the fourth-round hardening below, together with the
